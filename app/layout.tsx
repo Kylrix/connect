@@ -18,6 +18,8 @@ export const metadata: Metadata = {
   viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0", // App-like viewport
 };
 
+import { AuthOverlay } from '@/components/auth/AuthOverlay';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -26,6 +28,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
+        <AuthOverlay />
         {children}
       </body>
     </html>
