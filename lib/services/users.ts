@@ -1,4 +1,4 @@
-import { ID, Query } from 'appwrite';
+import { ID, Query, Permission, Role } from 'appwrite';
 import { tablesDB } from '../appwrite/client';
 import { APPWRITE_CONFIG } from '../appwrite/config';
 
@@ -32,11 +32,21 @@ export const UsersService = {
     },
 
     async createProfile(userId: string, username: string, email: string) {
-        return await tablesDB.createRow(DB_ID, USERS_TABLE, userId, {
-            username,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        });
+        return await tablesDB.createRow(
+            DB_ID, 
+            USERS_TABLE, 
+            userId, 
+            {
+                username,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            },
+            [
+                Permission.read(Role.any()), // Public by default
+                Permission.update(Role.user(userId)),
+                Permission.delete(Role.user(userId))
+            ]
+        );
     },
 
     async searchUsers(query: string) {

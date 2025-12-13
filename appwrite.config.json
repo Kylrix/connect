@@ -236,7 +236,7 @@
                     "required": false,
                     "array": true,
                     "size": 256,
-                    "default": null,
+                    "default": [],
                     "encrypt": true
                 },
                 {
@@ -245,7 +245,7 @@
                     "required": false,
                     "array": true,
                     "size": 5000,
-                    "default": null,
+                    "default": [],
                     "encrypt": true
                 },
                 {
@@ -254,7 +254,7 @@
                     "required": false,
                     "array": true,
                     "size": 5000,
-                    "default": null,
+                    "default": [],
                     "encrypt": true
                 },
                 {
@@ -263,7 +263,7 @@
                     "required": false,
                     "array": true,
                     "size": 5000,
-                    "default": null,
+                    "default": [],
                     "encrypt": true
                 },
                 {
@@ -377,7 +377,7 @@
                     "required": false,
                     "array": true,
                     "size": 256,
-                    "default": null,
+                    "default": [],
                     "encrypt": false
                 },
                 {
@@ -526,7 +526,7 @@
                     "required": false,
                     "array": true,
                     "size": 64,
-                    "default": null,
+                    "default": [],
                     "encrypt": false
                 },
                 {
@@ -1892,7 +1892,7 @@
                     "required": false,
                     "array": true,
                     "size": 100,
-                    "default": null,
+                    "default": [],
                     "encrypt": false
                 },
                 {
@@ -2142,7 +2142,7 @@
                     "required": false,
                     "array": true,
                     "size": 50,
-                    "default": null,
+                    "default": [],
                     "encrypt": false
                 },
                 {
@@ -2598,7 +2598,7 @@
                     "required": false,
                     "array": true,
                     "size": 100,
-                    "default": null,
+                    "default": [],
                     "encrypt": false
                 },
                 {
@@ -2816,7 +2816,7 @@
             "databaseId": "chat",
             "name": "Messages",
             "enabled": true,
-            "rowSecurity": false,
+            "rowSecurity": true,
             "columns": [
                 {
                     "key": "conversationId",
@@ -2867,7 +2867,7 @@
                     "required": false,
                     "array": true,
                     "size": 256,
-                    "default": null,
+                    "default": [],
                     "encrypt": false
                 },
                 {
@@ -2885,7 +2885,7 @@
                     "required": false,
                     "array": true,
                     "size": 256,
-                    "default": null,
+                    "default": [],
                     "encrypt": false
                 },
                 {
@@ -2939,7 +2939,7 @@
             "databaseId": "chat",
             "name": "Conversations",
             "enabled": true,
-            "rowSecurity": false,
+            "rowSecurity": true,
             "columns": [
                 {
                     "key": "type",
@@ -2958,10 +2958,11 @@
                 {
                     "key": "participants",
                     "type": "string",
-                    "required": true,
+                    "required": false,
                     "array": true,
                     "size": 256,
-                    "encrypt": false
+                    "encrypt": false,
+                    "default": []
                 },
                 {
                     "key": "admins",
@@ -2969,7 +2970,7 @@
                     "required": false,
                     "array": true,
                     "size": 256,
-                    "default": null,
+                    "default": [],
                     "encrypt": false
                 },
                 {
@@ -3088,7 +3089,7 @@
             "databaseId": "chat",
             "name": "Contacts",
             "enabled": true,
-            "rowSecurity": false,
+            "rowSecurity": true,
             "columns": [
                 {
                     "key": "userId",
@@ -3157,10 +3158,11 @@
                 {
                     "key": "tags",
                     "type": "string",
-                    "required": true,
+                    "required": false,
                     "array": true,
                     "size": 50,
-                    "encrypt": false
+                    "encrypt": false,
+                    "default": []
                 },
                 {
                     "key": "lastInteraction",
@@ -3300,7 +3302,7 @@
                     "required": false,
                     "array": true,
                     "size": 50,
-                    "default": null,
+                    "default": [],
                     "encrypt": false
                 },
                 {
@@ -3841,7 +3843,7 @@
                     "required": false,
                     "array": true,
                     "size": 50,
-                    "default": null,
+                    "default": [],
                     "encrypt": false
                 },
                 {
@@ -3850,7 +3852,7 @@
                     "required": false,
                     "array": true,
                     "size": 36,
-                    "default": null,
+                    "default": [],
                     "encrypt": false
                 },
                 {
@@ -3859,7 +3861,7 @@
                     "required": false,
                     "array": true,
                     "size": 36,
-                    "default": null,
+                    "default": [],
                     "encrypt": false
                 },
                 {
@@ -3900,7 +3902,7 @@
             "databaseId": "chat",
             "name": "CallLogs",
             "enabled": true,
-            "rowSecurity": false,
+            "rowSecurity": true,
             "columns": [
                 {
                     "key": "callerId",
@@ -4006,7 +4008,7 @@
             "databaseId": "chat",
             "name": "AppActivity",
             "enabled": true,
-            "rowSecurity": false,
+            "rowSecurity": true,
             "columns": [
                 {
                     "key": "userId",
@@ -4246,7 +4248,7 @@
                     "required": false,
                     "array": true,
                     "size": 256,
-                    "default": null,
+                    "default": [],
                     "encrypt": false
                 },
                 {
@@ -4288,7 +4290,7 @@
                     "required": false,
                     "array": true,
                     "size": 50,
-                    "default": null,
+                    "default": [],
                     "encrypt": false
                 },
                 {
