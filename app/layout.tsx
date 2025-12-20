@@ -2,12 +2,22 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
+const outfit = Outfit({
+  subsets: ["latin"],
+  variable: "--font-outfit",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
-  title: "WhisperrConnect",
-  description: "The ultimate online connection platform.",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0", // App-like viewport
+  title: "WhisperrConnect - Elite Communication",
+  description: "Seamless, secure, and glassmorphic connections for the Whisperr ecosystem.",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0",
 };
 
 import { AuthOverlay } from '@/components/auth/AuthOverlay';
@@ -19,8 +29,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="en" className={`${inter.variable} ${outfit.variable}`}>
+      <body className="font-sans antialiased">
         <ThemeProvider>
           <AuthOverlay />
           {children}
