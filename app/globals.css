@@ -1,27 +1,44 @@
 :root {
+  /* Solar (Light) Theme */
+  --void: #FAF8F6;
+  --matter: #EADDD3;
+  --matter-highlight: #D8C8BD;
+  --tungsten: #FFC107;
+  --shadow-indigo: rgba(26, 35, 126, 0.15);
+
+  --background: var(--void);
+  --foreground: #1B1C20;
+  --card: var(--matter);
+  --card-foreground: #1B1C20;
+  --primary: var(--tungsten);
+  --primary-foreground: #1B1C20;
+  --border: rgba(26, 35, 126, 0.1);
+  --ring: var(--tungsten);
+  --radius: 4px;
+
+  --shadow-tangible: 4px 8px 16px var(--shadow-indigo);
+}
+
+.dark {
+  /* Void (Dark) Theme */
   --void: #1B1C20;
   --matter: #2D2421;
   --matter-highlight: #484A3B;
-  --tungsten: #FFC107;
   --shadow-indigo: rgba(26, 35, 126, 0.4);
 
   --background: var(--void);
   --foreground: #FAF8F6;
   --card: var(--matter);
   --card-foreground: #FAF8F6;
-  --primary: var(--tungsten);
-  --primary-foreground: #1B1C20;
   --border: #3D3D3D;
-  --ring: var(--tungsten);
-  --radius: 4px;
-
   --shadow-tangible: 8px 12px 20px var(--shadow-indigo);
 }
 
 html,
 body {
-  background-color: var(--void);
+  background-color: var(--background);
   color: var(--foreground);
+  transition: background-color 0.3s ease, color 0.3s ease;
   font-family: var(--font-inter), sans-serif;
   height: 100%;
   margin: 0;
