@@ -68,7 +68,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
           divider: mode === 'light' ? 'rgba(26, 35, 126, 0.1)' : '#3D3D3D',
         },
         shape: {
-          borderRadius: 4,
+          borderRadius: 12,
         },
         typography: {
           fontFamily: 'var(--font-inter), "Inter", sans-serif',
@@ -99,7 +99,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
                 backgroundColor: mode === 'light' ? 'rgba(250, 248, 246, 0.8)' : 'rgba(27, 28, 32, 0.8)',
                 color: mode === 'light' ? '#1B1C20' : '#FAF8F6',
                 backdropFilter: 'blur(12px)',
-                borderBottom: `1px solid ${mode === 'light' ? 'rgba(26, 35, 126, 0.1)' : '#3D3D3D'}`,
+                borderBottom: `2px solid ${mode === 'light' ? 'rgba(26, 35, 126, 0.1)' : '#3D3D3D'}`,
                 boxShadow: 'none',
               }
             }
@@ -108,23 +108,27 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
             styleOverrides: {
               paper: {
                 backgroundColor: mode === 'light' ? '#FAF8F6' : '#1B1C20',
-                borderRight: `1px solid ${mode === 'light' ? 'rgba(26, 35, 126, 0.1)' : '#3D3D3D'}`,
+                borderRight: `2px solid ${mode === 'light' ? 'rgba(26, 35, 126, 0.1)' : '#3D3D3D'}`,
               }
             }
           },
           MuiButton: {
             styleOverrides: {
               root: {
-                borderRadius: 2,
-                padding: '10px 20px',
-                boxShadow: '4px 4px 0 rgba(26, 35, 126, 0.8)',
-                transition: 'all 0.1s ease',
+                borderRadius: 12,
+                padding: '12px 24px',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                boxShadow: mode === 'light'
+                  ? '0px 2px 4px rgba(26, 35, 126, 0.2), 0px 8px 16px rgba(26, 35, 126, 0.1), inset 0px 1px 0px rgba(255, 193, 7, 0.2)'
+                  : '0px 2px 4px rgba(0, 0, 0, 0.4), 0px 8px 16px rgba(26, 35, 126, 0.2), inset 0px 1px 0px rgba(255, 193, 7, 0.2)',
                 '&:hover': {
-                  transform: 'translate(-2px, -2px)',
-                  boxShadow: '6px 6px 0 rgba(26, 35, 126, 0.9)',
+                  transform: 'translateY(-2px)',
+                  boxShadow: mode === 'light'
+                    ? '0px 4px 8px rgba(26, 35, 126, 0.4), 0px 12px 24px rgba(26, 35, 126, 0.2), inset 0px 1px 0px rgba(255, 193, 7, 0.2)'
+                    : '0px 4px 8px rgba(0, 0, 0, 0.6), 0px 12px 24px rgba(26, 35, 126, 0.4), inset 0px 1px 0px rgba(255, 193, 7, 0.2)',
                 },
                 '&:active': {
-                  transform: 'translate(2px, 2px)',
+                  transform: 'translateY(0)',
                   boxShadow: 'none',
                 },
               },
@@ -133,11 +137,20 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
           MuiCard: {
             styleOverrides: {
               root: {
+                borderRadius: 24,
                 backgroundColor: mode === 'light' ? '#EADDD3' : '#2D2421',
-                border: `1px solid ${mode === 'light' ? 'rgba(26, 35, 126, 0.1)' : '#3D3D3D'}`,
+                border: `2px solid ${mode === 'light' ? 'rgba(26, 35, 126, 0.1)' : '#3D3D3D'}`,
                 boxShadow: mode === 'light'
-                  ? '4px 8px 16px rgba(26, 35, 126, 0.15)'
-                  : '8px 12px 20px rgba(26, 35, 126, 0.4)',
+                  ? '0px 2px 4px rgba(26, 35, 126, 0.2), 0px 8px 16px rgba(26, 35, 126, 0.1), inset 0px 1px 0px rgba(255, 193, 7, 0.2)'
+                  : '0px 2px 4px rgba(0, 0, 0, 0.4), 0px 8px 16px rgba(26, 35, 126, 0.2), inset 0px 1px 0px rgba(255, 193, 7, 0.2)',
+                backgroundImage: 'none',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: mode === 'light'
+                    ? '0px 4px 8px rgba(26, 35, 126, 0.4), 0px 12px 24px rgba(26, 35, 126, 0.2), inset 0px 1px 0px rgba(255, 193, 7, 0.2)'
+                    : '0px 4px 8px rgba(0, 0, 0, 0.6), 0px 12px 24px rgba(26, 35, 126, 0.4), inset 0px 1px 0px rgba(255, 193, 7, 0.2)',
+                },
               }
             }
           }
