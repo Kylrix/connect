@@ -21,9 +21,9 @@ export default function Home() {
     <AppShell>
       <Container maxWidth="md" sx={{ py: 3 }}>
         <Box sx={{ textAlign: 'center', py: 8 }}>
-          <Typography variant="h3" fontWeight="bold" mb={2}>Whisperrconnect</Typography>
+          <Typography variant="h3" fontWeight="bold" mb={2}>WhisperrConnect</Typography>
           <Typography variant="h6" color="text.secondary" mb={4}>
-            Connect with your friends and the Whisperr ecosystem.
+            Seamless communication for the modern workspace. Connect with your team and the Whisperr ecosystem.
           </Typography>
           {!user && (
             <Button 

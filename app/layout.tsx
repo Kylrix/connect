@@ -15,8 +15,8 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "WhisperrConnect - Elite Communication",
-  description: "Seamless, secure, and glassmorphic connections for the Whisperr ecosystem.",
+  title: "WhisperrConnect - Premium Communication",
+  description: "Seamless, secure, and professional connections for the Whisperr Premium Suite.",
   viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0",
 };
 
