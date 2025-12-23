@@ -2,13 +2,13 @@
 
 import { AppShell } from '@/components/layout/AppShell';
 import { Feed } from '@/components/social/Feed';
-import { Box, Typography, Container } from '@mui/material';
+import { Box, Typography, Container, Button, CircularProgress } from '@mui/material';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
 export default function Home() {
-  const { user } = useAuth();
+  const { user, login, isAuthenticating } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -20,7 +20,23 @@ export default function Home() {
   return (
     <AppShell>
       <Container maxWidth="md" sx={{ py: 3 }}>
-        <Typography variant="h5" fontWeight="bold" mb={3}>Home</Typography>
+        <Box sx={{ textAlign: 'center', py: 8 }}>
+          <Typography variant="h3" fontWeight="bold" mb={2}>Whisperrconnect</Typography>
+          <Typography variant="h6" color="text.secondary" mb={4}>
+            Connect with your friends and the Whisperr ecosystem.
+          </Typography>
+          {!user && (
+            <Button 
+              variant="contained" 
+              size="large" 
+              onClick={login}
+              disabled={isAuthenticating}
+              sx={{ minWidth: 200, py: 1.5 }}
+            >
+              {isAuthenticating ? <CircularProgress size={24} color="inherit" /> : 'Get Started Free'}
+            </Button>
+          )}
+        </Box>
         <Feed />
       </Container>
     </AppShell>

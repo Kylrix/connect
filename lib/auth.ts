@@ -11,6 +11,7 @@ const account = new Account(client);
 export function useAuth() {
     const [user, setUser] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [isAuthenticating, setIsAuthenticating] = useState(false);
 
     const attemptSilentAuth = useCallback(async () => {
         if (typeof window === 'undefined') return;
@@ -83,7 +84,9 @@ export function useAuth() {
     }, []);
 
     const login = async () => {
-        if (typeof window === 'undefined') return;
+        if (typeof window === 'undefined' || isAuthenticating) return;
+
+        setIsAuthenticating(true);
 
         // First, check if we already have a session locally
         try {
@@ -91,10 +94,24 @@ export function useAuth() {
             if (session) {
                 console.log('Active session detected in whisperrconnect, skipping IDM window');
                 setUser(session);
+                setIsAuthenticating(false);
                 return;
             }
         } catch (e) {
-            // No session, proceed to open window
+            // No session, proceed to silent check
+        }
+
+        // Try silent auth before opening popup
+        await attemptSilentAuth();
+        try {
+            const session = await account.get();
+            if (session) {
+                setUser(session);
+                setIsAuthenticating(false);
+                return;
+            }
+        } catch (e) {
+            // Still no session
         }
 
         const domain = process.env.NEXT_PUBLIC_DOMAIN || 'whisperrnote.space';
@@ -119,15 +136,25 @@ export function useAuth() {
                 `width=${width},height=${height},top=${top},left=${left}`
             );
 
+            if (!popup) {
+                setIsAuthenticating(false);
+                return;
+            }
+
             const interval = setInterval(async () => {
                 try {
                     const session = await account.get();
                     if (session) {
                         setUser(session);
+                        setIsAuthenticating(false);
                         clearInterval(interval);
                         popup?.close();
                     }
                 } catch (e) {
+                }
+                if (popup.closed) {
+                    clearInterval(interval);
+                    setIsAuthenticating(false);
                 }
             }, 1000);
         }
@@ -137,12 +164,14 @@ export function useAuth() {
         try {
             await account.deleteSession('current');
             setUser(null);
+            setIsAuthenticating(false);
         } catch (error) {
             console.error('Logout failed:', error);
             // Even if session delete fails, clear local state
             setUser(null);
+            setIsAuthenticating(false);
         }
     };
 
-    return { user, loading, login, logout };
+    return { user, loading, isAuthenticating, login, logout };
 }
