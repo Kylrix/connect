@@ -54,57 +54,73 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
         if (searchQuery.trim()) {
-            // We can navigate to a search page or just use the query
-            // For now, let's assume the home page handles search if we pass a query param
-            // Or better, let's just focus the search input on the home page if we are there.
-            // But the user asked for a "simple application search bar".
-            // Let's make this global search bar redirect to home with a search param?
-            // Or maybe just keep it simple and let the page handle it.
-            // Actually, the UserSearch component is on the home page.
-            // Let's just navigate to home.
             router.push('/');
         }
     };
 
     return (
-        <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden', bgcolor: 'background.default' }}>
+        <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden', bgcolor: '#000000' }}>
             {/* Top Bar (AppBar) */}
-            <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }} elevation={0} color="inherit" variant="outlined">
-                <Toolbar>
-                    <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, fontWeight: 'bold', color: 'primary.main' }}>
+            <AppBar 
+                position="fixed" 
+                sx={{ 
+                    zIndex: (theme) => theme.zIndex.drawer + 1,
+                    bgcolor: 'rgba(0, 0, 0, 0.7)',
+                    backdropFilter: 'blur(20px)',
+                    borderBottom: '1px solid',
+                    borderColor: 'rgba(255, 255, 255, 0.08)'
+                }} 
+                elevation={0}
+            >
+                <Toolbar sx={{ justifyContent: 'space-between' }}>
+                    <Typography 
+                        variant="h6" 
+                        noWrap 
+                        component="div" 
+                        sx={{ 
+                            fontWeight: 800, 
+                            color: '#00F0FF',
+                            fontFamily: 'var(--font-space-grotesk)',
+                            letterSpacing: '-0.02em'
+                        }}
+                    >
                         WhisperrConnect
                     </Typography>
                     
-                    {/* Search */}
-                    <Paper
-                        component="form"
-                        onSubmit={handleSearch}
-                        sx={{ 
-                            p: '2px 4px', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            width: isMobile ? 150 : 300,
-                            mr: 2,
-                            bgcolor: alpha(theme.palette.common.white, 0.15),
-                            '&:hover': { bgcolor: alpha(theme.palette.common.white, 0.25) },
-                            borderRadius: 2
-                        }}
-                        variant="outlined"
-                    >
-                        <InputBase
-                            sx={{ ml: 1, flex: 1 }}
-                            placeholder="Search..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                        <IconButton type="submit" sx={{ p: '10px' }} aria-label="search">
-                            <SearchIcon />
-                        </IconButton>
-                    </Paper>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        {/* Search */}
+                        <Box
+                            component="form"
+                            onSubmit={handleSearch}
+                            sx={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                width: isMobile ? 150 : 300,
+                                bgcolor: 'rgba(255, 255, 255, 0.03)',
+                                border: '1px solid',
+                                borderColor: 'rgba(255, 255, 255, 0.08)',
+                                borderRadius: '12px',
+                                px: 1.5,
+                                transition: 'all 0.2s ease',
+                                '&:hover': { 
+                                    bgcolor: 'rgba(255, 255, 255, 0.05)',
+                                    borderColor: 'rgba(255, 255, 255, 0.2)'
+                                }
+                            }}
+                        >
+                            <SearchIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+                            <InputBase
+                                sx={{ ml: 1, flex: 1, color: 'text.primary', fontSize: '0.875rem' }}
+                                placeholder="Search..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </Box>
 
-                    <IconButton sx={{ ml: 1 }} onClick={colorMode.toggleColorMode} color="inherit">
-                        {theme.palette.mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
-                    </IconButton>
+                        <IconButton onClick={colorMode.toggleColorMode} sx={{ color: 'text.secondary' }}>
+                            {theme.palette.mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
+                        </IconButton>
+                    </Box>
                 </Toolbar>
             </AppBar>
 
@@ -115,11 +131,19 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
                     sx={{
                         width: drawerWidth,
                         flexShrink: 0,
-                        [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box', top: 64, height: 'calc(100% - 64px)' },
+                        [`& .MuiDrawer-paper`]: { 
+                            width: drawerWidth, 
+                            boxSizing: 'border-box', 
+                            top: 64, 
+                            height: 'calc(100% - 64px)',
+                            bgcolor: '#000000',
+                            borderRight: '1px solid',
+                            borderColor: 'rgba(255, 255, 255, 0.08)'
+                        },
                     }}
                 >
-                    <Box sx={{ overflow: 'auto', mt: 2 }}>
-                        <List>
+                    <Box sx={{ overflow: 'auto', mt: 2, px: 2 }}>
+                        <List sx={{ gap: 1, display: 'flex', flexDirection: 'column' }}>
                             {navItems.map((item) => (
                                 <ListItem key={item.href} disablePadding>
                                     <ListItemButton 
@@ -127,21 +151,29 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
                                         href={item.href}
                                         selected={pathname === item.href}
                                         sx={{ 
-                                            borderRadius: 2, 
-                                            mx: 1, 
-                                            mb: 0.5,
+                                            borderRadius: '12px', 
+                                            transition: 'all 0.2s ease',
                                             '&.Mui-selected': {
-                                                bgcolor: 'primary.light',
-                                                color: 'primary.contrastText',
-                                                '&:hover': { bgcolor: 'primary.main' },
-                                                '& .MuiListItemIcon-root': { color: 'inherit' }
+                                                bgcolor: 'rgba(0, 240, 255, 0.1)',
+                                                color: '#00F0FF',
+                                                '&:hover': { bgcolor: 'rgba(0, 240, 255, 0.15)' },
+                                                '& .MuiListItemIcon-root': { color: '#00F0FF' }
+                                            },
+                                            '&:hover': {
+                                                bgcolor: 'rgba(255, 255, 255, 0.05)'
                                             }
                                         }}
                                     >
-                                        <ListItemIcon sx={{ minWidth: 40, color: pathname === item.href ? 'inherit' : 'text.secondary' }}>
+                                        <ListItemIcon sx={{ minWidth: 40, color: pathname === item.href ? '#00F0FF' : 'text.secondary' }}>
                                             {item.icon}
                                         </ListItemIcon>
-                                        <ListItemText primary={item.label} />
+                                        <ListItemText 
+                                            primary={item.label} 
+                                            primaryTypographyProps={{ 
+                                                fontWeight: pathname === item.href ? 700 : 500,
+                                                fontSize: '0.9rem'
+                                            }} 
+                                        />
                                     </ListItemButton>
                                 </ListItem>
                             ))}
@@ -151,29 +183,61 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
             )}
 
             {/* Main Content */}
-            <Box component="main" sx={{ flexGrow: 1, height: '100%', overflow: 'hidden', position: 'relative', pt: '64px' }}>
-                {children}
+            <Box 
+                component="main" 
+                sx={{ 
+                    flexGrow: 1, 
+                    height: '100%', 
+                    overflow: 'hidden', 
+                    position: 'relative', 
+                    pt: '64px',
+                    bgcolor: '#000000'
+                }}
+            >
+                <Box sx={{ 
+                    height: '100%', 
+                    p: { xs: 2, md: 3 },
+                    overflowY: 'auto'
+                }}>
+                    <Paper
+                        elevation={0}
+                        sx={{
+                            minHeight: '100%',
+                            bgcolor: 'rgba(10, 10, 10, 0.7)',
+                            backdropFilter: 'blur(20px) saturate(180%)',
+                            borderRadius: '24px',
+                            border: '1px solid',
+                            borderColor: 'rgba(255, 255, 255, 0.08)',
+                            p: { xs: 2, md: 4 }
+                        }}
+                    >
+                        {children}
+                    </Paper>
+                </Box>
             </Box>
 
             {/* Mobile Bottom Nav */}
             {isMobile && (
                 <Paper 
+                    elevation={0}
                     sx={{ 
                         position: 'fixed', 
-                        bottom: 16, 
-                        left: 16, 
-                        right: 16, 
-                        borderRadius: 4, 
+                        bottom: 24, 
+                        left: 24, 
+                        right: 24, 
+                        borderRadius: '20px', 
                         overflow: 'hidden',
-                        boxShadow: 3,
+                        border: '1px solid',
+                        borderColor: 'rgba(255, 255, 255, 0.08)',
+                        bgcolor: 'rgba(10, 10, 10, 0.8)',
+                        backdropFilter: 'blur(20px)',
                         zIndex: 1000
                     }} 
-                    elevation={3}
                 >
                     <BottomNavigation
                         showLabels
                         value={pathname}
-                        sx={{ bgcolor: 'background.paper' }}
+                        sx={{ bgcolor: 'transparent', height: 72 }}
                     >
                         {navItems.map((item) => (
                             <BottomNavigationAction
@@ -184,7 +248,14 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
                                 href={item.href}
                                 value={item.href}
                                 sx={{ 
-                                    '&.Mui-selected': { color: 'primary.main' }
+                                    color: 'text.secondary',
+                                    '&.Mui-selected': { 
+                                        color: '#00F0FF',
+                                        '& .MuiBottomNavigationAction-label': {
+                                            fontWeight: 700,
+                                            fontSize: '0.75rem'
+                                        }
+                                    }
                                 }}
                             />
                         ))}
