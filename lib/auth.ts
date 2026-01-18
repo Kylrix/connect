@@ -57,13 +57,29 @@ export function useAuth() {
         });
     }, []);
 
-    const checkSession = async () => {
+    const checkSession = async (retryCount = 0) => {
         try {
             const session = await account.get();
             setUser(session);
             await UsersService.ensureProfileForUser(session as any);
             setLoading(false);
+            
+            // Clear the auth=success param from URL if it exists
+            if (typeof window !== 'undefined' && window.location.search.includes('auth=success')) {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('auth');
+                window.history.replaceState({}, '', url.toString());
+            }
         } catch (error: any) {
+            // Check for auth=success signal in URL
+            const hasAuthSignal = typeof window !== 'undefined' && window.location.search.includes('auth=success');
+            
+            if (hasAuthSignal && retryCount < 3) {
+                console.log(`Auth signal detected but session not found in connect. Retrying... (${retryCount + 1})`);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                return checkSession(retryCount + 1);
+            }
+
             // Try silent discovery
             await attemptSilentAuth();
 
