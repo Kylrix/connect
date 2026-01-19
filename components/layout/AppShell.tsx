@@ -31,19 +31,21 @@ import SearchIcon from '@mui/icons-material/Search';
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import { useColorMode } from '@/components/providers/ThemeProvider';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useMemo } from 'react';
 
 const drawerWidth = 280;
 
 export const AppShell = ({ children }: { children: React.ReactNode }) => {
     const pathname = usePathname();
+    const searchParams = useSearchParams();
     const theme = useTheme();
     const colorMode = useColorMode();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState('');
 
+    const isEmbedded = useMemo(() => searchParams?.get('is_embedded') === 'true', [searchParams]);
     const isProfilePage = pathname === '/profile' || pathname?.startsWith('/u/');
 
     const navItems = [
@@ -52,6 +54,27 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
         { label: 'Calls', href: '/calls', icon: <CallIcon /> },
         { label: 'Profile', href: '/profile', icon: <PersonIcon /> },
     ];
+
+    if (isEmbedded) {
+        return (
+            <Box sx={{ minHeight: '100vh', bgcolor: '#000', p: 2, overflowY: 'auto' }}>
+                <Paper
+                    elevation={0}
+                    sx={{
+                        minHeight: '100%',
+                        bgcolor: 'rgba(10, 10, 10, 0.7)',
+                        backdropFilter: 'blur(20px) saturate(180%)',
+                        borderRadius: '24px',
+                        border: '1px solid',
+                        borderColor: 'rgba(255, 255, 255, 0.08)',
+                        p: 2
+                    }}
+                >
+                    {children}
+                </Paper>
+            </Box>
+        );
+    }
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
