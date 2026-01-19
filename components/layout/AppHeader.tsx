@@ -20,23 +20,30 @@ import SearchIcon from '@mui/icons-material/Search';
 import AppsIcon from '@mui/icons-material/Apps';
 import { ECOSYSTEM_APPS } from '@/lib/constants';
 import { useAuth } from '@/lib/auth';
+import EcosystemPortal from '../common/EcosystemPortal';
 
 export const AppHeader = () => {
     const theme = useTheme();
     const { user, logout } = useAuth();
-    const [appsAnchorEl, setAppsAnchorEl] = useState<null | HTMLElement>(null);
+    const [isPortalOpen, setIsPortalOpen] = useState(false);
     const [accountAnchorEl, setAccountAnchorEl] = useState<null | HTMLElement>(null);
 
-    const handleAppsClick = (event: React.MouseEvent<HTMLElement>) => {
-        setAppsAnchorEl(event.currentTarget);
-    };
+    React.useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.code === 'Space') {
+                e.preventDefault();
+                setIsPortalOpen(prev => !prev);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     const handleAccountClick = (event: React.MouseEvent<HTMLElement>) => {
         setAccountAnchorEl(event.currentTarget);
     };
 
     const handleClose = () => {
-        setAppsAnchorEl(null);
         setAccountAnchorEl(null);
     };
 
@@ -44,18 +51,32 @@ export const AppHeader = () => {
         <AppBar 
             position="fixed" 
             sx={{ 
-                zIndex: (theme) => theme.zIndex.drawer + 1,
-                bgcolor: alpha(theme.palette.background.paper, 0.8),
-                backdropFilter: 'blur(12px)',
-                borderBottom: `1px solid ${theme.palette.divider}`,
+                zIndex: (theme) => theme.zIndex.drawer + 0.5,
+                bgcolor: 'rgba(10, 10, 10, 0.8)',
+                backdropFilter: 'blur(25px) saturate(180%)',
+                borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
                 boxShadow: 'none',
-                color: 'text.primary'
+                color: 'text.primary',
+                backgroundImage: 'none'
             }} 
         >
-            <Toolbar sx={{ justifyContent: 'space-between' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', width: 280 }}>
-                    <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 800, background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`, backgroundClip: 'text', textFillColor: 'transparent', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                        WhisperrConnect
+            <Toolbar sx={{ justifyContent: 'space-between', minHeight: 72 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Box sx={{ 
+                        width: 38, 
+                        height: 38, 
+                        bgcolor: '#00F5FF', 
+                        borderRadius: '10px', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        color: '#000',
+                        fontWeight: 900
+                    }}>
+                        C
+                    </Box>
+                    <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 900, fontFamily: 'var(--font-space-grotesk)', letterSpacing: '-0.05em', color: 'white' }}>
+                        WHISPERR<Box component="span" sx={{ color: '#00F5FF' }}>CONNECT</Box>
                     </Typography>
                 </Box>
                 
@@ -67,89 +88,47 @@ export const AppHeader = () => {
                         display: { xs: 'none', md: 'flex' }, 
                         alignItems: 'center', 
                         width: 400,
-                        bgcolor: alpha(theme.palette.text.primary, 0.05),
-                        border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                        borderRadius: 3,
+                        bgcolor: 'rgba(255, 255, 255, 0.03)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        borderRadius: '14px',
                         boxShadow: 'none',
                         '&:hover': {
-                            bgcolor: alpha(theme.palette.text.primary, 0.08),
+                            bgcolor: 'rgba(255, 255, 255, 0.05)',
+                            borderColor: 'rgba(255, 255, 255, 0.15)'
                         }
                     }}
                 >
                     <InputBase
-                        sx={{ ml: 2, flex: 1 }}
+                        sx={{ ml: 2, flex: 1, color: 'white', fontSize: '0.9rem' }}
                         placeholder="Search messages, people, calls..."
                     />
-                    <IconButton type="button" sx={{ p: '10px' }} aria-label="search">
-                        <SearchIcon />
+                    <IconButton type="button" sx={{ p: '10px', color: 'rgba(255, 255, 255, 0.4)' }} aria-label="search">
+                        <SearchIcon sx={{ fontSize: 20 }} />
                     </IconButton>
                 </Paper>
 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {/* Apps Menu Button */}
-                    <IconButton onClick={handleAppsClick} sx={{ borderRadius: 3 }}>
-                        <AppsIcon />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    {/* Portal Toggle */}
+                    <IconButton 
+                        onClick={() => setIsPortalOpen(true)} 
+                        sx={{ 
+                            borderRadius: '12px',
+                            color: '#00F5FF',
+                            bgcolor: 'rgba(0, 245, 255, 0.05)',
+                            border: '1px solid rgba(0, 245, 255, 0.1)',
+                            '&:hover': { bgcolor: 'rgba(0, 245, 255, 0.1)', borderColor: '#00F5FF' }
+                        }}
+                    >
+                        <AppsIcon sx={{ fontSize: 22 }} />
                     </IconButton>
 
                     {/* Account Menu Button */}
-                    <IconButton onClick={handleAccountClick} sx={{ p: 0.5, border: `2px solid ${alpha(theme.palette.primary.main, 0.2)}` }}>
-                        <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontSize: 14, fontWeight: 'bold' }}>
+                    <IconButton onClick={handleAccountClick} sx={{ p: 0.5 }}>
+                        <Avatar sx={{ width: 36, height: 36, bgcolor: '#00F5FF', color: '#000', fontSize: 14, fontWeight: 800, borderRadius: '10px' }}>
                             {user?.name?.charAt(0).toUpperCase() || 'U'}
                         </Avatar>
                     </IconButton>
                 </Box>
-
-                {/* Apps Menu */}
-                <Menu
-                    anchorEl={appsAnchorEl}
-                    open={Boolean(appsAnchorEl)}
-                    onClose={handleClose}
-                    PaperProps={{
-                        elevation: 0,
-                        sx: { 
-                            width: 320, 
-                            mt: 1.5, 
-                            p: 2, 
-                            borderRadius: 4, 
-                            border: `1px solid ${theme.palette.divider}`,
-                            boxShadow: theme.shadows[4]
-                        },
-                    }}
-                    transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-                    anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-                >
-                    <Typography variant="overline" sx={{ px: 1, color: 'text.secondary', fontWeight: 700 }}>
-                        Whisperr Ecosystem
-                    </Typography>
-                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, mt: 1 }}>
-                        {ECOSYSTEM_APPS.map((app) => (
-                            <Box
-                                key={app.name}
-                                component="a"
-                                href={app.url}
-                                sx={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    p: 1.5,
-                                    borderRadius: 3,
-                                    textDecoration: 'none',
-                                    color: 'text.primary',
-                                    bgcolor: app.active ? alpha(app.color, 0.1) : 'transparent',
-                                    border: app.active ? `1px solid ${alpha(app.color, 0.3)}` : '1px solid transparent',
-                                    '&:hover': {
-                                        bgcolor: alpha(app.color, 0.15),
-                                        transform: 'translateY(-2px)',
-                                        transition: 'all 0.2s'
-                                    },
-                                }}
-                            >
-                                <Box sx={{ fontSize: '1.5rem', mb: 0.5 }}>{app.icon}</Box>
-                                <Typography variant="caption" fontWeight={600}>{app.shortName}</Typography>
-                            </Box>
-                        ))}
-                    </Box>
-                </Menu>
 
                 {/* Account Menu */}
                 <Menu
@@ -159,31 +138,48 @@ export const AppHeader = () => {
                     PaperProps={{
                         elevation: 0,
                         sx: { 
-                            width: 200, 
+                            width: 240, 
                             mt: 1.5, 
-                            borderRadius: 3,
-                            border: `1px solid ${theme.palette.divider}`,
-                            boxShadow: theme.shadows[4]
+                            borderRadius: '20px',
+                            bgcolor: 'rgba(10, 10, 10, 0.95)',
+                            backdropFilter: 'blur(25px) saturate(180%)',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            boxShadow: '0 20px 40px rgba(0,0,0,0.6)',
+                            backgroundImage: 'none'
                         },
                     }}
                     transformOrigin={{ horizontal: 'right', vertical: 'top' }}
                     anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
                 >
-                    <Box sx={{ px: 2, py: 1.5 }}>
-                        <Typography variant="subtitle2" noWrap fontWeight={700}>
+                    <Box sx={{ px: 2.5, py: 2 }}>
+                        <Typography variant="subtitle2" noWrap sx={{ fontWeight: 800, color: 'white' }}>
                             {user?.name || 'User'}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary" noWrap>
+                        <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.4)' }} noWrap>
                             {user?.email}
                         </Typography>
                     </Box>
-                    <Divider />
-                    <MenuItem onClick={handleClose}>Profile</MenuItem>
-                    <MenuItem onClick={handleClose}>Settings</MenuItem>
-                    <Divider />
-                    <MenuItem onClick={() => logout()} sx={{ color: 'error.main' }}>Logout</MenuItem>
+                    <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.05)' }} />
+                    <MenuItem onClick={handleClose} sx={{ py: 1.5, px: 2.5, fontWeight: 600, color: 'white' }}>Profile</MenuItem>
+                    <MenuItem 
+                        onClick={() => {
+                            window.location.href = `https://${process.env.NEXT_PUBLIC_AUTH_SUBDOMAIN || 'id'}.${process.env.NEXT_PUBLIC_DOMAIN || 'whisperrnote.space'}/settings?source=${encodeURIComponent(window.location.origin)}`;
+                            handleClose();
+                        }}
+                        sx={{ py: 1.5, px: 2.5, fontWeight: 600, color: 'white' }}
+                    >
+                        Settings
+                    </MenuItem>
+                    <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.05)' }} />
+                    <MenuItem onClick={() => logout()} sx={{ py: 1.5, px: 2.5, color: '#FF4D4D', fontWeight: 800 }}>Logout</MenuItem>
                 </Menu>
+
+                <EcosystemPortal 
+                    open={isPortalOpen} 
+                    onClose={() => setIsPortalOpen(false)} 
+                />
             </Toolbar>
         </AppBar>
     );
 };
+
