@@ -33,6 +33,7 @@ export const viewport = {
 
 import { AuthOverlay } from '@/components/auth/AuthOverlay';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
+import { EcosystemClient } from '@/components/ecosystem/EcosystemClient';
 
 export default function RootLayout({
   children,
@@ -45,6 +46,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fra.cloud.appwrite.io" />
       </head>
       <body className="font-sans antialiased">
+        <EcosystemClient nodeId="connect" />
         <ThemeProvider>
           <AuthOverlay />
           {children}
