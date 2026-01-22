@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
   experimental: {
+    reactCompiler: true,
     optimizePackageImports: [
       '@mui/material',
       '@mui/icons-material',
@@ -14,7 +15,6 @@ const nextConfig: NextConfig = {
       'date-fns',
     ],
   },
-  reactCompiler: true,
 };
 
 export default nextConfig;
