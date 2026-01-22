@@ -8,10 +8,14 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  compress: true,
+  poweredByHeader: false,
   experimental: {
     optimizePackageImports: [
       '@mui/material',
       '@mui/icons-material',
+      '@emotion/react',
+      '@emotion/styled',
       'lucide-react',
       'date-fns',
     ],
