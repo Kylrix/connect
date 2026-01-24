@@ -19,35 +19,23 @@ export const SocialService = {
         ]);
     },
 
-    async createMoment(creatorId: string, content: string, type: 'text' | 'image' | 'video' = 'text', mediaIds: string[] = []) {
+    async createMoment(creatorId: string, content: string, type: 'text' | 'image' | 'video' = 'text', mediaIds: string[] = [], visibility: 'public' | 'private' | 'followers' = 'public') {
         return await tablesDB.createRow(DB_ID, MOMENTS_TABLE, ID.unique(), {
             creatorId,
             content,
             type,
             mediaIds,
-            visibility: 'public',
+            visibility,
             createdAt: new Date().toISOString()
         });
     },
 
-    async followUser(followerId: string, followingId: string) {
-        return await tablesDB.createRow(DB_ID, FOLLOWS_TABLE, ID.unique(), {
-            followerId,
-            followingId,
-            status: 'accepted',
-            scope: 'follow',
-            createdAt: new Date().toISOString()
-        });
+    async deleteMoment(momentId: string) {
+        return await tablesDB.deleteRow(DB_ID, MOMENTS_TABLE, momentId);
     },
 
-    async connectUser(requesterId: string, targetId: string) {
-        return await tablesDB.createRow(DB_ID, FOLLOWS_TABLE, ID.unique(), {
-            followerId: requesterId,
-            followingId: targetId,
-            status: 'pending',
-            scope: 'connection',
-            createdAt: new Date().toISOString()
-        });
+    async updateMomentVisibility(momentId: string, visibility: 'public' | 'private' | 'followers') {
+        return await tablesDB.updateRow(DB_ID, MOMENTS_TABLE, momentId, { visibility });
     },
 
     async likeMoment(userId: string, momentId: string) {

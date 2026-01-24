@@ -33,6 +33,34 @@ export const ChatService = {
         return await tablesDB.getRow(DB_ID, CONV_TABLE, conversationId);
     },
 
+    async updateConversation(conversationId: string, data: Partial<{ name: string; description: string; avatarUrl: string; participants: string[]; admins: string[] }>) {
+        return await tablesDB.updateRow(DB_ID, CONV_TABLE, conversationId, {
+            ...data,
+            updatedAt: new Date().toISOString()
+        });
+    },
+
+    async addParticipant(conversationId: string, userId: string) {
+        const conv = await this.getConversationById(conversationId);
+        const participants = conv.participants || [];
+        if (!participants.includes(userId)) {
+            return await this.updateConversation(conversationId, {
+                participants: [...participants, userId]
+            });
+        }
+        return conv;
+    },
+
+    async removeParticipant(conversationId: string, userId: string) {
+        const conv = await this.getConversationById(conversationId);
+        const participants = (conv.participants || []).filter((id: string) => id !== userId);
+        const admins = (conv.admins || []).filter((id: string) => id !== userId);
+        return await this.updateConversation(conversationId, {
+            participants,
+            admins
+        });
+    },
+
     async deleteMessage(messageId: string) {
         return await tablesDB.deleteRow(DB_ID, MSG_TABLE, messageId);
     },
