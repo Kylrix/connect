@@ -182,7 +182,7 @@ export const UsersService = {
 
         const res = await tablesDB.listRows(DB_ID, USERS_TABLE, [
             Query.or([
-                Query.search('username', cleaned.toLowerCase()),
+                Query.startsWith('username', cleaned.toLowerCase()),
                 Query.search('displayName', cleaned)
             ]),
             Query.limit(10)
