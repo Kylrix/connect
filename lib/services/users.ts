@@ -51,7 +51,7 @@ export const UsersService = {
                 username,
                 displayName: user.name || username,
                 updatedAt: new Date().toISOString(),
-                profilePicId: prefs?.profilePicId || user.profilePicId || null,
+                avatarFileId: prefs?.profilePicId || user.profilePicId || null,
                 walletAddress: prefs?.walletEth || prefs?.walletAddress || null,
                 bio: prefs?.bio || profile?.bio || "",
                 privacySettings: JSON.stringify({ public: true, searchable: true })
@@ -72,7 +72,7 @@ export const UsersService = {
             } else {
                 // Self-Healing: Fix malformed records or out-of-sync usernames
                 const needsHealing = profile.username !== username || 
-                                   !profile.profilePicId && profileData.profilePicId ||
+                                   !profile.avatarFileId && profileData.avatarFileId ||
                                    !profile.privacySettings;
                 
                 if (needsHealing) {
@@ -134,9 +134,13 @@ export const UsersService = {
                 }
             }
         }
-        // Ensure we don't send unknown attributes like avatarUrl if we use profilePicId
+        // Map any legacy attributes to the correct ones
+        if (data.profilePicId) {
+            data.avatarFileId = data.profilePicId;
+            delete data.profilePicId;
+        }
         if (data.avatarUrl) {
-            data.profilePicId = data.profilePicId || data.avatarUrl;
+            data.avatarFileId = data.avatarFileId || data.avatarUrl;
             delete data.avatarUrl;
         }
         return await tablesDB.updateRow(DB_ID, USERS_TABLE, userId, data);
@@ -146,17 +150,13 @@ export const UsersService = {
         userId: string,
         username: string,
         email: string,
-        data: { displayName?: string; bio?: string; avatarUrl?: string; appsActive?: string[] } = {}
+        data: any = {}
     ) {
-        // Double check availability before creation
         const normalized = normalizeUsername(username);
-        if (!normalized) {
-            throw new Error('Invalid username');
-        }
+        if (!normalized) throw new Error('Invalid username');
+        
         const available = await this.isUsernameAvailable(normalized);
-        if (!available) {
-            throw new Error('Username already taken');
-        }
+        if (!available) throw new Error('Username already taken');
 
         return await tablesDB.createRow(
             DB_ID,
@@ -164,15 +164,15 @@ export const UsersService = {
             userId,
             {
                 username: normalized,
-                displayName: data.displayName,
-                bio: data.bio,
-                avatarUrl: data.avatarUrl,
-                appsActive: data.appsActive,
+                displayName: data.displayName || normalized,
+                bio: data.bio || "",
+                avatarFileId: data.avatarFileId || data.profilePicId || null,
                 createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
+                updatedAt: new Date().toISOString(),
+                privacySettings: JSON.stringify({ public: true, searchable: true })
             },
             [
-                Permission.read(Role.any()), // Public by default
+                Permission.read(Role.any()),
                 Permission.update(Role.user(userId)),
                 Permission.delete(Role.user(userId))
             ]
@@ -231,7 +231,7 @@ export const UsersService = {
         try {
             return await this.createProfile(user.$id, candidate, user?.email || '', {
                 displayName: externalUser?.name || user?.name,
-                appsActive: ['connect']
+                profilePicId: user.prefs?.profilePicId
             });
         } catch (e) {
             return null;
@@ -282,7 +282,7 @@ export const UsersService = {
                             $id: noteUser.$id,
                             username: noteUser.username || noteUser.email?.split('@')[0] || noteUser.$id.slice(0, 8),
                             displayName: noteUser.name,
-                            profilePicId: noteUser.profilePicId || noteUser.avatar || null,
+                            avatarFileId: noteUser.profilePicId || noteUser.avatar || null,
                             privacySettings: JSON.stringify({ public: true, searchable: true })
                         } as any);
                         res.total++;

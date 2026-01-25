@@ -29,13 +29,17 @@ const SearchResultAvatar = ({ u }: { u: any }) => {
     const [url, setUrl] = useState<string | null>(u.avatarUrl || null);
 
     useEffect(() => {
-        const fileId = u.avatarFileId || u.profilePicId;
+        const fileId = u.avatarFileId || u.profilePicId || u.profilePic;
         if (!fileId || url) return;
 
         let mounted = true;
         const load = async () => {
-            const previewUrl = await fetchProfilePreview(fileId, 64, 64);
-            if (mounted && previewUrl) setUrl(previewUrl);
+            try {
+                const previewUrl = await fetchProfilePreview(fileId, 64, 64);
+                if (mounted && previewUrl) setUrl(previewUrl as unknown as string);
+            } catch (e) {
+                console.warn('Failed to fetch search avatar preview', e);
+            }
         };
         load();
         return () => { mounted = false; };

@@ -54,7 +54,7 @@ export const Profile = ({ username }: ProfileProps) => {
 
     useEffect(() => {
         if (profile) {
-            const picId = profile.profilePicId || profile.avatarUrl;
+            const picId = profile.avatarFileId || profile.profilePicId || profile.avatarUrl;
             if (picId) {
                 fetchProfilePreview(picId, 200, 200).then(url => {
                     setAvatarUrl(url as unknown as string);
@@ -79,13 +79,15 @@ export const Profile = ({ username }: ProfileProps) => {
                             $id: externalUser.$id,
                             username: fallbackUsername || username,
                             displayName: externalUser.name || externalUser.displayName || fallbackUsername || 'User',
-                            profilePicId: externalUser.profilePicId || externalUser.avatar || null,
+                            avatarFileId: externalUser.profilePicId || externalUser.avatar || null,
                             bio: externalUser.bio || null,
                             __external: true
                         };
                     }
                 }
             } else if (currentUser) {
+                // Self-Healing: Ensure global profile exists when viewing own profile
+                await UsersService.ensureGlobalProfile(currentUser, true);
                 data = await UsersService.getProfileById(currentUser.$id);
             }
 
