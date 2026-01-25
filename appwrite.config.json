@@ -3914,7 +3914,8 @@
         {
             "$id": "users",
             "$permissions": [
-                "create(\"users\")"
+                "create(\"users\")",
+                "read(\"any\")"
             ],
             "databaseId": "chat",
             "name": "users",

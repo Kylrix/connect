@@ -1,13 +1,18 @@
 'use client';
 
 import { useAuth } from '@/lib/auth';
+import { usePathname } from 'next/navigation';
 
 export const AuthOverlay = () => {
     const { user, loading, login } = useAuth();
+    const pathname = usePathname();
 
     if (loading) return null;
 
-    if (!user) {
+    // Allow public profiles to be viewed by guests
+    const isPublicRoute = pathname?.startsWith('/u/');
+    
+    if (!user && !isPublicRoute) {
         return (
             <div style={{
                 position: 'fixed',
