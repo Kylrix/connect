@@ -17,6 +17,8 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import { UsersService } from '@/lib/services/users';
 import { account } from '@/lib/appwrite/client';
+import PersonIcon from '@mui/icons-material/PersonOutlined';
+import { alpha } from '@mui/material/styles';
 
 interface EditProfileModalProps {
     open: boolean;
@@ -115,15 +117,53 @@ export const EditProfileModal = ({ open, onClose, profile, onUpdate }: EditProfi
     };
 
     return (
-        <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-            <DialogTitle sx={{ fontWeight: 'bold' }}>Edit Profile</DialogTitle>
-            <DialogContent dividers>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
+        <Dialog 
+            open={open} 
+            onClose={onClose} 
+            fullWidth 
+            maxWidth="sm"
+            PaperProps={{
+                sx: {
+                    borderRadius: '24px',
+                    bgcolor: 'rgba(15, 15, 15, 0.95)',
+                    backdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    backgroundImage: 'none',
+                    color: 'white'
+                }
+            }}
+        >
+            <DialogTitle sx={{ textAlign: 'center', pt: 4 }}>
+                <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    mb: 2 
+                }}>
+                    <Box sx={{ 
+                        p: 1.5, 
+                        bgcolor: 'primary.main', 
+                        borderRadius: '12px',
+                        color: 'black'
+                    }}>
+                        <PersonIcon />
+                    </Box>
+                </Box>
+                <Typography variant="h5" sx={{ fontWeight: 800, fontFamily: 'var(--font-space-grotesk)' }}>
+                    Edit Profile
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
+                    Customize your presence in the ecosystem
+                </Typography>
+            </DialogTitle>
+
+            <DialogContent sx={{ border: 'none' }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 1 }}>
                     <TextField
                         label="Username"
                         fullWidth
+                        variant="filled"
                         value={username}
-                        onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-0_]/g, ''))}
+                        onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
                         error={isAvailable === false && username !== profile?.username}
                         helperText={
                             isAvailable === false && username !== profile?.username 
@@ -131,49 +171,95 @@ export const EditProfileModal = ({ open, onClose, profile, onUpdate }: EditProfi
                             : 'Only letters, numbers, and underscores allowed'
                         }
                         InputProps={{
-                            startAdornment: <InputAdornment position="start">@</InputAdornment>,
+                            disableUnderline: true,
+                            startAdornment: <InputAdornment position="start" sx={{ color: 'primary.main', fontWeight: 800 }}>@</InputAdornment>,
+                            sx: { 
+                                borderRadius: '12px', 
+                                bgcolor: 'rgba(255, 255, 255, 0.05)',
+                                '&.Mui-focused': { bgcolor: 'rgba(255, 255, 255, 0.08)' }
+                            },
                             endAdornment: (
                                 <InputAdornment position="end">
                                     {isChecking && <CircularProgress size={20} />}
-                                    {!isChecking && isAvailable === true && username !== profile?.username && <CheckCircleIcon color="success" />}
-                                    {!isChecking && isAvailable === false && username !== profile?.username && <ErrorIcon color="error" />}
+                                    {!isChecking && isAvailable === true && username !== profile?.username && <CheckCircleIcon color="success" sx={{ fontSize: 20 }} />}
+                                    {!isChecking && isAvailable === false && username !== profile?.username && <ErrorIcon color="error" sx={{ fontSize: 20 }} />}
                                 </InputAdornment>
                             )
                         }}
+                        InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }}
                     />
 
                     <TextField
                         label="Display Name"
                         fullWidth
+                        variant="filled"
                         value={displayName}
                         onChange={(e) => setDisplayName(e.target.value)}
+                        InputProps={{
+                            disableUnderline: true,
+                            sx: { 
+                                borderRadius: '12px', 
+                                bgcolor: 'rgba(255, 255, 255, 0.05)',
+                                '&.Mui-focused': { bgcolor: 'rgba(255, 255, 255, 0.08)' }
+                            }
+                        }}
+                        InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }}
                     />
 
                     <TextField
                         label="Bio"
                         fullWidth
                         multiline
-                        rows={4}
+                        rows={3}
+                        variant="filled"
                         value={bio}
                         onChange={(e) => setBio(e.target.value)}
                         placeholder="Tell the world about yourself..."
+                        InputProps={{
+                            disableUnderline: true,
+                            sx: { 
+                                borderRadius: '12px', 
+                                bgcolor: 'rgba(255, 255, 255, 0.05)',
+                                '&.Mui-focused': { bgcolor: 'rgba(255, 255, 255, 0.08)' }
+                            }
+                        }}
+                        InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }}
                     />
                 </Box>
                 {error && (
-                    <Typography color="error" variant="body2" sx={{ mt: 2 }}>
+                    <Typography color="error" variant="caption" sx={{ mt: 2, display: 'block', fontWeight: 600 }}>
                         {error}
                     </Typography>
                 )}
             </DialogContent>
-            <DialogActions sx={{ p: 3 }}>
-                <Button onClick={onClose} disabled={loading}>Cancel</Button>
+            
+            <DialogActions sx={{ p: 3, gap: 1 }}>
+                <Button 
+                    onClick={onClose} 
+                    disabled={loading}
+                    sx={{ color: 'text.secondary', fontWeight: 600 }}
+                >
+                    Cancel
+                </Button>
                 <Button 
                     variant="contained" 
                     onClick={handleSave} 
                     disabled={loading || (isAvailable === false && username !== profile?.username)}
-                    sx={{ boxShadow: 'none' }}
+                    sx={{ 
+                        borderRadius: '12px', 
+                        px: 4, 
+                        py: 1, 
+                        fontWeight: 800,
+                        bgcolor: 'primary.main',
+                        color: 'black',
+                        boxShadow: 'none',
+                        '&:hover': { 
+                            bgcolor: alpha('#00F0FF', 0.8),
+                            boxShadow: '0 0 20px rgba(0, 240, 255, 0.3)'
+                        }
+                    }}
                 >
-                    {loading ? <CircularProgress size={24} /> : 'Save Changes'}
+                    {loading ? <CircularProgress size={24} color="inherit" /> : 'Save Changes'}
                 </Button>
             </DialogActions>
         </Dialog>
