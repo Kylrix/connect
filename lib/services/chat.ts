@@ -34,6 +34,10 @@ export const ChatService = {
             type,
             name,
             creatorId: creatorId,
+            isPinned: [],
+            isMuted: [],
+            isArchived: [],
+            tags: [],
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         }, [
