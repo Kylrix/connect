@@ -27,13 +27,15 @@ export const ChatService = {
         
         const uniqueParticipants = isSelf ? [participants[0], participants[0]] : Array.from(new Set(participants));
         
-        console.log('[ChatService] Creating conversation:', { type, isSelf, uniqueParticipants });
+        console.log('[ChatService:V2] Creating conversation:', { type, isSelf, uniqueParticipants });
 
         return await tablesDB.createRow(DB_ID, CONV_TABLE, ID.unique(), {
             participants: uniqueParticipants,
+            participantCount: uniqueParticipants.length,
             type,
             name,
             creatorId: creatorId,
+            admins: [],
             isPinned: [],
             isMuted: [],
             isArchived: [],
@@ -49,11 +51,17 @@ export const ChatService = {
         ]);
     },
 
-    async getConversationById(conversationId: string) {
-        return await tablesDB.getRow(DB_ID, CONV_TABLE, conversationId);
-    },
-
-    async updateConversation(conversationId: string, data: Partial<{ name: string; description: string; avatarUrl: string; participants: string[]; admins: string[] }>) {
+    async updateConversation(conversationId: string, data: Partial<{ 
+        name: string; 
+        description: string; 
+        avatarUrl: string; 
+        participants: string[]; 
+        admins: string[]; 
+        isPinned: string[]; 
+        isMuted: string[]; 
+        isArchived: string[]; 
+        tags: string[];
+    }>) {
         return await tablesDB.updateRow(DB_ID, CONV_TABLE, conversationId, {
             ...data,
             updatedAt: new Date().toISOString()
