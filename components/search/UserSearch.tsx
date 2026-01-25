@@ -1,27 +1,52 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { UsersService } from '@/lib/services/users';
 import { Users } from '@/types/appwrite';
 import { ChatService } from '@/lib/services/chat';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
-import { 
-    Box, 
-    TextField, 
-    Button, 
-    List, 
-    ListItem, 
-    ListItemText, 
-    ListItemAvatar, 
-    Avatar, 
-    Typography, 
+import {
+    Box,
+    TextField,
+    Button,
+    List,
+    ListItem,
+    ListItemText,
+    ListItemAvatar,
+    Avatar,
+    Typography,
     Paper,
     IconButton
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import MessageIcon from '@mui/icons-material/Message';
 import PersonIcon from '@mui/icons-material/Person';
+import { fetchProfilePreview } from '@/lib/profile-preview';
+import { debounce } from 'lodash';
+
+const SearchResultAvatar = ({ u }: { u: any }) => {
+    const [url, setUrl] = useState<string | null>(u.avatarUrl || null);
+
+    useEffect(() => {
+        const fileId = u.avatarFileId || u.profilePicId;
+        if (!fileId || url) return;
+
+        let mounted = true;
+        const load = async () => {
+            const previewUrl = await fetchProfilePreview(fileId, 64, 64);
+            if (mounted && previewUrl) setUrl(previewUrl);
+        };
+        load();
+        return () => { mounted = false; };
+    }, [u]);
+
+    return (
+        <Avatar src={url || undefined}>
+            {!url && <PersonIcon />}
+        </Avatar>
+    );
+};
 
 export const UserSearch = () => {
     const [query, setQuery] = useState('');
@@ -30,21 +55,21 @@ export const UserSearch = () => {
     const { user } = useAuth();
     const router = useRouter();
 
-    const handleSearch = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!query.trim()) return;
+    const fetchResults = useCallback(debounce(async (term: string) => {
+        if (!term.trim() || term.length < 2) {
+            setResults([]);
+            return;
+        }
 
         setLoading(true);
         try {
-            const response = await UsersService.searchUsers(query);
-            // Filter out private users
+            const response = await UsersService.searchUsers(term);
             const filtered = response.rows.filter((u: any) => {
-                // Allow finding self for "Note to Self" feature
                 if (u.privacySettings) {
                     try {
                         const settings = JSON.parse(u.privacySettings);
                         if (settings.searchable === false) return false;
-                    } catch (e) {}
+                    } catch (e) { }
                 }
                 return true;
             }) as unknown as Users[];
@@ -54,25 +79,34 @@ export const UserSearch = () => {
         } finally {
             setLoading(false);
         }
+    }, 300), []);
+
+    useEffect(() => {
+        fetchResults(query);
+    }, [query, fetchResults]);
+
+    const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        fetchResults(query);
     };
 
     const startChat = async (targetUserId: string) => {
         if (!user) return;
         try {
             const existing = await ChatService.getConversations(user.$id);
-            
+
             let found;
             if (targetUserId === user.$id) {
                 // Self chat: look for direct chat with only 1 participant (me)
-                found = existing.rows.find((c: any) => 
-                    c.type === 'direct' && 
-                    c.participants.length === 1 && 
+                found = existing.rows.find((c: any) =>
+                    c.type === 'direct' &&
+                    c.participants.length === 1 &&
                     c.participants[0] === user.$id
                 );
             } else {
                 // Other chat: look for direct chat with target
-                found = existing.rows.find((c: any) => 
-                    c.type === 'direct' && 
+                found = existing.rows.find((c: any) =>
+                    c.type === 'direct' &&
                     c.participants.includes(targetUserId) &&
                     c.participants.length > 1
                 );
@@ -92,9 +126,9 @@ export const UserSearch = () => {
 
     return (
         <Box sx={{ p: 2 }}>
-            <Paper 
-                component="form" 
-                onSubmit={handleSearch} 
+            <Paper
+                component="form"
+                onSubmit={handleSearch}
                 sx={{ p: '2px 4px', display: 'flex', alignItems: 'center', mb: 3 }}
             >
                 <TextField
@@ -115,8 +149,8 @@ export const UserSearch = () => {
                     <Paper key={u.$id} sx={{ mb: 1, overflow: 'hidden' }} variant="outlined">
                         <ListItem
                             secondaryAction={
-                                <Button 
-                                    variant="outlined" 
+                                <Button
+                                    variant="outlined"
                                     startIcon={<MessageIcon />}
                                     onClick={() => startChat(u.$id)}
                                     size="small"
@@ -127,9 +161,7 @@ export const UserSearch = () => {
                             }
                         >
                             <ListItemAvatar>
-                                <Avatar>
-                                    <PersonIcon />
-                                </Avatar>
+                                <SearchResultAvatar u={u} />
                             </ListItemAvatar>
                             <ListItemText
                                 primary={u.displayName || u.username}
