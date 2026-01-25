@@ -22,6 +22,7 @@ import {
     Toolbar,
     Menu,
     MenuItem,
+    Divider,
     ListItemIcon,
     Avatar,
     Stack,
@@ -511,7 +512,10 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                     <IconButton edge="start" onClick={() => router.back()} sx={{ color: 'text.secondary' }}>
                         <ArrowBackIcon sx={{ fontSize: 20 }} />
                     </IconButton>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
+                    <Box 
+                        onClick={(e) => setAnchorEl(e.currentTarget)} 
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, cursor: 'pointer', '&:hover': { opacity: 0.8 } }}
+                    >
                         <Avatar sx={{ 
                             width: 36, 
                             height: 36, 
@@ -530,7 +534,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                         </Box>
                     </Box>
                     <Stack direction="row" spacing={0.5}>
-                        <IconButton onClick={() => {}} sx={{ color: 'text.secondary' }}>
+                        <IconButton onClick={handleCall} sx={{ color: 'text.secondary' }}>
                             <CallIcon sx={{ fontSize: 20 }} />
                         </IconButton>
                         <IconButton onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ color: 'text.secondary' }}>
@@ -552,19 +556,31 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                         backdropFilter: 'blur(20px)',
                         border: '1px solid rgba(255, 255, 255, 0.08)',
                         backgroundImage: 'none',
-                        minWidth: 180
+                        minWidth: 220
                     }
                 }}
             >
-                <MenuItem onClick={() => setAnchorEl(null)} sx={{ gap: 1.5, py: 1.2, fontWeight: 600, fontSize: '0.85rem' }}>
-                    <InfoIcon sx={{ fontSize: 18, opacity: 0.7 }} /> Profile Details
+                <MenuItem onClick={handleExport} sx={{ gap: 1.5, py: 1.2, fontWeight: 600, fontSize: '0.85rem' }}>
+                    <InsertDriveFileIcon sx={{ fontSize: 18, opacity: 0.7 }} /> Export Chat (.json)
                 </MenuItem>
-                <MenuItem onClick={() => setAnchorEl(null)} sx={{ gap: 1.5, py: 1.2, fontWeight: 600, fontSize: '0.85rem' }}>
-                    <ShieldIcon sx={{ fontSize: 18, opacity: 0.7 }} /> Privacy Settings
+                
+                <Divider sx={{ my: 1, opacity: 0.1 }} />
+
+                <MenuItem onClick={() => handleClearChat('me')} sx={{ gap: 1.5, py: 1.2, fontWeight: 600, fontSize: '0.85rem' }}>
+                    <DeleteIcon sx={{ fontSize: 18, opacity: 0.7 }} /> Clear Chat (For Me)
                 </MenuItem>
-                <MenuItem onClick={() => setAnchorEl(null)} sx={{ gap: 1.5, py: 1.2, fontWeight: 600, fontSize: '0.85rem', color: '#ff4d4d' }}>
-                    <DeleteIcon sx={{ fontSize: 18, opacity: 0.7 }} /> Clear History
-                </MenuItem>
+
+                {!isSelf && (
+                    <MenuItem onClick={() => handleClearChat('everyone')} sx={{ gap: 1.5, py: 1.2, fontWeight: 600, fontSize: '0.85rem', color: '#ff4d4d' }}>
+                        <ShieldIcon sx={{ fontSize: 18, opacity: 0.7 }} /> Wipe My Footprint
+                    </MenuItem>
+                )}
+
+                {isSelf && (
+                    <MenuItem onClick={() => handleClearChat('everyone')} sx={{ gap: 1.5, py: 1.2, fontWeight: 600, fontSize: '0.85rem', color: '#ff4d4d' }}>
+                        <DeleteIcon sx={{ fontSize: 18, opacity: 0.7 }} /> Nuclear Wipe
+                    </MenuItem>
+                )}
             </Menu>
 
             {/* Messages Area */}
