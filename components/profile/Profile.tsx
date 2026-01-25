@@ -21,13 +21,14 @@ import ChatIcon from '@mui/icons-material/Chat';
 import { useRouter } from 'next/navigation';
 import { EditProfileModal } from './EditProfileModal';
 import { fetchProfilePreview } from '@/lib/profile-preview';
+import { getUserProfilePicId } from '@/lib/user-utils';
 
 interface ProfileProps {
     username?: string;
 }
 
 export const Profile = ({ username }: ProfileProps) => {
-    const { user: currentUser } = useAuth();
+    const { user: authUser } = useAuth();
     const router = useRouter();
     const [profile, setProfile] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -43,27 +44,55 @@ export const Profile = ({ username }: ProfileProps) => {
 
     const normalizedUsername = normalizeUsername(username);
 
-    const isOwnProfile = currentUser && !profile?.__external && (
-        normalizedUsername === profile?.username || 
-        (!normalizedUsername && profile?.$id === currentUser.$id)
-    );
+    // Identity check: is this the logged-in user's profile?
+    const isOwnProfile = !!(authUser && !profile?.__external && (
+        normalizedUsername === authUser.prefs?.username || 
+        normalizedUsername === normalizeUsername(authUser.name) ||
+        (!normalizedUsername && profile?.$id === authUser.$id) ||
+        (profile?.$id === authUser.$id)
+    ));
 
     useEffect(() => {
         loadProfile();
-    }, [username, currentUser]);
+    }, [username, authUser]);
 
     useEffect(() => {
-        if (profile) {
-            const picId = profile.avatarFileId || profile.profilePicId || profile.avatarUrl;
-            if (picId) {
-                fetchProfilePreview(picId, 200, 200).then(url => {
-                    setAvatarUrl(url as unknown as string);
-                });
+        const fetchAvatar = async () => {
+            // Priority 1: If it's our own profile, fetch exactly like the topbar
+            if (isOwnProfile && authUser) {
+                const picId = getUserProfilePicId(authUser);
+                if (picId) {
+                    try {
+                        const url = await fetchProfilePreview(picId, 200, 200);
+                        setAvatarUrl(url as unknown as string);
+                        return;
+                    } catch (e) {
+                        console.warn('Failed to fetch own profile avatar', e);
+                    }
+                }
+            }
+
+            // Priority 2: Fetch from the profile data (database record)
+            if (profile) {
+                const picId = profile.avatarFileId || profile.profilePicId || profile.avatarUrl;
+                if (picId) {
+                    try {
+                        const url = await fetchProfilePreview(picId, 200, 200);
+                        setAvatarUrl(url as unknown as string);
+                    } catch (e) {
+                        console.warn('Failed to fetch database profile avatar', e);
+                        setAvatarUrl(null);
+                    }
+                } else {
+                    setAvatarUrl(null);
+                }
             } else {
                 setAvatarUrl(null);
             }
-        }
-    }, [profile]);
+        };
+
+        fetchAvatar();
+    }, [profile, authUser, isOwnProfile]);
 
     const loadProfile = async () => {
         setLoading(true);
@@ -85,10 +114,26 @@ export const Profile = ({ username }: ProfileProps) => {
                         };
                     }
                 }
-            } else if (currentUser) {
-                // Self-Healing: Ensure global profile exists when viewing own profile
-                await UsersService.ensureGlobalProfile(currentUser, true);
-                data = await UsersService.getProfileById(currentUser.$id);
+            } else if (authUser) {
+                // For own profile, always ensure identity is synced first
+                await UsersService.ensureGlobalProfile(authUser, true);
+                data = await UsersService.getProfileById(authUser.$id);
+                
+                // If database fetch failed or is missing fields, merge with authUser
+                if (data) {
+                    data = {
+                        ...data,
+                        displayName: data.displayName || authUser.name,
+                        username: data.username || authUser.prefs?.username
+                    };
+                } else {
+                    data = {
+                        $id: authUser.$id,
+                        displayName: authUser.name,
+                        username: authUser.prefs?.username || authUser.name,
+                        bio: authUser.prefs?.bio || ""
+                    };
+                }
             }
 
             if (data) {
@@ -104,10 +149,10 @@ export const Profile = ({ username }: ProfileProps) => {
     };
 
     const handleFollow = async () => {
-        if (!currentUser) return; // Prompt to login
+        if (!authUser || !profile) return;
         setFollowLoading(true);
         try {
-            await SocialService.followUser(currentUser.$id, profile.$id);
+            await SocialService.followUser(authUser.$id, profile.$id);
             setIsFollowing(true);
         } catch (error) {
             console.error('Follow failed:', error);
@@ -174,7 +219,7 @@ export const Profile = ({ username }: ProfileProps) => {
                                         startIcon={<PersonAddIcon />} 
                                         sx={{ borderRadius: 5 }}
                                         onClick={handleFollow}
-                                        disabled={followLoading || !currentUser}
+                                        disabled={followLoading || !authUser}
                                     >
                                         {isFollowing ? 'Following' : 'Follow'}
                                     </Button>

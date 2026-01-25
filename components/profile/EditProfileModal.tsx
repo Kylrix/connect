@@ -80,11 +80,14 @@ export const EditProfileModal = ({ open, onClose, profile, onUpdate }: EditProfi
         setLoading(true);
         setError('');
         try {
-            await UsersService.updateProfile(profile.$id, {
-                username,
-                bio,
-                displayName
-            });
+            // Only send fields that actually changed or are definitely supported
+            const updateData: any = {
+                bio: bio.trim(),
+                displayName: displayName.trim(),
+                username: username.toLowerCase().trim()
+            };
+
+            await UsersService.updateProfile(profile.$id, updateData);
 
             // Update global account name and username preference for ecosystem coherence
             try {
@@ -93,7 +96,8 @@ export const EditProfileModal = ({ open, onClose, profile, onUpdate }: EditProfi
                     const currentPrefs = await account.getPrefs();
                     await account.updatePrefs({
                         ...currentPrefs,
-                        username: username.toLowerCase().trim()
+                        username: username.toLowerCase().trim(),
+                        bio: bio.trim() // Also store bio in prefs for topbar-like instant fetching
                     });
                 }
             } catch (prefErr) {
@@ -103,6 +107,7 @@ export const EditProfileModal = ({ open, onClose, profile, onUpdate }: EditProfi
             onUpdate();
             onClose();
         } catch (err: any) {
+            console.error('Profile update failed:', err);
             setError(err.message || 'Failed to update profile');
         } finally {
             setLoading(false);
