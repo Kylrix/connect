@@ -48,6 +48,8 @@ import BookmarkIcon from '@mui/icons-material/BookmarkOutlined';
 import GroupIcon from '@mui/icons-material/GroupWorkOutlined';
 import PersonIcon from '@mui/icons-material/PersonOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutlineOutlined';
+import NoteIcon from '@mui/icons-material/DescriptionOutlined';
+import KeyIcon from '@mui/icons-material/VpnKeyOutlined';
 
 export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
     const { user } = useAuth();
@@ -61,6 +63,9 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
     const [attachment, setAttachment] = useState<File | null>(null);
     const [isRecording, setIsRecording] = useState(false);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+    const [attachAnchorEl, setAttachAnchorEl] = useState<null | HTMLElement>(null);
+    const [noteModalOpen, setNoteModalOpen] = useState(false);
+    const [secretModalOpen, setSecretModalOpen] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -414,10 +419,43 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                         bgcolor: 'rgba(255, 255, 255, 0.05)',
                     }
                 }}>
-                    <IconButton size="small" onClick={() => fileInputRef.current?.click()} sx={{ color: 'text.secondary', p: 1.2 }}>
+                    <IconButton 
+                        size="small" 
+                        onClick={(e) => setAttachAnchorEl(e.currentTarget)} 
+                        sx={{ color: 'text.secondary', p: 1.2 }}
+                    >
                         <AttachFileIcon sx={{ fontSize: 22 }} />
                     </IconButton>
-                    <input type="file" hidden ref={fileInputRef} onChange={(e) => setAttachment(e.target.files?.[0] || null)} />
+                    <input type="file" hidden ref={fileInputRef} onChange={onFileChange} />
+
+                    <Menu
+                        anchorEl={attachAnchorEl}
+                        open={Boolean(attachAnchorEl)}
+                        onClose={() => setAttachAnchorEl(null)}
+                        anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+                        transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                        PaperProps={{
+                            sx: {
+                                mb: 1,
+                                borderRadius: '16px',
+                                bgcolor: 'rgba(15, 15, 15, 0.95)',
+                                backdropFilter: 'blur(20px)',
+                                border: '1px solid rgba(255, 255, 255, 0.08)',
+                                backgroundImage: 'none',
+                                minWidth: 200
+                            }
+                        }}
+                    >
+                        <MenuItem onClick={() => { handleFileSelect('*'); setAttachAnchorEl(null); }} sx={{ gap: 1.5, py: 1.2, fontWeight: 600, fontSize: '0.85rem' }}>
+                            <InsertDriveFileIcon sx={{ fontSize: 18, opacity: 0.7 }} /> Upload File
+                        </MenuItem>
+                        <MenuItem onClick={() => { setNoteModalOpen(true); setAttachAnchorEl(null); }} sx={{ gap: 1.5, py: 1.2, fontWeight: 600, fontSize: '0.85rem' }}>
+                            <NoteIcon sx={{ fontSize: 18, opacity: 0.7 }} /> Attach Note
+                        </MenuItem>
+                        <MenuItem onClick={() => { setSecretModalOpen(true); setAttachAnchorEl(null); }} sx={{ gap: 1.5, py: 1.2, fontWeight: 600, fontSize: '0.85rem' }}>
+                            <KeyIcon sx={{ fontSize: 18, opacity: 0.7 }} /> Attach Secret (Keep)
+                        </MenuItem>
+                    </Menu>
                     
                     <TextField
                         fullWidth
