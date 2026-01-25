@@ -180,13 +180,44 @@ export const UsersService = {
         const cached = profileCache.get(cacheKey);
         if (cached && cached.expires > Date.now()) return cached.data;
 
+        // 1. Primary Search in Global Directory (Connect)
         const res = await tablesDB.listRows(DB_ID, USERS_TABLE, [
             Query.or([
                 Query.startsWith('username', cleaned.toLowerCase()),
-                Query.search('displayName', cleaned)
+                Query.startsWith('displayName', cleaned)
             ]),
             Query.limit(10)
         ]);
+
+        // 2. Fallback to Note Users if search is empty or small
+        if (res.total < 5 && WHISPERRNOTE_USERS_TABLE) {
+            try {
+                const noteRes = await tablesDB.listRows(WHISPERRNOTE_DB_ID, WHISPERRNOTE_USERS_TABLE, [
+                    Query.or([
+                        Query.startsWith('name', cleaned),
+                        Query.startsWith('email', cleaned.toLowerCase())
+                    ]),
+                    Query.limit(5)
+                ]);
+
+                // Map note users to common format and merge
+                for (const noteUser of noteRes.rows) {
+                    if (!res.rows.find((r: any) => r.$id === noteUser.$id)) {
+                        res.rows.push({
+                            $id: noteUser.$id,
+                            username: noteUser.email?.split('@')[0] || noteUser.$id.slice(0, 8),
+                            displayName: noteUser.name,
+                            avatarUrl: noteUser.profilePicId || noteUser.avatar || null,
+                            privacySettings: JSON.stringify({ public: true, searchable: true })
+                        });
+                        res.total++;
+                    }
+                }
+            } catch (e) {
+                console.warn('[UsersService] Note fallback search failed:', e);
+            }
+        }
+
         profileCache.set(cacheKey, { data: res, expires: Date.now() + 10000 }); // 10s for search
         return res;
     },

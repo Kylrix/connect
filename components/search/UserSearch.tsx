@@ -17,7 +17,8 @@ import {
     Avatar,
     Typography,
     Paper,
-    IconButton
+    IconButton,
+    CircularProgress
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import MessageIcon from '@mui/icons-material/Message';
@@ -64,10 +65,13 @@ export const UserSearch = () => {
         try {
             const response = await UsersService.searchUsers(term);
             const filtered = (response.rows || []).filter((u: any) => {
+                // If it's me, skip
+                if (user && u.$id === user.$id) return false;
+                
                 if (u.privacySettings) {
                     try {
                         const settings = JSON.parse(u.privacySettings);
-                        if (settings.searchable === false) return false;
+                        if (settings.public === false || settings.searchable === false) return false;
                     } catch (e) { }
                 }
                 return true;
@@ -75,12 +79,18 @@ export const UserSearch = () => {
             setResults(filtered);
         } catch (error) {
             console.error('Search failed:', error);
+            setResults([]);
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
+        if (query.trim().length < 2) {
+            setResults([]);
+            setLoading(false);
+            return;
+        }
         const timer = setTimeout(() => {
             fetchResults(query);
         }, 300);
@@ -142,9 +152,15 @@ export const UserSearch = () => {
                     InputProps={{ disableUnderline: true }}
                 />
                 <IconButton type="submit" sx={{ p: '10px' }} aria-label="search" disabled={loading}>
-                    <SearchIcon />
+                    {loading ? <CircularProgress size={20} /> : <SearchIcon />}
                 </IconButton>
             </Paper>
+
+            {loading && results.length === 0 && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                    <CircularProgress size={24} />
+                </Box>
+            )}
 
             <List>
                 {(results as any[]).map((u) => (
@@ -172,8 +188,10 @@ export const UserSearch = () => {
                         </ListItem>
                     </Paper>
                 ))}
-                {results.length === 0 && query && !loading && (
-                    <Typography align="center" color="text.secondary">No users found</Typography>
+                {results.length === 0 && query.trim().length >= 2 && !loading && (
+                    <Typography align="center" color="text.secondary" sx={{ py: 4 }}>
+                        No users found matching "@{query}"
+                    </Typography>
                 )}
             </List>
         </Box>

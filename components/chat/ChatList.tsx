@@ -15,24 +15,45 @@ import {
     Typography, 
     Box,
     CircularProgress,
-    Divider
+    Divider,
+    Button,
+    alpha
 } from '@mui/material';
 import GroupIcon from '@mui/icons-material/GroupWorkOutlined';
 import PersonIcon from '@mui/icons-material/PersonOutlined';
 import BookmarkIcon from '@mui/icons-material/BookmarkOutlined';
 import SearchIcon from '@mui/icons-material/Search';
+import LockIcon from '@mui/icons-material/LockOutlined';
+import { ecosystemSecurity } from '@/lib/ecosystem/security';
+import { MasterPassModal } from './MasterPassModal';
 
 export const ChatList = () => {
     const { user } = useAuth();
     const [conversations, setConversations] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [isUnlocked, setIsUnlocked] = useState(ecosystemSecurity.status.isUnlocked);
+    const [unlockModalOpen, setUnlockModalOpen] = useState(false);
 
     useEffect(() => {
-        if (user) {
+        const checkUnlock = setInterval(() => {
+            if (ecosystemSecurity.status.isUnlocked !== isUnlocked) {
+                setIsUnlocked(ecosystemSecurity.status.isUnlocked);
+                if (ecosystemSecurity.status.isUnlocked) {
+                    loadConversations();
+                }
+            }
+        }, 1000);
+        return () => clearInterval(checkUnlock);
+    }, [isUnlocked]);
+
+    useEffect(() => {
+        if (user && isUnlocked) {
             loadConversations();
+        } else if (!isUnlocked) {
+            setLoading(false);
         }
-    }, [user]);
+    }, [user, isUnlocked]);
 
     const loadConversations = async () => {
         try {
@@ -120,8 +141,8 @@ export const ChatList = () => {
     );
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: 'background.default' }}>
-            <Box sx={{ p: 3, pb: 2 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: 'background.default', position: 'relative' }}>
+            <Box sx={{ p: 3, pb: 2, filter: !isUnlocked ? 'blur(8px)' : 'none', pointerEvents: !isUnlocked ? 'none' : 'auto' }}>
                 <Typography 
                     variant="h5" 
                     sx={{ 
@@ -169,7 +190,13 @@ export const ChatList = () => {
                 </Box>
             </Box>
 
-            <Box sx={{ overflowY: 'auto', flex: 1, px: 1 }}>
+            <Box sx={{ 
+                overflowY: 'auto', 
+                flex: 1, 
+                px: 1, 
+                filter: !isUnlocked ? 'blur(12px)' : 'none',
+                pointerEvents: !isUnlocked ? 'none' : 'auto'
+            }}>
                 {filteredConversations.length === 0 ? (
                     <Box sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
                         <Typography sx={{ fontWeight: 600, fontSize: '0.9rem' }}>No conversations</Typography>
@@ -229,6 +256,63 @@ export const ChatList = () => {
                     </List>
                 )}
             </Box>
+
+            {!isUnlocked && (
+                <Box sx={{ 
+                    position: 'absolute', 
+                    top: 0, 
+                    left: 0, 
+                    right: 0, 
+                    bottom: 0, 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    zIndex: 10,
+                    p: 3,
+                    textAlign: 'center',
+                    bgcolor: 'rgba(0,0,0,0.2)'
+                }}>
+                    <Box sx={{ 
+                        p: 2, 
+                        borderRadius: '20px', 
+                        bgcolor: 'rgba(15, 15, 15, 0.8)', 
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        boxShadow: '0 20px 40px rgba(0,0,0,0.4)'
+                    }}>
+                        <LockIcon sx={{ fontSize: 40, color: 'primary.main', mb: 2 }} />
+                        <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>Chats Locked</Typography>
+                        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3, maxWidth: 240 }}>
+                            Unlock your ecosystem vault to access your end-to-end encrypted conversations.
+                        </Typography>
+                        <Button 
+                            variant="contained" 
+                            onClick={() => setUnlockModalOpen(true)}
+                            sx={{ 
+                                borderRadius: '12px', 
+                                px: 4, 
+                                py: 1.2, 
+                                fontWeight: 800,
+                                bgcolor: 'primary.main',
+                                color: 'black',
+                                '&:hover': { bgcolor: alpha('#00F0FF', 0.8) }
+                            }}
+                        >
+                            Unlock Vault
+                        </Button>
+                    </Box>
+                </Box>
+            )}
+
+            <MasterPassModal 
+                open={unlockModalOpen} 
+                onClose={() => setUnlockModalOpen(false)} 
+                onSuccess={() => {
+                    setIsUnlocked(true);
+                    loadConversations();
+                }}
+            />
         </Box>
     );
 };
