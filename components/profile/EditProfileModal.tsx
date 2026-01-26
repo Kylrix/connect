@@ -19,6 +19,13 @@ import { UsersService } from '@/lib/services/users';
 import { account } from '@/lib/appwrite/client';
 import PersonIcon from '@mui/icons-material/PersonOutlined';
 import { alpha } from '@mui/material/styles';
+import DescriptionIcon from '@mui/icons-material/DescriptionOutlined';
+import { NoteSelectorModal } from '../chat/NoteSelectorModal';
+import { EcosystemService } from '@/lib/services/ecosystem';
+import { FormControlLabel, Checkbox, IconButton, Tooltip } from '@mui/material';
+import SyncIcon from '@mui/icons-material/SyncOutlined';
+import { getUserProfilePicId } from '@/lib/user-utils';
+import { useAuth } from '@/lib/auth';
 
 interface EditProfileModalProps {
     open: boolean;
@@ -28,48 +35,50 @@ interface EditProfileModalProps {
 }
 
 export const EditProfileModal = ({ open, onClose, profile, onUpdate }: EditProfileModalProps) => {
+    const { user: authUser } = useAuth();
     const [username, setUsername] = useState(profile?.username || '');
     const [bio, setBio] = useState(profile?.bio || '');
     const [displayName, setDisplayName] = useState(profile?.displayName || '');
+    const [avatarFileId, setAvatarFileId] = useState(profile?.avatarFileId || profile?.profilePicId || '');
     const [isChecking, setIsChecking] = useState(false);
     const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [isNoteSelectorOpen, setIsNoteSelectorOpen] = useState(false);
+    const [saveToNote, setSaveToNote] = useState(false);
 
     useEffect(() => {
         if (profile) {
             setUsername(profile.username || '');
             setBio(profile.bio || '');
             setDisplayName(profile.displayName || '');
+            setAvatarFileId(profile.avatarFileId || profile.profilePicId || '');
         }
     }, [profile, open]);
 
-    useEffect(() => {
-        const checkUsername = async () => {
-            if (!username || username === profile?.username) {
-                setIsAvailable(null);
-                return;
+    const handleSyncAvatar = async () => {
+        if (!authUser) return;
+        try {
+            const picId = getUserProfilePicId(authUser);
+            if (picId) {
+                setAvatarFileId(picId);
+            } else {
+                const prefs = await account.getPrefs();
+                const prefPicId = prefs?.profilePicId || prefs?.avatarFileId;
+                if (prefPicId) setAvatarFileId(prefPicId);
             }
+        } catch (e) {
+            console.warn('Manual avatar sync failed', e);
+        }
+    };
 
-            if (username.length < 3) {
-                setIsAvailable(false);
-                return;
-            }
-
-            setIsChecking(true);
-            try {
-                const available = await UsersService.isUsernameAvailable(username);
-                setIsAvailable(available);
-            } catch (err) {
-                console.error('Failed to check username:', err);
-            } finally {
-                setIsChecking(false);
-            }
-        };
-
-        const timer = setTimeout(checkUsername, 500);
-        return () => clearTimeout(timer);
-    }, [username, profile?.username]);
+    const handleNoteSelect = (note: any) => {
+        if (note.content) {
+            setBio(note.content);
+        } else if (note.title) {
+            setBio(note.title);
+        }
+    };
 
     const handleSave = async () => {
         if (!profile?.$id) return;
@@ -86,10 +95,24 @@ export const EditProfileModal = ({ open, onClose, profile, onUpdate }: EditProfi
             const updateData: any = {
                 bio: bio.trim(),
                 displayName: displayName.trim(),
-                username: username.toLowerCase().trim()
+                username: username.toLowerCase().trim(),
+                avatarFileId: avatarFileId.trim()
             };
 
             await UsersService.updateProfile(profile.$id, updateData);
+
+            // Optional: Save bio to a new note in Whisperrnote
+            if (saveToNote && bio.trim()) {
+                try {
+                    await EcosystemService.createNote(
+                        profile.$id, 
+                        `Bio Sync - ${new Date().toLocaleDateString()}`, 
+                        bio.trim()
+                    );
+                } catch (noteErr) {
+                    console.warn('Failed to save bio to note:', noteErr);
+                }
+            }
 
             // Update global account name and username preference for ecosystem coherence
             try {
@@ -117,6 +140,7 @@ export const EditProfileModal = ({ open, onClose, profile, onUpdate }: EditProfi
     };
 
     return (
+        <>
         <Dialog 
             open={open} 
             onClose={onClose} 
@@ -207,24 +231,81 @@ export const EditProfileModal = ({ open, onClose, profile, onUpdate }: EditProfi
                     />
 
                     <TextField
-                        label="Bio"
+                        label="Avatar File ID"
                         fullWidth
-                        multiline
-                        rows={3}
                         variant="filled"
-                        value={bio}
-                        onChange={(e) => setBio(e.target.value)}
-                        placeholder="Tell the world about yourself..."
+                        value={avatarFileId}
+                        onChange={(e) => setAvatarFileId(e.target.value)}
+                        placeholder="Sync ID from Whisperr ID account..."
                         InputProps={{
                             disableUnderline: true,
                             sx: { 
                                 borderRadius: '12px', 
                                 bgcolor: 'rgba(255, 255, 255, 0.05)',
                                 '&.Mui-focused': { bgcolor: 'rgba(255, 255, 255, 0.08)' }
-                            }
+                            },
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <Tooltip title="Sync with Account Preferences">
+                                        <IconButton onClick={handleSyncAvatar} sx={{ color: 'primary.main' }}>
+                                            <SyncIcon />
+                                        </IconButton>
+                                    </Tooltip>
+                                </InputAdornment>
+                            )
                         }}
                         InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }}
+                        helperText="The profile picture ID from your Whisperr ID account"
                     />
+
+                    <Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>BIO</Typography>
+                            <Button 
+                                size="small" 
+                                startIcon={<DescriptionIcon />} 
+                                onClick={() => setIsNoteSelectorOpen(true)}
+                                sx={{ 
+                                    textTransform: 'none', 
+                                    fontSize: '0.75rem', 
+                                    borderRadius: '8px',
+                                    color: 'primary.main',
+                                    '&:hover': { bgcolor: alpha('#00F0FF', 0.1) }
+                                }}
+                            >
+                                Fill from Note
+                            </Button>
+                        </Box>
+                        <TextField
+                            fullWidth
+                            multiline
+                            rows={3}
+                            variant="filled"
+                            value={bio}
+                            onChange={(e) => setBio(e.target.value)}
+                            placeholder="Tell the world about yourself..."
+                            InputProps={{
+                                disableUnderline: true,
+                                sx: { 
+                                    borderRadius: '12px', 
+                                    bgcolor: 'rgba(255, 255, 255, 0.05)',
+                                    '&.Mui-focused': { bgcolor: 'rgba(255, 255, 255, 0.08)' }
+                                }
+                            }}
+                        />
+                        <FormControlLabel
+                            control={
+                                <Checkbox 
+                                    size="small" 
+                                    checked={saveToNote} 
+                                    onChange={(e) => setSaveToNote(e.target.checked)} 
+                                    sx={{ color: 'rgba(255,255,255,0.3)', '&.Mui-checked': { color: 'primary.main' } }}
+                                />
+                            }
+                            label={<Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>Save bio back to a new note</Typography>}
+                            sx={{ mt: 0.5, ml: 0 }}
+                        />
+                    </Box>
                 </Box>
                 {error && (
                     <Typography color="error" variant="caption" sx={{ mt: 2, display: 'block', fontWeight: 600 }}>
@@ -263,5 +344,12 @@ export const EditProfileModal = ({ open, onClose, profile, onUpdate }: EditProfi
                 </Button>
             </DialogActions>
         </Dialog>
+
+        <NoteSelectorModal 
+            open={isNoteSelectorOpen}
+            onClose={() => setIsNoteSelectorOpen(false)}
+            onSelect={handleNoteSelect}
+        />
+        </>
     );
 };

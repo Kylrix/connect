@@ -15,6 +15,23 @@ export const EcosystemService = {
         );
     },
 
+    async createNote(userId: string, title: string, content: string) {
+        return await tablesDB.createRow(
+            APPWRITE_CONFIG.DATABASES.WHISPERRNOTE,
+            '67ff05f3002502ef239e',
+            'unique()',
+            {
+                userId,
+                title,
+                content,
+                isPublic: false,
+                status: 'published',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            }
+        );
+    },
+
     async listSecrets(userId: string) {
         return await tablesDB.listRows(
             APPWRITE_CONFIG.DATABASES.PASSWORD_MANAGER,
