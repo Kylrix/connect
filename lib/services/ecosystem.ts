@@ -54,5 +54,17 @@ export const EcosystemService = {
                 Query.limit(50)
             ]
         );
+    },
+
+    async listEvents(userId: string) {
+        return await tablesDB.listRows(
+            APPWRITE_CONFIG.DATABASES.WHISPERRFLOW,
+            'events',
+            [
+                Query.equal('userId', userId),
+                Query.orderDesc('startTime'),
+                Query.limit(50)
+            ]
+        );
     }
 };

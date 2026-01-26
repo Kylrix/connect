@@ -15,19 +15,33 @@ export const SocialService = {
             Query.limit(50)
         ]);
 
-        // Enrich moments with attached note data if present
+        // Enrich moments with attached data (notes or events) if present
         const enrichedRows = await Promise.all(moments.rows.map(async (moment: any) => {
-            if (moment.fileId && moment.fileId.startsWith('note:')) {
-                const noteId = moment.fileId.replace('note:', '');
-                try {
-                    const note = await tablesDB.getRow(
-                        APPWRITE_CONFIG.DATABASES.WHISPERRNOTE,
-                        '67ff05f3002502ef239e',
-                        noteId
-                    );
-                    return { ...moment, attachedNote: note };
-                } catch (e) {
-                    return moment;
+            if (moment.fileId) {
+                if (moment.fileId.startsWith('note:')) {
+                    const noteId = moment.fileId.replace('note:', '');
+                    try {
+                        const note = await tablesDB.getRow(
+                            APPWRITE_CONFIG.DATABASES.WHISPERRNOTE,
+                            '67ff05f3002502ef239e',
+                            noteId
+                        );
+                        return { ...moment, attachedNote: note };
+                    } catch (e) {
+                        return moment;
+                    }
+                } else if (moment.fileId.startsWith('event:')) {
+                    const eventId = moment.fileId.replace('event:', '');
+                    try {
+                        const event = await tablesDB.getRow(
+                            APPWRITE_CONFIG.DATABASES.WHISPERRFLOW,
+                            'events',
+                            eventId
+                        );
+                        return { ...moment, attachedEvent: event };
+                    } catch (e) {
+                        return moment;
+                    }
                 }
             }
             return moment;
@@ -52,7 +66,7 @@ export const SocialService = {
         });
     },
 
-    async createMoment(creatorId: string, content: string, type: 'image' | 'video' = 'image', mediaIds: string[] = [], visibility: 'public' | 'private' | 'followers' = 'public', noteId?: string) {
+    async createMoment(creatorId: string, content: string, type: 'image' | 'video' = 'image', mediaIds: string[] = [], visibility: 'public' | 'private' | 'followers' = 'public', noteId?: string, eventId?: string) {
         const permissions = [
             `read("user:${creatorId}")`,
             `update("user:${creatorId}")`,
@@ -64,8 +78,10 @@ export const SocialService = {
         }
 
         // We MUST provide a fileId because it is required in the schema.
-        // If we have a noteId, we use it as the fileId with a prefix to distinguish it.
-        const effectiveFileId = noteId ? `note:${noteId}` : (mediaIds[0] || "none");
+        // Priority: event > note > media
+        let effectiveFileId = mediaIds[0] || "none";
+        if (eventId) effectiveFileId = `event:${eventId}`;
+        else if (noteId) effectiveFileId = `note:${noteId}`;
 
         return await tablesDB.createRow(DB_ID, MOMENTS_TABLE, ID.unique(), {
             userId: creatorId, 

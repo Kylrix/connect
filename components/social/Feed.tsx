@@ -280,7 +280,7 @@ export const Feed = () => {
                         }
                     />
                     <CardContent sx={{ pt: 0, px: 3 }}>
-                        {moment.caption && (
+                        {moment.caption && moment.caption.trim() !== "" && (
                             <Typography variant="body1" sx={{ lineHeight: 1.6, fontSize: '1.05rem', mb: moment.attachedNote ? 2 : 0 }}>
                                 {moment.caption}
                             </Typography>
@@ -291,42 +291,105 @@ export const Feed = () => {
                                 variant="outlined"
                                 onClick={() => handleOpenNote(moment.attachedNote)}
                                 sx={{
-                                    p: 2.5,
+                                    p: 0,
                                     borderRadius: 4,
-                                    bgcolor: 'rgba(255, 255, 255, 0.03)',
+                                    bgcolor: 'rgba(255, 255, 255, 0.02)',
                                     borderColor: 'rgba(255, 255, 255, 0.08)',
                                     cursor: 'pointer',
-                                    transition: 'all 0.2s ease',
+                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    overflow: 'hidden',
                                     '&:hover': {
-                                        bgcolor: 'rgba(0, 240, 255, 0.05)',
-                                        borderColor: 'rgba(0, 240, 255, 0.3)',
-                                        transform: 'translateY(-2px)'
+                                        borderColor: 'rgba(0, 245, 255, 0.4)',
+                                        transform: 'translateY(-4px)',
+                                        boxShadow: '0 12px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 245, 255, 0.1)'
                                     }
                                 }}
                             >
-                                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-                                    <DescriptionIcon color="primary" sx={{ mr: 1.5 }} />
-                                    <Typography variant="subtitle1" fontWeight={900}>
-                                        {moment.attachedNote.title || 'Untitled Note'}
+                                <Box sx={{ 
+                                    p: 3, 
+                                    background: 'linear-gradient(135deg, rgba(0, 245, 255, 0.05) 0%, rgba(0, 163, 255, 0.02) 100%)',
+                                    borderBottom: '1px solid rgba(255, 255, 255, 0.05)'
+                                }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                        <Box 
+                                            sx={{ 
+                                                width: 40, 
+                                                height: 40, 
+                                                borderRadius: 1.5, 
+                                                bgcolor: 'rgba(0, 245, 255, 0.1)', 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                justifyContent: 'center',
+                                                mr: 2,
+                                                boxShadow: '0 4px 12px rgba(0, 245, 255, 0.15)'
+                                            }}
+                                        >
+                                            <DescriptionIcon sx={{ color: '#00F5FF', fontSize: 24 }} />
+                                        </Box>
+                                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                                            <Typography 
+                                                variant="subtitle1" 
+                                                fontWeight={900} 
+                                                sx={{ 
+                                                    color: 'white',
+                                                    fontFamily: 'var(--font-space-grotesk)',
+                                                    letterSpacing: '-0.01em',
+                                                    lineHeight: 1.2
+                                                }}
+                                            >
+                                                {moment.attachedNote.title || 'Untitled Note'}
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.4)', fontWeight: 600 }}>
+                                                Public Note • {new Date(moment.attachedNote.updatedAt || moment.attachedNote.$updatedAt).toLocaleDateString()}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+
+                                    <Typography 
+                                        variant="body2" 
+                                        sx={{ 
+                                            color: 'rgba(255, 255, 255, 0.7)', 
+                                            lineHeight: 1.7,
+                                            fontSize: '0.925rem',
+                                            display: '-webkit-box',
+                                            WebkitLineClamp: 4,
+                                            WebkitBoxOrient: 'vertical',
+                                            overflow: 'hidden',
+                                            fontFamily: 'var(--font-inter)'
+                                        }}
+                                    >
+                                        {moment.attachedNote.content?.replace(/[#*`]/g, '')}
                                     </Typography>
                                 </Box>
-                                <Typography 
-                                    variant="body2" 
-                                    color="text.secondary" 
-                                    sx={{ 
-                                        lineHeight: 1.6,
-                                        display: '-webkit-box',
-                                        WebkitLineClamp: 3,
-                                        WebkitBoxOrient: 'vertical',
-                                        overflow: 'hidden'
-                                    }}
-                                >
-                                    {moment.attachedNote.content?.replace(/[#*`]/g, '')}
-                                </Typography>
-                                <Box sx={{ display: 'flex', mt: 2, alignItems: 'center' }}>
-                                    <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 800 }}>
-                                        Click to read note
+                                <Box sx={{ 
+                                    px: 3, 
+                                    py: 1.5, 
+                                    bgcolor: 'rgba(0, 0, 0, 0.2)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between'
+                                }}>
+                                    <Typography variant="caption" sx={{ color: '#00F5FF', fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', fontSize: '0.65rem' }}>
+                                        Shared via Whisperrnote
                                     </Typography>
+                                    <Box sx={{ display: 'flex', gap: 1 }}>
+                                        {moment.attachedNote.tags?.slice(0, 2).map((tag: string, i: number) => (
+                                            <Box 
+                                                key={i}
+                                                sx={{ 
+                                                    px: 1, 
+                                                    py: 0.25, 
+                                                    borderRadius: 1, 
+                                                    bgcolor: 'rgba(255, 255, 255, 0.05)', 
+                                                    fontSize: '0.65rem',
+                                                    color: 'rgba(255, 255, 255, 0.5)',
+                                                    fontWeight: 700
+                                                }}
+                                            >
+                                                #{tag}
+                                            </Box>
+                                        ))}
+                                    </Box>
                                 </Box>
                             </Paper>
                         )}
