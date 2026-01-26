@@ -18,6 +18,7 @@ export class EcosystemSecurity {
   private masterKey: CryptoKey | null = null;
   private identityKeyPair: CryptoKeyPair | null = null;
   private conversationKeys: Map<string, CryptoKey> = new Map();
+  private decryptionCache: Map<string, string> = new Map();
   private isUnlocked = false;
   private nodeId: string = 'unknown';
 
@@ -236,13 +237,24 @@ export class EcosystemSecurity {
 
   async decrypt(encryptedData: string): Promise<string> {
     if (!this.masterKey) throw new Error("Security vault locked");
-    return this.decryptWithKey(encryptedData, this.masterKey);
+    
+    // Performance: Check cache first
+    if (this.decryptionCache.has(encryptedData)) {
+      return this.decryptionCache.get(encryptedData)!;
+    }
+
+    const plaintext = await this.decryptWithKey(encryptedData, this.masterKey);
+    
+    // Memoize
+    this.decryptionCache.set(encryptedData, plaintext);
+    return plaintext;
   }
 
   lock() {
     this.masterKey = null;
     this.identityKeyPair = null;
     this.conversationKeys.clear();
+    this.decryptionCache.clear();
     this.isUnlocked = false;
     if (typeof sessionStorage !== "undefined") {
         sessionStorage.removeItem("whisperr_vault_unlocked");

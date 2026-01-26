@@ -264,25 +264,39 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
         setInputText('');
         setAttachment(null);
 
+        // Optimistic UI Update: Add the plaintext message to the local state immediately
+        const optimisticId = `optimistic-${Date.now()}`;
+        const optimisticMessage: any = {
+            $id: optimisticId,
+            conversationId,
+            senderId: user.$id,
+            content: text,
+            type,
+            attachments,
+            $createdAt: new Date().toISOString(),
+            status: 'sending'
+        };
+
+        if (type === 'text') {
+            setMessages(prev => [...prev, optimisticMessage]);
+            setTimeout(() => scrollToBottom(), 50);
+        }
+
         try {
-            let type: 'text' | 'image' | 'video' | 'audio' | 'file' = 'text';
-            let attachments: string[] = [];
-
+            let actualAttachments = attachments;
             if (file) {
-                // Determine type
-                if (file.type.startsWith('image/')) type = 'image';
-                else if (file.type.startsWith('video/')) type = 'video';
-                else if (file.type.startsWith('audio/')) type = 'audio';
-                else type = 'file';
-
-                // Upload file
+                // ... determined type logic stays same
                 const bucketId = StorageService.getBucketForType(type);
                 const uploaded = await StorageService.uploadFile(file, bucketId);
-                attachments = [uploaded.$id];
+                actualAttachments = [uploaded.$id];
             }
 
-            await ChatService.sendMessage(conversationId, user.$id, text, type, attachments);
-            // Message will be added via Realtime subscriber
+            await ChatService.sendMessage(conversationId, user.$id, text, type, actualAttachments);
+            
+            // Remove optimistic message if it was text (Realtime will bring the official one)
+            if (type === 'text') {
+                setMessages(prev => prev.filter(m => m.$id !== optimisticId));
+            }
         } catch (error) {
             console.error('Failed to send message:', error);
             setInputText(text);
