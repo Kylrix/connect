@@ -17,10 +17,15 @@ export const APPWRITE_CONFIG = {
             FOLLOWS: 'follows',
             MOMENTS: 'moments',
             INTERACTIONS: 'interactions',
-            USERS: 'users'
+            USERS: 'users',
+            CONTACTS: 'contacts'
         },
         WHISPERRNOTE: {
             USERS: '67ff05c900247b5673d3'
+        },
+        PASSWORD_MANAGER: {
+            KEYCHAIN: 'keychain',
+            IDENTITIES: 'identities'
         }
     },
     BUCKETS: {
