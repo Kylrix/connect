@@ -29,6 +29,8 @@ import CommentIcon from '@mui/icons-material/ChatBubbleOutlineOutlined';
 import SendIcon from '@mui/icons-material/SendOutlined';
 import BookmarkIcon from '@mui/icons-material/BookmarkBorderOutlined';
 import { useRouter } from 'next/navigation';
+import { fetchProfilePreview } from '@/lib/profile-preview';
+import { getUserProfilePicId } from '@/lib/user-utils';
 
 export const Feed = () => {
     const { user } = useAuth();
@@ -37,6 +39,7 @@ export const Feed = () => {
     const [loading, setLoading] = useState(true);
     const [newMoment, setNewMoment] = useState('');
     const [posting, setPosting] = useState(false);
+    const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
     
     const [shareAnchorEl, setShareAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedMoment, setSelectedMoment] = useState<any>(null);
@@ -44,18 +47,41 @@ export const Feed = () => {
     useEffect(() => {
         if (user) {
             loadFeed();
+            fetchUserAvatar();
         }
     }, [user]);
+
+    const fetchUserAvatar = async () => {
+        const picId = getUserProfilePicId(user);
+        if (picId) {
+            try {
+                const url = await fetchProfilePreview(picId, 64, 64);
+                setUserAvatarUrl(url as unknown as string);
+            } catch (e) {
+                console.warn('Feed failed to fetch user avatar', e);
+            }
+        }
+    };
 
     const loadFeed = async () => {
         try {
             const response = await SocialService.getFeed(user!.$id);
-            // Enrich with creator details
+            // Enrich with creator details and avatars
             const enriched = await Promise.all(response.rows.map(async (moment: any) => {
                 try {
                     const creatorId = moment.userId || moment.creatorId;
                     const creator = await UsersService.getProfileById(creatorId);
-                    return { ...moment, creator };
+                    
+                    let avatarUrl = null;
+                    const picId = creator?.avatarFileId || creator?.profilePicId || creator?.avatarUrl || creator?.avatar;
+                    if (picId && typeof picId === 'string' && picId.length > 5) {
+                        try {
+                            const url = await fetchProfilePreview(picId, 64, 64);
+                            avatarUrl = url as unknown as string;
+                        } catch (e) {}
+                    }
+
+                    return { ...moment, creator: { ...creator, avatarUrl } };
                 } catch (e) {
                     return { ...moment, creator: { username: 'user', $id: moment.userId || moment.creatorId } };
                 }
@@ -122,7 +148,10 @@ export const Feed = () => {
                 <Card sx={{ mb: 4, borderRadius: '24px', bgcolor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)' }} elevation={0}>
                     <CardContent sx={{ p: 3 }}>
                         <Box sx={{ display: 'flex', gap: 2 }}>
-                            <Avatar sx={{ bgcolor: 'rgba(0, 240, 255, 0.1)', color: 'primary.main', fontWeight: 800 }}>
+                            <Avatar 
+                                src={userAvatarUrl || undefined}
+                                sx={{ bgcolor: 'rgba(0, 240, 255, 0.1)', color: 'primary.main', fontWeight: 800 }}
+                            >
                                 {user.name?.charAt(0).toUpperCase() || 'U'}
                             </Avatar>
                             <TextField
@@ -167,7 +196,10 @@ export const Feed = () => {
                 <Card key={moment.$id} sx={{ mb: 3, borderRadius: '24px', bgcolor: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', transition: 'all 0.2s ease', '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.03)' } }} elevation={0}>
                     <CardHeader
                         avatar={
-                            <Avatar sx={{ bgcolor: 'rgba(255, 255, 255, 0.05)', color: 'text.secondary', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                            <Avatar 
+                                src={moment.creator?.avatarUrl || undefined}
+                                sx={{ bgcolor: 'rgba(255, 255, 255, 0.05)', color: 'text.secondary', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+                            >
                                 {moment.creator?.username?.charAt(0).toUpperCase() || '?'}
                             </Avatar>
                         }
