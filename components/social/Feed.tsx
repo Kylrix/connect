@@ -23,13 +23,19 @@ import {
     Paper,
     alpha
 } from '@mui/material';
-import FavoriteIcon from '@mui/icons-material/Favorite';
-import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
-import ShareIcon from '@mui/icons-material/ShareOutlined';
-import CommentIcon from '@mui/icons-material/ChatBubbleOutlineOutlined';
-import SendIcon from '@mui/icons-material/SendOutlined';
-import BookmarkIcon from '@mui/icons-material/BookmarkBorderOutlined';
-import CloseIcon from '@mui/icons-material/Close';
+import { 
+    Heart, 
+    MessageSquare, 
+    Share2, 
+    Bookmark, 
+    MoreHorizontal, 
+    X, 
+    FileText, 
+    Calendar,
+    Send,
+    MapPin,
+    Clock
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { fetchProfilePreview } from '@/lib/profile-preview';
 import { getUserProfilePicId } from '@/lib/user-utils';
@@ -219,7 +225,7 @@ export const Feed = () => {
                                     position: 'relative'
                                 }}
                             >
-                                <DescriptionIcon color="primary" sx={{ mr: 2 }} />
+                                <FileText size={20} color="#00F5FF" style={{ marginRight: '16px' }} strokeWidth={1.5} />
                                 <Box sx={{ flex: 1, minWidth: 0 }}>
                                     <Typography variant="subtitle2" fontWeight={800} noWrap>
                                         {selectedNote.title || 'Untitled Note'}
@@ -233,7 +239,7 @@ export const Feed = () => {
                                     onClick={() => setSelectedNote(null)}
                                     sx={{ ml: 1 }}
                                 >
-                                    <CloseIcon fontSize="small" />
+                                    <X size={16} strokeWidth={1.5} />
                                 </IconButton>
                             </Paper>
                         )}
@@ -252,7 +258,7 @@ export const Feed = () => {
                                     position: 'relative'
                                 }}
                             >
-                                <EventIcon color="primary" sx={{ mr: 2 }} />
+                                <Calendar size={20} color="#00A3FF" style={{ marginRight: '16px' }} strokeWidth={1.5} />
                                 <Box sx={{ flex: 1, minWidth: 0 }}>
                                     <Typography variant="subtitle2" fontWeight={800} noWrap>
                                         {selectedEvent.title || 'Untitled Event'}
@@ -266,7 +272,7 @@ export const Feed = () => {
                                     onClick={() => setSelectedEvent(null)}
                                     sx={{ ml: 1 }}
                                 >
-                                    <CloseIcon fontSize="small" />
+                                    <X size={16} strokeWidth={1.5} />
                                 </IconButton>
                             </Paper>
                         )}
@@ -275,7 +281,7 @@ export const Feed = () => {
                     <CardActions sx={{ justifyContent: 'space-between', px: 2, py: 1.5, bgcolor: 'rgba(255, 255, 255, 0.01)' }}>
                         <Box sx={{ display: 'flex', gap: 1 }}>
                             <Button
-                                startIcon={<AttachFileIcon />}
+                                startIcon={<FileText size={18} strokeWidth={1.5} />}
                                 onClick={() => setIsNoteSelectorOpen(true)}
                                 sx={{ 
                                     borderRadius: '10px', 
@@ -288,7 +294,7 @@ export const Feed = () => {
                                 Note
                             </Button>
                             <Button
-                                startIcon={<EventIcon />}
+                                startIcon={<Calendar size={18} strokeWidth={1.5} />}
                                 onClick={() => setIsEventSelectorOpen(true)}
                                 sx={{ 
                                     borderRadius: '10px', 
@@ -389,7 +395,7 @@ export const Feed = () => {
                                                 boxShadow: '0 4px 12px rgba(0, 245, 255, 0.15)'
                                             }}
                                         >
-                                            <DescriptionIcon sx={{ color: '#00F5FF', fontSize: 24 }} />
+                                            <FileText size={20} color="#00F5FF" strokeWidth={1.5} />
                                         </Box>
                                         <Box sx={{ flex: 1, minWidth: 0 }}>
                                             <Typography 
@@ -497,7 +503,7 @@ export const Feed = () => {
                                                 boxShadow: '0 4px 12px rgba(0, 163, 255, 0.15)'
                                             }}
                                         >
-                                            <EventIcon sx={{ color: '#00A3FF', fontSize: 24 }} />
+                                            <Calendar size={20} color="#00A3FF" strokeWidth={1.5} />
                                         </Box>
                                         <Box sx={{ flex: 1, minWidth: 0 }}>
                                             <Typography 
@@ -520,14 +526,14 @@ export const Feed = () => {
 
                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'rgba(255, 255, 255, 0.6)' }}>
-                                            <AccessTimeIcon sx={{ fontSize: 16 }} />
+                                            <Clock size={14} strokeWidth={1.5} />
                                             <Typography variant="caption" fontWeight={600}>
                                                 {new Date(moment.attachedEvent.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(moment.attachedEvent.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             </Typography>
                                         </Box>
                                         {moment.attachedEvent.location && (
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'rgba(255, 255, 255, 0.6)' }}>
-                                                <LocationOnIcon sx={{ fontSize: 16 }} />
+                                                <MapPin size={14} strokeWidth={1.5} />
                                                 <Typography variant="caption" fontWeight={600}>
                                                     {moment.attachedEvent.location}
                                                 </Typography>
@@ -554,24 +560,24 @@ export const Feed = () => {
                         )}
                     </CardContent>
                     <CardActions sx={{ px: 2, pb: 2, gap: 1 }}>
-                        <Button 
-                            startIcon={<FavoriteBorderIcon />} 
-                            sx={{ color: 'text.secondary', textTransform: 'none', fontWeight: 700, borderRadius: '10px', '&:hover': { color: '#ff4d4d', bgcolor: alpha('#ff4d4d', 0.1) } }}
-                        >
-                            Like
-                        </Button>
-                        <Button 
-                            startIcon={<CommentIcon />} 
-                            sx={{ color: 'text.secondary', textTransform: 'none', fontWeight: 700, borderRadius: '10px' }}
-                        >
-                            Reply
-                        </Button>
-                        <IconButton 
-                            onClick={(e) => { setShareAnchorEl(e.currentTarget); setSelectedMoment(moment); }}
-                            sx={{ ml: 'auto', color: 'text.secondary' }}
-                        >
-                            <ShareIcon />
-                        </IconButton>
+                    <Button 
+                        startIcon={<Heart size={18} strokeWidth={1.5} />} 
+                        sx={{ color: 'text.secondary', textTransform: 'none', fontWeight: 700, borderRadius: '10px', '&:hover': { color: '#ff4d4d', bgcolor: alpha('#ff4d4d', 0.1) } }}
+                    >
+                        Like
+                    </Button>
+                    <Button 
+                        startIcon={<MessageSquare size={18} strokeWidth={1.5} />} 
+                        sx={{ color: 'text.secondary', textTransform: 'none', fontWeight: 700, borderRadius: '10px' }}
+                    >
+                        Reply
+                    </Button>
+                    <IconButton 
+                        onClick={(e) => { setShareAnchorEl(e.currentTarget); setSelectedMoment(moment); }}
+                        sx={{ ml: 'auto', color: 'text.secondary' }}
+                    >
+                        <Share2 size={20} strokeWidth={1.5} />
+                    </IconButton>
                     </CardActions>
                 </Card>
             ))}
