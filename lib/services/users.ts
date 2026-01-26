@@ -63,21 +63,26 @@ export const UsersService = {
                 Permission.delete(Role.user(user.$id))
             ];
 
+            // Order of preference for avatar field names in the ecosystem
             const attempts = [
                 { avatarFileId: profilePicId },
                 { profilePicId: profilePicId },
-                {}
+                { avatarUrl: profilePicId },
+                {} // Final fallback: no avatar field
             ];
 
             if (!profile) {
                 console.log('[Identity] Initializing global record for:', user.$id);
                 for (const attempt of attempts) {
                     try {
-                        const payload = { ...baseData, createdAt: new Date().toISOString(), ...attempt };
+                        const payload = { ...baseData, createdAt: new Date().toISOString() };
+                        const key = Object.keys(attempt)[0];
+                        if (key && profilePicId) payload[key] = profilePicId;
+
                         await tablesDB.createRow(DB_ID, USERS_TABLE, user.$id, payload, permissions);
                         break; 
                     } catch (e: any) {
-                        const errStr = JSON.stringify(e).toLowerCase();
+                        const errStr = (e.message || JSON.stringify(e)).toLowerCase();
                         if (errStr.includes('unknown attribute') || errStr.includes('invalid document structure')) {
                             continue;
                         }
@@ -92,11 +97,14 @@ export const UsersService = {
                     console.log('[Identity] Healing global record for:', user.$id);
                     for (const attempt of attempts) {
                         try {
-                            const payload = { ...baseData, ...attempt };
+                            const payload = { ...baseData };
+                            const key = Object.keys(attempt)[0];
+                            if (key && profilePicId) payload[key] = profilePicId;
+
                             await tablesDB.updateRow(DB_ID, USERS_TABLE, user.$id, payload);
                             break;
                         } catch (e: any) {
-                            const errStr = JSON.stringify(e).toLowerCase();
+                            const errStr = (e.message || JSON.stringify(e)).toLowerCase();
                             if (errStr.includes('unknown attribute') || errStr.includes('invalid document structure')) {
                                 continue;
                             }
@@ -194,7 +202,7 @@ export const UsersService = {
                 return await tablesDB.updateRow(DB_ID, USERS_TABLE, userId, payload);
             } catch (e: any) {
                 lastError = e;
-                const errStr = JSON.stringify(e).toLowerCase();
+                const errStr = (e.message || JSON.stringify(e)).toLowerCase();
                 // If it's an "unknown attribute" error, try the next attempt
                 if (errStr.includes('unknown attribute') || errStr.includes('invalid document structure')) {
                     continue;
