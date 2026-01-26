@@ -162,15 +162,23 @@ export const UsersService = {
         console.log('[UsersService] Filtered Primary Payload:', JSON.stringify(primaryPayload));
 
         // Strategy: Attempt the primary update first. 
-        // We use a strictly controlled object to ensure NO unexpected fields are sent.
         try {
-            console.log('[UsersService] Calling databases.updateDocument for primary fields...');
+            console.log('[UsersService] Attempting primary update with payload:', JSON.stringify(primaryPayload));
             await databases.updateDocument(DB_ID, USERS_TABLE, userId, primaryPayload);
             console.log('[UsersService] Primary update SUCCESS');
         } catch (e: any) {
-            console.error('[UsersService] Primary update FAILED:', e.message);
-            // This is the "Bio save failed" path you're seeing.
-            throw e; 
+            console.error('[UsersService] Primary update FAILED, attempting field-by-field recovery:', e.message);
+            
+            // Recovery: Try to save fields individually. This isolates the error.
+            const fields = Object.keys(primaryPayload);
+            for (const field of fields) {
+                try {
+                    await databases.updateDocument(DB_ID, USERS_TABLE, userId, { [field]: primaryPayload[field] });
+                    console.log(`[UsersService] Field recovery SUCCESS: ${field}`);
+                } catch (err: any) {
+                    console.error(`[UsersService] Field recovery FAILED for ${field}:`, err.message);
+                }
+            }
         }
 
         // 2. Defensive Avatar Sync (Separate call)
