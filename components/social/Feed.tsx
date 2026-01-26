@@ -45,8 +45,8 @@ export const Feed = () => {
     const [selectedMoment, setSelectedMoment] = useState<any>(null);
 
     useEffect(() => {
+        loadFeed();
         if (user) {
-            loadFeed();
             fetchUserAvatar();
         }
     }, [user]);

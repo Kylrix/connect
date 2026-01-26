@@ -9,8 +9,8 @@ export const AuthOverlay = () => {
 
     if (loading) return null;
 
-    // Allow public profiles to be viewed by guests
-    const isPublicRoute = pathname?.startsWith('/u/');
+    // Allow public profiles and home feed to be viewed by guests
+    const isPublicRoute = pathname === '/' || pathname?.startsWith('/u/');
     
     if (!user && !isPublicRoute) {
         return (

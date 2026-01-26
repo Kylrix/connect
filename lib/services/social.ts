@@ -8,7 +8,7 @@ const FOLLOWS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.FOLLOWS;
 const INTERACTIONS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.INTERACTIONS;
 
 export const SocialService = {
-    async getFeed(userId: string) {
+    async getFeed(userId?: string) {
         // Fetch public moments or moments from followed users
         return await tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
             Query.orderDesc('createdAt'),
