@@ -150,54 +150,21 @@ export const UsersService = {
     },
 
     async updateProfile(userId: string, data: any) {
-        console.log('[UsersService] updateProfile: START', { userId, dataKeys: Object.keys(data) });
+        console.log('[UsersService] updateProfile: strictly saving core data only', { userId });
         
-        // 1. Construct a strictly filtered payload for the primary bio update
-        const primaryPayload: any = {};
-        if (data.bio !== undefined) primaryPayload.bio = data.bio;
-        if (data.displayName !== undefined) primaryPayload.displayName = data.displayName;
-        if (data.username !== undefined) primaryPayload.username = normalizeUsername(data.username);
-        if (data.walletAddress !== undefined) primaryPayload.walletAddress = data.walletAddress;
+        const payload: any = {};
+        if (data.bio !== undefined) payload.bio = data.bio;
+        if (data.displayName !== undefined) payload.displayName = data.displayName;
+        if (data.username !== undefined) payload.username = normalizeUsername(data.username);
+        if (data.walletAddress !== undefined) payload.walletAddress = data.walletAddress;
 
-        console.log('[UsersService] Filtered Primary Payload:', JSON.stringify(primaryPayload));
-
-        // Strategy: Attempt the primary update first. 
+        // Strategy: Perform a clean update with NO avatar fields to avoid schema validation crashes.
         try {
-            console.log('[UsersService] Attempting primary update with payload:', JSON.stringify(primaryPayload));
-            await databases.updateDocument(DB_ID, USERS_TABLE, userId, primaryPayload);
-            console.log('[UsersService] Primary update SUCCESS');
+            return await databases.updateDocument(DB_ID, USERS_TABLE, userId, payload);
         } catch (e: any) {
-            console.error('[UsersService] Primary update FAILED, attempting field-by-field recovery:', e.message);
-            
-            // Recovery: Try to save fields individually. This isolates the error.
-            const fields = Object.keys(primaryPayload);
-            for (const field of fields) {
-                try {
-                    await databases.updateDocument(DB_ID, USERS_TABLE, userId, { [field]: primaryPayload[field] });
-                    console.log(`[UsersService] Field recovery SUCCESS: ${field}`);
-                } catch (err: any) {
-                    console.error(`[UsersService] Field recovery FAILED for ${field}:`, err.message);
-                }
-            }
+            console.error('[UsersService] Profile update failed:', e.message);
+            throw e; 
         }
-
-        // 2. Defensive Avatar Sync (Separate call)
-        let picId = data.avatarFileId || data.profilePicId || data.avatarUrl || data.avatar;
-        if (picId) {
-            console.log('[UsersService] Attempting defensive avatar sync for ID:', picId);
-            const candidates = ['avatarFileId', 'profilePicId', 'avatarUrl'];
-            for (const field of candidates) {
-                try {
-                    await databases.updateDocument(DB_ID, USERS_TABLE, userId, { [field]: picId });
-                    console.log(`[UsersService] Avatar sync SUCCESS via field: ${field}`);
-                    break;
-                } catch (err: any) {
-                    console.warn(`[UsersService] Avatar probe failed for ${field}:`, err.message);
-                }
-            }
-        }
-
-        return { success: true };
     },
 
     async createProfile(

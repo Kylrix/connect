@@ -39,7 +39,6 @@ export const EditProfileModal = ({ open, onClose, profile, onUpdate }: EditProfi
     const [username, setUsername] = useState(profile?.username || '');
     const [bio, setBio] = useState(profile?.bio || '');
     const [displayName, setDisplayName] = useState(profile?.displayName || '');
-    const [avatarFileId, setAvatarFileId] = useState(profile?.avatarFileId || profile?.profilePicId || '');
     const [isChecking, setIsChecking] = useState(false);
     const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
     const [loading, setLoading] = useState(false);
@@ -52,25 +51,8 @@ export const EditProfileModal = ({ open, onClose, profile, onUpdate }: EditProfi
             setUsername(profile.username || '');
             setBio(profile.bio || '');
             setDisplayName(profile.displayName || '');
-            setAvatarFileId(profile.avatarFileId || profile.profilePicId || '');
         }
     }, [profile, open]);
-
-    const handleSyncAvatar = async () => {
-        if (!authUser) return;
-        try {
-            const picId = getUserProfilePicId(authUser);
-            if (picId) {
-                setAvatarFileId(picId);
-            } else {
-                const prefs = await account.getPrefs();
-                const prefPicId = prefs?.profilePicId || prefs?.avatarFileId;
-                if (prefPicId) setAvatarFileId(prefPicId);
-            }
-        } catch (e) {
-            console.warn('Manual avatar sync failed', e);
-        }
-    };
 
     const handleNoteSelect = (note: any) => {
         if (note.content) {
@@ -95,8 +77,7 @@ export const EditProfileModal = ({ open, onClose, profile, onUpdate }: EditProfi
             const updateData: any = {
                 bio: bio.trim(),
                 displayName: displayName.trim(),
-                username: username.toLowerCase().trim(),
-                avatarFileId: avatarFileId.trim()
+                username: username.toLowerCase().trim()
             };
 
             await UsersService.updateProfile(profile.$id, updateData);
@@ -228,34 +209,6 @@ export const EditProfileModal = ({ open, onClose, profile, onUpdate }: EditProfi
                             }
                         }}
                         InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }}
-                    />
-
-                    <TextField
-                        label="Avatar File ID"
-                        fullWidth
-                        variant="filled"
-                        value={avatarFileId}
-                        onChange={(e) => setAvatarFileId(e.target.value)}
-                        placeholder="Sync ID from Whisperr ID account..."
-                        InputProps={{
-                            disableUnderline: true,
-                            sx: { 
-                                borderRadius: '12px', 
-                                bgcolor: 'rgba(255, 255, 255, 0.05)',
-                                '&.Mui-focused': { bgcolor: 'rgba(255, 255, 255, 0.08)' }
-                            },
-                            endAdornment: (
-                                <InputAdornment position="end">
-                                    <Tooltip title="Sync with Account Preferences">
-                                        <IconButton onClick={handleSyncAvatar} sx={{ color: 'primary.main' }}>
-                                            <SyncIcon />
-                                        </IconButton>
-                                    </Tooltip>
-                                </InputAdornment>
-                            )
-                        }}
-                        InputLabelProps={{ sx: { color: 'rgba(255,255,255,0.5)' } }}
-                        helperText="The profile picture ID from your Whisperr ID account"
                     />
 
                     <Box>
