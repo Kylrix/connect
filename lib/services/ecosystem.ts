@@ -5,7 +5,7 @@ import { APPWRITE_CONFIG } from '../appwrite/config';
 export const EcosystemService = {
     async listNotes(userId: string) {
         return await tablesDB.listRows(
-            APPWRITE_CONFIG.DATABASES.WHISPERRNOTE,
+            APPWRITE_CONFIG.DATABASES.KYLRIXNOTE,
             '67ff05f3002502ef239e',
             [
                 Query.equal('userId', userId),
@@ -17,7 +17,7 @@ export const EcosystemService = {
 
     async createNote(userId: string, title: string, content: string) {
         return await tablesDB.createRow(
-            APPWRITE_CONFIG.DATABASES.WHISPERRNOTE,
+            APPWRITE_CONFIG.DATABASES.KYLRIXNOTE,
             '67ff05f3002502ef239e',
             'unique()',
             {
@@ -58,7 +58,7 @@ export const EcosystemService = {
 
     async listEvents(userId: string) {
         return await tablesDB.listRows(
-            APPWRITE_CONFIG.DATABASES.WHISPERRFLOW,
+            APPWRITE_CONFIG.DATABASES.KYLRIXFLOW,
             'events',
             [
                 Query.equal('userId', userId),

@@ -208,7 +208,7 @@ export const NoteSelectorModal = ({ open, onClose, onSelect }: NoteSelectorModal
                                 <ListItemText 
                                     primary={note.title || 'Untitled Note'} 
                                     secondary={
-                                        <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.4)', display: 'block', mt: 0.5, noWrap: true, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        <Typography variant="caption" noWrap sx={{ color: 'rgba(255, 255, 255, 0.4)', display: 'block', mt: 0.5, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                             {note.content?.substring(0, 100).replace(/[#*`]/g, '')}
                                         </Typography>
                                     }

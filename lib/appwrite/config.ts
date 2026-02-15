@@ -3,9 +3,9 @@ export const APPWRITE_CONFIG = {
     PROJECT_ID: '67fe9627001d97e37ef3',
     DATABASES: {
         CHAT: 'chat',
-        WHISPERRNOTE: '67ff05a9000296822396',
+        KYLRIXNOTE: '67ff05a9000296822396',
         PASSWORD_MANAGER: 'passwordManagerDb',
-        WHISPERRFLOW: 'kylrixflow'
+        KYLRIXFLOW: 'kylrixflow'
     },
     TABLES: {
         CHAT: {
@@ -20,7 +20,7 @@ export const APPWRITE_CONFIG = {
             USERS: 'users',
             CONTACTS: 'contacts'
         },
-        WHISPERRNOTE: {
+        KYLRIXNOTE: {
             USERS: '67ff05c900247b5673d3',
             ACTIVITY_LOG: 'activityLog'
         },

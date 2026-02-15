@@ -127,7 +127,7 @@ export const AppHeader = () => {
               color: 'white'
             }}
           >
-            WHISPERR<Box component="span" sx={{ color: '#00F5FF' }}>CONNECT</Box>
+            KYLRIX<Box component="span" sx={{ color: '#00F5FF' }}>CONNECT</Box>
           </Typography>
         </Box>
 

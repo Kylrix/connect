@@ -22,7 +22,7 @@ export const SocialService = {
                     const noteId = moment.fileId.replace('note:', '');
                     try {
                         const note = await tablesDB.getRow(
-                            APPWRITE_CONFIG.DATABASES.WHISPERRNOTE,
+                            APPWRITE_CONFIG.DATABASES.KYLRIXNOTE,
                             '67ff05f3002502ef239e',
                             noteId
                         );
@@ -34,7 +34,7 @@ export const SocialService = {
                     const eventId = moment.fileId.replace('event:', '');
                     try {
                         const event = await tablesDB.getRow(
-                            APPWRITE_CONFIG.DATABASES.WHISPERRFLOW,
+                            APPWRITE_CONFIG.DATABASES.KYLRIXFLOW,
                             'events',
                             eventId
                         );
@@ -95,8 +95,8 @@ export const SocialService = {
         // Record in Activity Log for Ecosystem Notifications
         try {
             await tablesDB.createRow(
-                APPWRITE_CONFIG.DATABASES.WHISPERRNOTE, 
-                APPWRITE_CONFIG.TABLES.WHISPERRNOTE.ACTIVITY_LOG, 
+                APPWRITE_CONFIG.DATABASES.KYLRIXNOTE, 
+                APPWRITE_CONFIG.TABLES.KYLRIXNOTE.ACTIVITY_LOG, 
                 ID.unique(), 
                 {
                     userId: creatorId,
