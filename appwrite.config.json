@@ -1,6 +1,6 @@
 {
     "projectId": "67fe9627001d97e37ef3",
-    "projectName": "kylrixnote",
+    "projectName": "whisperrnote",
     "endpoint": "https://fra.cloud.appwrite.io/v1",
     "settings": {
         "services": {
@@ -42,7 +42,7 @@
     "tablesDB": [
         {
             "$id": "67ff05a9000296822396",
-            "name": "kylrixnote",
+            "name": "whisperrnote",
             "enabled": true
         },
         {
@@ -56,8 +56,8 @@
             "enabled": true
         },
         {
-            "$id": "kylrixflow",
-            "name": "kylrixflow",
+            "$id": "whisperrflow",
+            "name": "whisperrflow",
             "enabled": true
         }
     ],
@@ -127,18 +127,11 @@
             ],
             "indexes": [
                 {
-                    "$id": "23280_1_index_name",
-                    "$createdAt": "2025-09-23T14:19:47.410+00:00",
-                    "$updatedAt": "2025-09-23T14:19:47.967+00:00",
                     "key": "index_name",
                     "type": "fulltext",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "name"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
@@ -303,20 +296,12 @@
             ],
             "indexes": [
                 {
-                    "$id": "23280_2_idx_notes_user_updated",
-                    "$createdAt": "2025-09-20T07:30:08.573+00:00",
-                    "$updatedAt": "2025-09-20T07:30:08.790+00:00",
                     "key": "idx_notes_user_updated",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "userId",
                         "updatedAt"
-                    ],
-                    "lengths": [
-                        0,
-                        0
                     ],
                     "orders": [
                         "ASC",
@@ -324,54 +309,33 @@
                     ]
                 },
                 {
-                    "$id": "23280_2_idx_notes_status",
-                    "$createdAt": "2025-09-20T07:30:08.691+00:00",
-                    "$updatedAt": "2025-09-20T07:30:09.159+00:00",
                     "key": "idx_notes_status",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "status"
                     ],
-                    "lengths": [
-                        0
-                    ],
                     "orders": [
                         "ASC"
                     ]
                 },
                 {
-                    "$id": "23280_2_idx_notes_isPublic",
-                    "$createdAt": "2025-09-20T07:30:08.796+00:00",
-                    "$updatedAt": "2025-09-20T07:30:09.452+00:00",
                     "key": "idx_notes_isPublic",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "isPublic"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
                     ]
                 },
                 {
-                    "$id": "23280_2_idx_notes_parent",
-                    "$createdAt": "2025-09-20T07:30:08.911+00:00",
-                    "$updatedAt": "2025-09-20T07:30:09.698+00:00",
                     "key": "idx_notes_parent",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "parentNoteId"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
@@ -472,20 +436,12 @@
             ],
             "indexes": [
                 {
-                    "$id": "23280_3_idx_tags_user_namelower",
-                    "$createdAt": "2025-09-20T14:13:03.531+00:00",
-                    "$updatedAt": "2025-09-20T14:13:03.721+00:00",
                     "key": "idx_tags_user_namelower",
                     "type": "unique",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "userId",
                         "nameLower"
-                    ],
-                    "lengths": [
-                        0,
-                        0
                     ],
                     "orders": [
                         "ASC",
@@ -594,36 +550,22 @@
             ],
             "indexes": [
                 {
-                    "$id": "23280_4_idx_apiKeys_keyHash",
-                    "$createdAt": "2025-09-20T07:30:36.024+00:00",
-                    "$updatedAt": "2025-09-20T07:30:36.167+00:00",
                     "key": "idx_apiKeys_keyHash",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "keyHash"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
                     ]
                 },
                 {
-                    "$id": "23280_4_idx_apiKeys_userId",
-                    "$createdAt": "2025-09-20T07:30:36.096+00:00",
-                    "$updatedAt": "2025-09-20T07:30:36.339+00:00",
                     "key": "idx_apiKeys_userId",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "userId"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
@@ -688,38 +630,23 @@
             ],
             "indexes": [
                 {
-                    "$id": "23280_6_idx_comments_note",
-                    "$createdAt": "2025-09-20T07:30:44.190+00:00",
-                    "$updatedAt": "2025-09-20T07:30:44.363+00:00",
                     "key": "idx_comments_note",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "noteId"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
                     ]
                 },
                 {
-                    "$id": "23280_6_idx_comments_note_createdAt",
-                    "$createdAt": "2025-09-20T07:30:44.266+00:00",
-                    "$updatedAt": "2025-09-20T07:30:44.584+00:00",
                     "key": "idx_comments_note_createdAt",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "noteId",
                         "createdAt"
-                    ],
-                    "lengths": [
-                        0,
-                        0
                     ],
                     "orders": [
                         "ASC",
@@ -876,20 +803,12 @@
             ],
             "indexes": [
                 {
-                    "$id": "23280_8_idx_reactions_target",
-                    "$createdAt": "2025-09-20T14:13:28.911+00:00",
-                    "$updatedAt": "2025-09-20T14:13:29.051+00:00",
                     "key": "idx_reactions_target",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "targetType",
                         "targetId"
-                    ],
-                    "lengths": [
-                        0,
-                        0
                     ],
                     "orders": [
                         "ASC",
@@ -897,24 +816,14 @@
                     ]
                 },
                 {
-                    "$id": "23280_8_idx_reactions_user_target_emoji",
-                    "$createdAt": "2025-09-20T14:13:29.245+00:00",
-                    "$updatedAt": "2025-09-20T14:13:29.438+00:00",
                     "key": "idx_reactions_user_target_emoji",
                     "type": "unique",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "userId",
                         "targetType",
                         "targetId",
                         "emoji"
-                    ],
-                    "lengths": [
-                        0,
-                        0,
-                        0,
-                        0
                     ],
                     "orders": [
                         "ASC",
@@ -984,56 +893,34 @@
             ],
             "indexes": [
                 {
-                    "$id": "23280_9_idx_collaborators_note",
-                    "$createdAt": "2025-09-20T13:23:22.978+00:00",
-                    "$updatedAt": "2025-09-20T13:23:23.197+00:00",
                     "key": "idx_collaborators_note",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "noteId"
                     ],
-                    "lengths": [
-                        0
-                    ],
                     "orders": [
                         "ASC"
                     ]
                 },
                 {
-                    "$id": "23280_9_idx_collaborators_user",
-                    "$createdAt": "2025-09-20T13:23:23.054+00:00",
-                    "$updatedAt": "2025-09-20T13:23:23.699+00:00",
                     "key": "idx_collaborators_user",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "userId"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
                     ]
                 },
                 {
-                    "$id": "23280_9_idx_collaborators_note_user",
-                    "$createdAt": "2025-09-20T14:14:03.555+00:00",
-                    "$updatedAt": "2025-09-20T14:14:03.773+00:00",
                     "key": "idx_collaborators_note_user",
                     "type": "unique",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "noteId",
                         "userId"
-                    ],
-                    "lengths": [
-                        0,
-                        0
                     ],
                     "orders": [
                         "ASC",
@@ -1108,20 +995,12 @@
             ],
             "indexes": [
                 {
-                    "$id": "23280_10_idx_activity_user_timestamp",
-                    "$createdAt": "2025-09-20T13:23:27.790+00:00",
-                    "$updatedAt": "2025-09-20T13:23:28.010+00:00",
                     "key": "idx_activity_user_timestamp",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "userId",
                         "timestamp"
-                    ],
-                    "lengths": [
-                        0,
-                        0
                     ],
                     "orders": [
                         "ASC",
@@ -1129,20 +1008,12 @@
                     ]
                 },
                 {
-                    "$id": "23280_10_idx_activity_target",
-                    "$createdAt": "2025-09-20T13:23:27.857+00:00",
-                    "$updatedAt": "2025-09-20T13:23:28.352+00:00",
                     "key": "idx_activity_target",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "targetType",
                         "targetId"
-                    ],
-                    "lengths": [
-                        0,
-                        0
                     ],
                     "orders": [
                         "ASC",
@@ -1207,18 +1078,11 @@
             ],
             "indexes": [
                 {
-                    "$id": "23280_11_idx_settings_user",
-                    "$createdAt": "2025-09-20T13:23:31.854+00:00",
-                    "$updatedAt": "2025-09-20T13:23:32.202+00:00",
                     "key": "idx_settings_user",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "userId"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
@@ -1265,18 +1129,11 @@
             ],
             "indexes": [
                 {
-                    "$id": "23280_15_unique_walletAddressLower",
-                    "$createdAt": "2025-08-30T14:59:25.110+00:00",
-                    "$updatedAt": "2025-08-30T14:59:25.151+00:00",
                     "key": "unique_walletAddressLower",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "walletAddressLower"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
@@ -1341,74 +1198,45 @@
             ],
             "indexes": [
                 {
-                    "$id": "23280_16_idx_note_tags_note",
-                    "$createdAt": "2025-09-20T13:23:40.299+00:00",
-                    "$updatedAt": "2025-09-20T13:23:40.968+00:00",
                     "key": "idx_note_tags_note",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "noteId"
                     ],
-                    "lengths": [
-                        0
-                    ],
                     "orders": [
                         "ASC"
                     ]
                 },
                 {
-                    "$id": "23280_16_idx_note_tags_tag",
-                    "$createdAt": "2025-09-20T13:23:40.367+00:00",
-                    "$updatedAt": "2025-09-20T13:23:41.398+00:00",
                     "key": "idx_note_tags_tag",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "tagId"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
                     ]
                 },
                 {
-                    "$id": "23280_16_idx_note_tags_user",
-                    "$createdAt": "2025-09-20T13:23:40.448+00:00",
-                    "$updatedAt": "2025-09-20T13:23:42.399+00:00",
                     "key": "idx_note_tags_user",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "userId"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
                     ]
                 },
                 {
-                    "$id": "23280_16_idx_note_tags_note_tag",
-                    "$createdAt": "2025-09-20T14:14:17.806+00:00",
-                    "$updatedAt": "2025-09-20T14:14:17.942+00:00",
                     "key": "idx_note_tags_note_tag",
                     "type": "unique",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "noteId",
                         "tagId"
-                    ],
-                    "lengths": [
-                        0,
-                        0
                     ],
                     "orders": [
                         "ASC",
@@ -1521,38 +1349,23 @@
             ],
             "indexes": [
                 {
-                    "$id": "23280_17_idx_note_revisions_note",
-                    "$createdAt": "2025-09-20T13:23:50.963+00:00",
-                    "$updatedAt": "2025-09-20T13:23:51.393+00:00",
                     "key": "idx_note_revisions_note",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "noteId"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
                     ]
                 },
                 {
-                    "$id": "23280_17_idx_note_revisions_note_revision",
-                    "$createdAt": "2025-09-20T14:14:32.449+00:00",
-                    "$updatedAt": "2025-09-20T14:14:32.607+00:00",
                     "key": "idx_note_revisions_note_revision",
                     "type": "unique",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "noteId",
                         "revision"
-                    ],
-                    "lengths": [
-                        0,
-                        0
                     ],
                     "orders": [
                         "ASC",
@@ -1670,20 +1483,12 @@
             ],
             "indexes": [
                 {
-                    "$id": "23280_18_idx_ai_generations_user_createdAt",
-                    "$createdAt": "2025-09-20T13:24:05.193+00:00",
-                    "$updatedAt": "2025-09-20T13:24:05.452+00:00",
                     "key": "idx_ai_generations_user_createdAt",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "userId",
                         "createdAt"
-                    ],
-                    "lengths": [
-                        0,
-                        0
                     ],
                     "orders": [
                         "ASC",
@@ -1691,38 +1496,23 @@
                     ]
                 },
                 {
-                    "$id": "23280_18_idx_ai_generations_promptHash",
-                    "$createdAt": "2025-09-20T13:24:05.269+00:00",
-                    "$updatedAt": "2025-09-20T13:24:05.997+00:00",
                     "key": "idx_ai_generations_promptHash",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "promptHash"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
                     ]
                 },
                 {
-                    "$id": "23280_18_idx_ai_generations_user_mode",
-                    "$createdAt": "2025-09-20T13:24:05.348+00:00",
-                    "$updatedAt": "2025-09-20T13:24:06.499+00:00",
                     "key": "idx_ai_generations_user_mode",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "userId",
                         "mode"
-                    ],
-                    "lengths": [
-                        0,
-                        0
                     ],
                     "orders": [
                         "ASC",
@@ -1820,38 +1610,23 @@
             ],
             "indexes": [
                 {
-                    "$id": "23280_19_idx_subscriptions_user",
-                    "$createdAt": "2025-09-20T14:34:31.159+00:00",
-                    "$updatedAt": "2025-09-20T14:34:31.153+00:00",
                     "key": "idx_subscriptions_user",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "userId"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
                     ]
                 },
                 {
-                    "$id": "23280_19_idx_subscriptions_user_plan",
-                    "$createdAt": "2025-09-20T14:34:31.232+00:00",
-                    "$updatedAt": "2025-09-20T14:34:31.329+00:00",
                     "key": "idx_subscriptions_user_plan",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "userId",
                         "plan"
-                    ],
-                    "lengths": [
-                        0,
-                        0
                     ],
                     "orders": [
                         "ASC",
@@ -1951,102 +1726,59 @@
             ],
             "indexes": [
                 {
-                    "$id": "83967_1_idx_userId",
-                    "$createdAt": "2025-10-15T18:29:08.624+00:00",
-                    "$updatedAt": "2025-10-15T18:29:08.772+00:00",
                     "key": "idx_userId",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "userId"
                     ],
-                    "lengths": [
-                        0
-                    ],
                     "orders": []
                 },
                 {
-                    "$id": "83967_1_idx_eventType",
-                    "$createdAt": "2025-10-15T18:29:08.690+00:00",
-                    "$updatedAt": "2025-10-15T18:29:08.939+00:00",
                     "key": "idx_eventType",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "eventType"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": []
                 },
                 {
-                    "$id": "83967_1_idx_timestamp",
-                    "$createdAt": "2025-10-15T18:29:08.752+00:00",
-                    "$updatedAt": "2025-10-15T18:29:09.140+00:00",
                     "key": "idx_timestamp",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "timestamp"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "DESC"
                     ]
                 },
                 {
-                    "$id": "83967_1_idx_success",
-                    "$createdAt": "2025-10-15T18:29:08.867+00:00",
-                    "$updatedAt": "2025-10-15T18:29:09.333+00:00",
                     "key": "idx_success",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "success"
                     ],
-                    "lengths": [
-                        0
-                    ],
                     "orders": []
                 },
                 {
-                    "$id": "83967_1_idx_severity",
-                    "$createdAt": "2025-10-15T18:29:08.972+00:00",
-                    "$updatedAt": "2025-10-15T18:29:09.527+00:00",
                     "key": "idx_severity",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "severity"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": []
                 },
                 {
-                    "$id": "83967_1_idx_user_time",
-                    "$createdAt": "2025-10-15T18:36:21.429+00:00",
-                    "$updatedAt": "2025-10-15T18:36:21.569+00:00",
                     "key": "idx_user_time",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "userId",
                         "timestamp"
-                    ],
-                    "lengths": [
-                        0,
-                        0
                     ],
                     "orders": [
                         "DESC",
@@ -2284,150 +2016,86 @@
             ],
             "indexes": [
                 {
-                    "$id": "83967_2_idx_userId",
-                    "$createdAt": "2025-10-15T18:34:43.789+00:00",
-                    "$updatedAt": "2025-10-15T18:34:43.929+00:00",
                     "key": "idx_userId",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "userId"
                     ],
-                    "lengths": [
-                        0
-                    ],
                     "orders": []
                 },
                 {
-                    "$id": "83967_2_idx_itemType",
-                    "$createdAt": "2025-10-15T18:34:43.884+00:00",
-                    "$updatedAt": "2025-10-15T18:34:44.124+00:00",
                     "key": "idx_itemType",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "itemType"
                     ],
-                    "lengths": [
-                        0
-                    ],
                     "orders": []
                 },
                 {
-                    "$id": "83967_2_idx_folderId",
-                    "$createdAt": "2025-10-15T18:34:43.963+00:00",
-                    "$updatedAt": "2025-10-15T18:34:44.391+00:00",
                     "key": "idx_folderId",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "folderId"
                     ],
-                    "lengths": [
-                        0
-                    ],
                     "orders": []
                 },
                 {
-                    "$id": "83967_2_idx_isFavorite",
-                    "$createdAt": "2025-10-15T18:34:44.113+00:00",
-                    "$updatedAt": "2025-10-15T18:34:44.827+00:00",
                     "key": "idx_isFavorite",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "isFavorite"
                     ],
-                    "lengths": [
-                        0
-                    ],
                     "orders": []
                 },
                 {
-                    "$id": "83967_2_idx_isDeleted",
-                    "$createdAt": "2025-10-15T18:34:44.204+00:00",
-                    "$updatedAt": "2025-10-15T18:34:45.107+00:00",
                     "key": "idx_isDeleted",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "isDeleted"
                     ],
-                    "lengths": [
-                        0
-                    ],
                     "orders": []
                 },
                 {
-                    "$id": "83967_2_idx_totpId",
-                    "$createdAt": "2025-10-15T18:34:44.301+00:00",
-                    "$updatedAt": "2025-10-15T18:34:45.320+00:00",
                     "key": "idx_totpId",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "totpId"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": []
                 },
                 {
-                    "$id": "83967_2_idx_lastAccessed",
-                    "$createdAt": "2025-10-15T18:34:44.384+00:00",
-                    "$updatedAt": "2025-10-15T18:34:45.502+00:00",
                     "key": "idx_lastAccessed",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "lastAccessedAt"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "DESC"
                     ]
                 },
                 {
-                    "$id": "83967_2_idx_user_type",
-                    "$createdAt": "2025-10-15T18:34:44.483+00:00",
-                    "$updatedAt": "2025-10-15T18:34:45.723+00:00",
                     "key": "idx_user_type",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "userId",
                         "itemType"
                     ],
-                    "lengths": [
-                        0,
-                        0
-                    ],
                     "orders": []
                 },
                 {
-                    "$id": "83967_2_idx_tags",
-                    "$createdAt": "2025-11-27T17:30:38.236+00:00",
-                    "$updatedAt": "2025-11-27T17:30:38.413+00:00",
                     "key": "idx_tags",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "tags"
-                    ],
-                    "lengths": [
-                        255
                     ],
                     "orders": [
                         null
@@ -2576,86 +2244,50 @@
             ],
             "indexes": [
                 {
-                    "$id": "83967_3_idx_userId",
-                    "$createdAt": "2025-10-15T18:28:20.339+00:00",
-                    "$updatedAt": "2025-10-15T18:28:20.538+00:00",
                     "key": "idx_userId",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "userId"
                     ],
-                    "lengths": [
-                        0
-                    ],
                     "orders": []
                 },
                 {
-                    "$id": "83967_3_idx_identityType",
-                    "$createdAt": "2025-10-15T18:28:20.480+00:00",
-                    "$updatedAt": "2025-10-15T18:28:20.840+00:00",
                     "key": "idx_identityType",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "identityType"
                     ],
-                    "lengths": [
-                        0
-                    ],
                     "orders": []
                 },
                 {
-                    "$id": "83967_3_idx_isPrimary",
-                    "$createdAt": "2025-10-15T18:28:20.562+00:00",
-                    "$updatedAt": "2025-10-15T18:28:21.070+00:00",
                     "key": "idx_isPrimary",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "isPrimary"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": []
                 },
                 {
-                    "$id": "83967_3_idx_lastUsed",
-                    "$createdAt": "2025-10-15T18:28:20.724+00:00",
-                    "$updatedAt": "2025-10-15T18:28:21.498+00:00",
                     "key": "idx_lastUsed",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "lastUsedAt"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "DESC"
                     ]
                 },
                 {
-                    "$id": "83967_3_idx_user_type",
-                    "$createdAt": "2025-10-15T18:28:20.806+00:00",
-                    "$updatedAt": "2025-10-15T18:28:22.038+00:00",
                     "key": "idx_user_type",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "userId",
                         "identityType"
-                    ],
-                    "lengths": [
-                        0,
-                        0
                     ],
                     "orders": []
                 }
@@ -2772,18 +2404,11 @@
             ],
             "indexes": [
                 {
-                    "$id": "83967_4_idx_userId",
-                    "$createdAt": "2025-10-15T18:58:20.653+00:00",
-                    "$updatedAt": "2025-10-15T18:58:20.831+00:00",
                     "key": "idx_userId",
                     "type": "unique",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "userId"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": []
                 }
@@ -2887,66 +2512,38 @@
             ],
             "indexes": [
                 {
-                    "$id": "83967_5_idx_userId",
-                    "$createdAt": "2025-10-15T18:28:29.342+00:00",
-                    "$updatedAt": "2025-10-15T18:28:29.475+00:00",
                     "key": "idx_userId",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "userId"
                     ],
-                    "lengths": [
-                        0
-                    ],
                     "orders": []
                 },
                 {
-                    "$id": "83967_5_idx_parentFolderId",
-                    "$createdAt": "2025-10-15T18:28:29.668+00:00",
-                    "$updatedAt": "2025-10-15T18:28:29.821+00:00",
                     "key": "idx_parentFolderId",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "parentFolderId"
                     ],
-                    "lengths": [
-                        0
-                    ],
                     "orders": []
                 },
                 {
-                    "$id": "83967_5_idx_isDeleted",
-                    "$createdAt": "2025-10-15T18:28:58.242+00:00",
-                    "$updatedAt": "2025-10-15T18:28:58.398+00:00",
                     "key": "idx_isDeleted",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "isDeleted"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": []
                 },
                 {
-                    "$id": "83967_5_idx_sortOrder",
-                    "$createdAt": "2025-10-15T18:28:58.311+00:00",
-                    "$updatedAt": "2025-10-15T18:28:58.623+00:00",
                     "key": "idx_sortOrder",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "sortOrder"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
@@ -3103,100 +2700,58 @@
             ],
             "indexes": [
                 {
-                    "$id": "83967_6_idx_userId",
-                    "$createdAt": "2025-10-15T18:36:17.300+00:00",
-                    "$updatedAt": "2025-10-15T18:36:17.433+00:00",
                     "key": "idx_userId",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "userId"
                     ],
-                    "lengths": [
-                        0
-                    ],
                     "orders": []
                 },
                 {
-                    "$id": "83967_6_idx_folderId",
-                    "$createdAt": "2025-10-15T18:36:17.402+00:00",
-                    "$updatedAt": "2025-10-15T18:36:17.620+00:00",
                     "key": "idx_folderId",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "folderId"
                     ],
-                    "lengths": [
-                        0
-                    ],
                     "orders": []
                 },
                 {
-                    "$id": "83967_6_idx_isFavorite",
-                    "$createdAt": "2025-10-15T18:36:17.562+00:00",
-                    "$updatedAt": "2025-10-15T18:36:18.108+00:00",
                     "key": "idx_isFavorite",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "isFavorite"
                     ],
-                    "lengths": [
-                        0
-                    ],
                     "orders": []
                 },
                 {
-                    "$id": "83967_6_idx_isDeleted",
-                    "$createdAt": "2025-10-15T18:36:17.643+00:00",
-                    "$updatedAt": "2025-10-15T18:36:18.310+00:00",
                     "key": "idx_isDeleted",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "isDeleted"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": []
                 },
                 {
-                    "$id": "83967_6_idx_lastUsed",
-                    "$createdAt": "2025-10-15T18:36:17.711+00:00",
-                    "$updatedAt": "2025-10-15T18:36:18.597+00:00",
                     "key": "idx_lastUsed",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "lastUsedAt"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "DESC"
                     ]
                 },
                 {
-                    "$id": "83967_6_idx_tags",
-                    "$createdAt": "2025-11-27T15:11:55.324+00:00",
-                    "$updatedAt": "2025-11-27T15:11:55.486+00:00",
                     "key": "idx_tags",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "tags"
-                    ],
-                    "lengths": [
-                        255
                     ],
                     "orders": [
                         null
@@ -3294,18 +2849,11 @@
             ],
             "indexes": [
                 {
-                    "$id": "83967_7_idx_userId",
-                    "$createdAt": "2025-11-27T14:54:51.084+00:00",
-                    "$updatedAt": "2025-11-27T14:54:51.208+00:00",
                     "key": "idx_userId",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "userId"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": []
                 }
@@ -3414,36 +2962,22 @@
             ],
             "indexes": [
                 {
-                    "$id": "83993_1_idx_conversation",
-                    "$createdAt": "2025-12-10T19:27:57.954+00:00",
-                    "$updatedAt": "2025-12-10T19:27:58.066+00:00",
                     "key": "idx_conversation",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "conversationId"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
                     ]
                 },
                 {
-                    "$id": "83993_1_idx_created",
-                    "$createdAt": "2025-12-10T19:27:58.274+00:00",
-                    "$updatedAt": "2025-12-10T19:27:58.410+00:00",
                     "key": "idx_created",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "createdAt"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "DESC"
@@ -3868,20 +3402,12 @@
             ],
             "indexes": [
                 {
-                    "$id": "83993_11_idx_user_contact",
-                    "$createdAt": "2025-10-15T19:31:18.896+00:00",
-                    "$updatedAt": "2025-10-15T19:31:19.024+00:00",
                     "key": "idx_user_contact",
                     "type": "unique",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "userId",
                         "contactUserId"
-                    ],
-                    "lengths": [
-                        0,
-                        0
                     ],
                     "orders": [
                         "ASC",
@@ -3889,20 +3415,12 @@
                     ]
                 },
                 {
-                    "$id": "83993_11_idx_relationship",
-                    "$createdAt": "2025-10-15T19:31:18.956+00:00",
-                    "$updatedAt": "2025-10-15T19:31:19.211+00:00",
                     "key": "idx_relationship",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "userId",
                         "relationship"
-                    ],
-                    "lengths": [
-                        0,
-                        0
                     ],
                     "orders": [
                         "ASC",
@@ -3993,36 +3511,22 @@
             ],
             "indexes": [
                 {
-                    "$id": "83993_14_idx_username_unique",
-                    "$createdAt": "2025-10-15T19:37:52.189+00:00",
-                    "$updatedAt": "2025-10-15T19:37:52.329+00:00",
                     "key": "idx_username_unique",
                     "type": "unique",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "username"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
                     ]
                 },
                 {
-                    "$id": "83993_14_idx_walletAddress",
-                    "$createdAt": "2025-10-15T19:37:52.285+00:00",
-                    "$updatedAt": "2025-10-15T19:37:52.534+00:00",
                     "key": "idx_walletAddress",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "walletAddress"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
@@ -4099,20 +3603,12 @@
             ],
             "indexes": [
                 {
-                    "$id": "83993_16_idx_follower_following",
-                    "$createdAt": "2025-10-15T19:32:34.120+00:00",
-                    "$updatedAt": "2025-10-15T19:32:34.290+00:00",
                     "key": "idx_follower_following",
                     "type": "unique",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "followerId",
                         "followingId"
-                    ],
-                    "lengths": [
-                        0,
-                        0
                     ],
                     "orders": [
                         "ASC",
@@ -4120,18 +3616,11 @@
                     ]
                 },
                 {
-                    "$id": "83993_16_idx_followingId",
-                    "$createdAt": "2025-10-15T19:32:34.192+00:00",
-                    "$updatedAt": "2025-10-15T19:32:34.486+00:00",
                     "key": "idx_followingId",
                     "type": "key",
                     "status": "available",
-                    "error": "",
                     "columns": [
                         "followingId"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
@@ -4194,14 +3683,11 @@
             ],
             "indexes": [
                 {
-                    "$id": "idx_presence_user",
                     "key": "idx_presence_user",
                     "type": "unique",
+                    "status": "available",
                     "columns": [
                         "userId"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
@@ -4266,9 +3752,7 @@
                     "type": "string",
                     "required": false,
                     "array": false,
-                    "size": 2048,
                     "default": null,
-                    "encrypt": false,
                     "format": "url"
                 },
                 {
@@ -4282,28 +3766,22 @@
             ],
             "indexes": [
                 {
-                    "$id": "idx_call_links_code",
                     "key": "idx_call_links_code",
                     "type": "unique",
+                    "status": "available",
                     "columns": [
                         "code"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
                     ]
                 },
                 {
-                    "$id": "idx_call_links_user",
                     "key": "idx_call_links_user",
                     "type": "key",
+                    "status": "available",
                     "columns": [
                         "userId"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
@@ -4362,32 +3840,24 @@
             ],
             "indexes": [
                 {
-                    "$id": "idx_interactions_message",
                     "key": "idx_interactions_message",
                     "type": "key",
+                    "status": "available",
                     "columns": [
                         "messageId"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
                     ]
                 },
                 {
-                    "$id": "idx_interactions_user_msg_emoji",
                     "key": "idx_interactions_user_msg_emoji",
                     "type": "unique",
+                    "status": "available",
                     "columns": [
                         "userId",
                         "messageId",
                         "emoji"
-                    ],
-                    "lengths": [
-                        0,
-                        0,
-                        0
                     ],
                     "orders": [
                         "ASC",
@@ -4481,42 +3951,33 @@
             ],
             "indexes": [
                 {
-                    "$id": "idx_call_logs_conversation",
                     "key": "idx_call_logs_conversation",
                     "type": "key",
+                    "status": "available",
                     "columns": [
                         "conversationId"
                     ],
-                    "lengths": [
-                        0
-                    ],
                     "orders": [
                         "ASC"
                     ]
                 },
                 {
-                    "$id": "idx_call_logs_caller",
                     "key": "idx_call_logs_caller",
                     "type": "key",
+                    "status": "available",
                     "columns": [
                         "callerId"
                     ],
-                    "lengths": [
-                        0
-                    ],
                     "orders": [
                         "ASC"
                     ]
                 },
                 {
-                    "$id": "idx_call_logs_receiver",
                     "key": "idx_call_logs_receiver",
                     "type": "key",
+                    "status": "available",
                     "columns": [
                         "receiverId"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
@@ -4595,28 +4056,22 @@
             ],
             "indexes": [
                 {
-                    "$id": "idx_moments_user",
                     "key": "idx_moments_user",
                     "type": "key",
+                    "status": "available",
                     "columns": [
                         "userId"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
                     ]
                 },
                 {
-                    "$id": "idx_moments_expiry",
                     "key": "idx_moments_expiry",
                     "type": "key",
+                    "status": "available",
                     "columns": [
                         "expiresAt"
-                    ],
-                    "lengths": [
-                        0
                     ],
                     "orders": [
                         "ASC"
@@ -4629,7 +4084,7 @@
             "$permissions": [
                 "create(\"users\")"
             ],
-            "databaseId": "kylrixflow",
+            "databaseId": "whisperrflow",
             "name": "focusSessions",
             "enabled": true,
             "rowSecurity": true,
@@ -4694,7 +4149,7 @@
             "$permissions": [
                 "create(\"users\")"
             ],
-            "databaseId": "kylrixflow",
+            "databaseId": "whisperrflow",
             "name": "eventGuests",
             "enabled": true,
             "rowSecurity": true,
@@ -4752,7 +4207,7 @@
             "$permissions": [
                 "create(\"users\")"
             ],
-            "databaseId": "kylrixflow",
+            "databaseId": "whisperrflow",
             "name": "events",
             "enabled": true,
             "rowSecurity": true,
@@ -4880,7 +4335,7 @@
             "$permissions": [
                 "create(\"users\")"
             ],
-            "databaseId": "kylrixflow",
+            "databaseId": "whisperrflow",
             "name": "calendars",
             "enabled": true,
             "rowSecurity": true,
@@ -4927,7 +4382,7 @@
             "$permissions": [
                 "create(\"users\")"
             ],
-            "databaseId": "kylrixflow",
+            "databaseId": "whisperrflow",
             "name": "tasks",
             "enabled": true,
             "rowSecurity": true,
