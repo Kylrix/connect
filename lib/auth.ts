@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Client, Account } from 'appwrite';
 import { UsersService } from '@/lib/services/users';
 import { APPWRITE_CONFIG } from './appwrite/config';
+import { getEcosystemUrl } from './constants';
 
 // Initialize Appwrite
 const client = new Client()
@@ -18,12 +19,11 @@ export function useAuth() {
     const attemptSilentAuth = useCallback(async () => {
         if (typeof window === 'undefined') return;
 
-        const domain = APPWRITE_CONFIG.AUTH.DOMAIN || 'kylrix.space';
-        const authSubdomain = APPWRITE_CONFIG.AUTH.SUBDOMAIN || 'accounts';
+        const authBaseUrl = getEcosystemUrl('accounts');
 
         return new Promise<void>((resolve) => {
             const iframe = document.createElement('iframe');
-            iframe.src = `https://${authSubdomain}.${domain}/silent-check`;
+            iframe.src = `${authBaseUrl}/silent-check`;
             iframe.style.display = 'none';
 
             const timeout = setTimeout(() => {
@@ -32,7 +32,7 @@ export function useAuth() {
             }, 5000);
 
             const handleIframeMessage = (event: MessageEvent) => {
-                if (event.origin !== `https://${authSubdomain}.${domain}`) return;
+                if (event.origin !== authBaseUrl) return;
 
                 if (event.data?.type === 'idm:auth-status' && event.data.status === 'authenticated') {
                     console.log('Silent auth discovered session in kylrixconnect');
@@ -106,9 +106,8 @@ export function useAuth() {
     // Listen for postMessage from IDM window
     useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
-            const domain = APPWRITE_CONFIG.AUTH.DOMAIN || 'kylrix.space';
-            const authSubdomain = APPWRITE_CONFIG.AUTH.SUBDOMAIN || 'accounts';
-            if (event.origin !== `https://${authSubdomain}.${domain}`) return;
+            const authBaseUrl = getEcosystemUrl('accounts');
+            if (event.origin !== authBaseUrl) return;
 
             if (event.data?.type === 'idm:auth-success') {
                 console.log('Received auth success via postMessage in kylrixconnect');
@@ -153,11 +152,10 @@ export function useAuth() {
             // Still no session
         }
 
-        const domain = APPWRITE_CONFIG.AUTH.DOMAIN || 'kylrix.space';
-        const authSubdomain = APPWRITE_CONFIG.AUTH.SUBDOMAIN || 'accounts';
+        const authBaseUrl = getEcosystemUrl('accounts');
         const currentUri = window.location.href;
 
-        const idmsUrl = `https://${authSubdomain}.${domain}/login`;
+        const idmsUrl = `${authBaseUrl}/login`;
         const redirectUrl = new URL(idmsUrl);
         redirectUrl.searchParams.set('source', currentUri);
 
