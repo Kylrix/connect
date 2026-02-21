@@ -42,43 +42,10 @@ export class EcosystemSecurity {
     if (typeof window === 'undefined') return;
 
     MeshProtocol.subscribe(async (msg) => {
-      if (msg.type === 'COMMAND' && msg.payload.action === 'SYNC_MASTERPASS_KEY') {
-        if (msg.sourceNode === 'id' && this.nodeId !== 'id') {
-          await this.syncKeyFromMaster(msg.payload.keyBytes);
-        }
-      }
-
       if (msg.type === 'COMMAND' && msg.payload.action === 'LOCK_SYSTEM') {
         this.lock();
       }
     });
-
-    if (this.nodeId !== 'id' && !this.isUnlocked) {
-        MeshProtocol.broadcast({
-            type: 'RPC_REQUEST',
-            targetNode: 'id',
-            payload: { method: 'REQUEST_KEY_SYNC' }
-        }, this.nodeId);
-    }
-  }
-
-  private async syncKeyFromMaster(keyBytes: ArrayBuffer) {
-    try {
-      this.masterKey = await crypto.subtle.importKey(
-        "raw",
-        keyBytes,
-        { name: "AES-GCM", length: 256 },
-        true,
-        ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-      );
-      this.isUnlocked = true;
-      if (typeof sessionStorage !== "undefined") {
-          sessionStorage.setItem("kylrix_vault_unlocked", "true");
-      }
-      console.log(`[Security] Node ${this.nodeId} successfully synced MasterPass from ID`);
-    } catch (e) {
-      console.error("[Security] Key sync failed", e);
-    }
   }
 
   /**
