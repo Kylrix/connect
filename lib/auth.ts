@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Client, Account } from 'appwrite';
 import { UsersService } from '@/lib/services/users';
+import { APPWRITE_CONFIG } from './appwrite/config';
 
 // Initialize Appwrite
 const client = new Client()
-    .setEndpoint('https://fra.cloud.appwrite.io/v1')
-    .setProject('67fe9627001d97e37ef3');
+    .setEndpoint(APPWRITE_CONFIG.ENDPOINT)
+    .setProject(APPWRITE_CONFIG.PROJECT_ID);
 
 const account = new Account(client);
 
@@ -17,8 +18,8 @@ export function useAuth() {
     const attemptSilentAuth = useCallback(async () => {
         if (typeof window === 'undefined') return;
 
-        const domain = process.env.NEXT_PUBLIC_DOMAIN || 'kylrixnote.space';
-        const authSubdomain = process.env.NEXT_PUBLIC_AUTH_SUBDOMAIN || 'accounts';
+        const domain = APPWRITE_CONFIG.KYLRIXNOTE ? 'kylrixnote.space' : 'kylrixnote.space'; // fallback logic
+        const authSubdomain = 'accounts';
 
         return new Promise<void>((resolve) => {
             const iframe = document.createElement('iframe');
