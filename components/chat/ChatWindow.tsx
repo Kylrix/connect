@@ -267,7 +267,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
         setAttachment(null);
 
         let type: 'text' | 'image' | 'video' | 'audio' | 'file' = 'text';
-        let initialAttachments: string[] = [];
+        const initialAttachments: string[] = [];
         if (file) {
             if (file.type.startsWith('image/')) type = 'image';
             else if (file.type.startsWith('video/')) type = 'video';
