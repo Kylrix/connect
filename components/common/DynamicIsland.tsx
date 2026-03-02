@@ -60,7 +60,7 @@ export const IslandProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const showIsland = useCallback((notification: Omit<IslandNotification, 'id'>) => {
-    const id = Math.random().toString(36).substring(7);
+    const id = Date.now().toString(36) + Math.floor(Math.random() * 1000).toString(36);
     const newNotif = { ...notification, id, duration: notification.duration || (notification.majestic ? 10000 : 6000) };
     setNotifications(prev => [...prev, newNotif]);
   }, []);
@@ -256,8 +256,8 @@ const DynamicIslandOverlay: React.FC<{
                   </Stack>
                   {current.message && <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.6, fontSize: '0.875rem' }}>{current.message}</Typography>}
                   <Stack direction="row" spacing={1} justifyContent="flex-end">
-                    <Button size="small" onClick={(_e) => { e.stopPropagation(); onDismiss(current.id); }} sx={{ color: 'rgba(255, 255, 255, 0.4)', textTransform: 'none', fontWeight: 700 }}>Later</Button>
-                    {current.action && <Button variant="contained" size="small" onClick={(_e) => { e.stopPropagation(); current.action?.onClick(); onDismiss(current.id); }}
+                    <Button size="small" onClick={(_e) => { _e.stopPropagation(); onDismiss(current.id); }} sx={{ color: 'rgba(255, 255, 255, 0.4)', textTransform: 'none', fontWeight: 700 }}>Later</Button>
+                    {current.action && <Button variant="contained" size="small" onClick={(_e) => { _e.stopPropagation(); current.action?.onClick(); onDismiss(current.id); }}
                       sx={{ background: style.color, color: 'black', fontWeight: 900, borderRadius: '10px', textTransform: 'none' }}>{current.action.label}</Button>}
                   </Stack>
                 </Stack>
