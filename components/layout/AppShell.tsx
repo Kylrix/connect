@@ -68,7 +68,9 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
         const profilePicId = getUserProfilePicId(user);
         const cached = getCachedProfilePreview(profilePicId || undefined);
         if (cached !== undefined && mounted) {
-            setProfileUrl(cached ?? null);
+            requestAnimationFrame(() => {
+                if (mounted) setProfileUrl(cached ?? null);
+            });
         }
 
         const fetchPreview = async () => {

@@ -99,7 +99,7 @@ export const Profile = ({ username }: ProfileProps) => {
     if (!profile) return (
         <Box sx={{ textAlign: 'center', py: 8 }}>
             <Typography variant="h5" gutterBottom>Profile not found</Typography>
-            <Typography color="text.secondary">The user @{username} doesn't exist in our ecosystem.</Typography>
+            <Typography color="text.secondary">The user @{username} doesn&apos;t exist in our ecosystem.</Typography>
             <Button sx={{ mt: 2 }} variant="contained" onClick={() => router.push('/')}>Go Home</Button>
         </Box>
     );

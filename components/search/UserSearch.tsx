@@ -194,7 +194,7 @@ export const UserSearch = () => {
                 ))}
                 {results.length === 0 && query.trim().length >= 2 && !loading && (
                     <Typography align="center" color="text.secondary" sx={{ py: 4 }}>
-                        No users found matching "@{query}"
+                        No users found matching &quot;@{query}&quot;
                     </Typography>
                 )}
             </List>

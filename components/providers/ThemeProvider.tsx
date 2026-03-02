@@ -24,11 +24,13 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     // Load saved preference
     const saved = localStorage.getItem('kylrixconnect-theme') as 'light' | 'dark' | null;
-    if (saved) {
-      setMode(saved);
-    } else {
-      setMode(prefersDarkMode ? 'dark' : 'light');
-    }
+    requestAnimationFrame(() => {
+        if (saved) {
+            setMode(saved);
+        } else {
+            setMode(prefersDarkMode ? 'dark' : 'light');
+        }
+    });
   }, [prefersDarkMode]);
 
   useEffect(() => {
