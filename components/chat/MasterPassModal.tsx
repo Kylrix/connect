@@ -64,15 +64,14 @@ export const MasterPassModal = ({ open, onClose, onSuccess }: MasterPassModalPro
         }
     }, [open, user]);
 
-    const handlePinSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (pin.length !== 4 || loading) return;
+    const handlePinSubmit = async (pinValue: string) => {
+        if (pinValue.length !== 4 || loading) return;
 
         setLoading(true);
         setError(null);
 
         try {
-            const success = await ecosystemSecurity.unlockWithPin(pin);
+            const success = await ecosystemSecurity.unlockWithPin(pinValue);
             if (success) {
                 onSuccess();
                 onClose();
@@ -88,8 +87,16 @@ export const MasterPassModal = ({ open, onClose, onSuccess }: MasterPassModalPro
         }
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+        setPin(val);
+        if (val.length === 4) {
+            handlePinSubmit(val);
+        }
+    };
+
+    const handleSubmit = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
         if (!user || loading) return;
 
         setLoading(true);
