@@ -24,6 +24,8 @@ import FingerprintIcon from '@mui/icons-material/Fingerprint';
 import { ecosystemSecurity } from '@/lib/ecosystem/security';
 import { KeychainService } from '@/lib/appwrite/keychain';
 import { useAuth } from '@/lib/auth';
+import { unlockWithPasskey } from '@/lib/passkey';
+import { PasskeySetup } from '@/components/overlays/PasskeySetup';
 
 interface MasterPassModalProps {
     open: boolean;
@@ -41,28 +43,49 @@ export const MasterPassModal = ({ open, onClose, onSuccess }: MasterPassModalPro
     const [mode, setMode] = useState<'password' | 'pin' | 'passkey'>('password');
     const [hasPin, setHasPin] = useState(false);
     const [hasPasskey, setHasPasskey] = useState(false);
+    const [showPasskeyIncentive, setShowPasskeyIncentive] = useState(false);
 
     React.useEffect(() => {
         if (open && user) {
             const pinSet = ecosystemSecurity.isPinSet();
             setHasPin(pinSet);
             
-            // For now, assume passkey presence check logic exists in KeychainService
+            // Check for passkeys and auto-trigger if they exist
             KeychainService.listKeychainEntries(user.$id).then(entries => {
-                setHasPasskey(entries.some((e: any) => e.type === 'passkey'));
+                const passkeyPresent = entries.some((e: any) => e.type === 'passkey');
+                setHasPasskey(passkeyPresent);
+                
+                if (passkeyPresent) {
+                    setMode('passkey');
+                    handlePasskeyUnlock();
+                } else if (pinSet) {
+                    setMode('pin');
+                } else {
+                    setMode('password');
+                }
             });
 
-            if (pinSet) {
-                setMode('pin');
-            } else {
-                setMode('password');
-            }
-            
             setPassword('');
             setPin('');
             setError(null);
         }
     }, [open, user]);
+
+    const handlePasskeyUnlock = async () => {
+        if (!user?.$id || !open) return;
+        setLoading(true);
+        try {
+            const success = await unlockWithPasskey(user.$id);
+            if (success && open) {
+                onSuccess();
+                onClose();
+            }
+        } catch (e) {
+            console.error("Passkey unlock failed or cancelled", e);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handlePinSubmit = async (pinValue: string) => {
         if (pinValue.length !== 4 || loading) return;
@@ -73,8 +96,12 @@ export const MasterPassModal = ({ open, onClose, onSuccess }: MasterPassModalPro
         try {
             const success = await ecosystemSecurity.unlockWithPin(pinValue);
             if (success) {
-                onSuccess();
-                onClose();
+                if (!hasPasskey) {
+                    setShowPasskeyIncentive(true);
+                } else {
+                    onSuccess();
+                    onClose();
+                }
             } else {
                 setError('Incorrect PIN. Please try again.');
                 setPin('');
@@ -117,9 +144,13 @@ export const MasterPassModal = ({ open, onClose, onSuccess }: MasterPassModalPro
                 // Ensure Identity is ready for E2E messaging
                 await ecosystemSecurity.ensureE2EIdentity(user.$id);
                 
-                setPassword('');
-                onSuccess();
-                onClose();
+                if (!hasPasskey) {
+                    setShowPasskeyIncentive(true);
+                } else {
+                    setPassword('');
+                    onSuccess();
+                    onClose();
+                }
             } else {
                 setError('Incorrect master password. Please try again.');
             }
@@ -130,6 +161,26 @@ export const MasterPassModal = ({ open, onClose, onSuccess }: MasterPassModalPro
             setLoading(false);
         }
     };
+
+    if (showPasskeyIncentive && user) {
+        return (
+            <PasskeySetup 
+                isOpen={true} 
+                onClose={() => {
+                    setShowPasskeyIncentive(false);
+                    onSuccess();
+                    onClose();
+                }} 
+                userId={user.$id} 
+                onSuccess={() => {
+                    setShowPasskeyIncentive(false);
+                    onSuccess();
+                    onClose();
+                }}
+                trustUnlocked={true}
+            />
+        );
+    }
 
     return (
         <Dialog
