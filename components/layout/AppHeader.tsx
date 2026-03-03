@@ -51,7 +51,9 @@ export const AppHeader = () => {
     const profilePicId = getUserProfilePicId(user);
     const cached = getCachedProfilePreview(profilePicId || undefined);
     if (cached !== undefined && mounted) {
-      setProfileUrl(cached ?? null);
+      setTimeout(() => {
+        if (mounted) setProfileUrl(cached ?? null);
+      }, 0);
     }
 
     const fetchPreview = async () => {

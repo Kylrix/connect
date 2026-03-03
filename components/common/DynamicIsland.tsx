@@ -54,7 +54,11 @@ export function useIsland() {
 
 export const IslandProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<IslandNotification[]>([]);
-  const [lastActivity, setLastActivity] = useState(Date.now());
+  const [lastActivity, setLastActivity] = useState(0);
+
+  useEffect(() => {
+    setLastActivity(Date.now());
+  }, []);
   const { user } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));

@@ -453,7 +453,6 @@ export default function SettingsPage() {
                 }}
                 trustUnlocked={true}
             />
-        </Box>
-    </AppShell>
+        </AppShell>
     );
 }
