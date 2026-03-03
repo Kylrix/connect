@@ -23,5 +23,27 @@ export const KeychainService = {
     async hasMasterpass(userId: string) {
         const entries = await this.listKeychainEntries(userId);
         return entries.some((e: any) => e.type === 'password');
+    },
+
+    async createKeychainEntry(data: any) {
+        return await tablesDB.createRow(
+            DB_ID,
+            KEYCHAIN_TABLE,
+            ID.unique(),
+            data
+        );
+    },
+
+    async deleteKeychainEntry(id: string) {
+        return await tablesDB.deleteRow(
+            DB_ID,
+            KEYCHAIN_TABLE,
+            id
+        );
+    },
+
+    async syncPasskeyStatus(userId: string) {
+        // Implementation for syncing user document isPasskey flag if needed
+        // For now, listing entries is sufficient for the UI.
     }
 };
