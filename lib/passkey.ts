@@ -1,7 +1,7 @@
 "use client";
 
 import { startAuthentication } from "@simplewebauthn/browser";
-import { AppwriteService } from "@/lib/appwrite";
+import { KeychainService } from "@/lib/appwrite/keychain";
 import { ecosystemSecurity } from "@/lib/ecosystem/security";
 import toast from "react-hot-toast";
 
@@ -11,7 +11,7 @@ import toast from "react-hot-toast";
 export async function unlockWithPasskey(userId: string): Promise<boolean> {
   try {
     // 1. Get all keychain entries for the user
-    const entries = await AppwriteService.listKeychainEntries(userId);
+    const entries = await KeychainService.listKeychainEntries(userId);
     const passkeyEntries = entries.filter(k => k.type === 'passkey');
 
     if (passkeyEntries.length === 0) {
@@ -36,7 +36,7 @@ export async function unlockWithPasskey(userId: string): Promise<boolean> {
     };
 
     // 3. Start WebAuthn authentication
-    const authResp = await startAuthentication(authOptions);
+    const authResp = await startAuthentication({ optionsJSON: authOptions });
 
     // 4. Find the matching keychain entry
     const matchingEntry = passkeyEntries.find(e => e.credentialId === authResp.id);

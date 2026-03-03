@@ -45,7 +45,7 @@ export function useWebRTC(userId: string) {
     const channel = new BroadcastChannel(`kylrix-room-${id}`);
     signalingChannel.current = channel;
 
-    channel.onmessage = async (_event) => {
+    channel.onmessage = async (event) => {
       const signal: SignalData = event.data;
       
       // Ignore own messages

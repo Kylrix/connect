@@ -74,7 +74,7 @@ export const Feed = () => {
             fetchUserAvatar();
 
             // Real-time subscription for new posts
-            const unsub = SocialService.subscribeToFeed(async (_event) => {
+            const unsub = SocialService.subscribeToFeed(async (event) => {
                 if (event.type === 'create') {
                     const moment = event.payload;
                     

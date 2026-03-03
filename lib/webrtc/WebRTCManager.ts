@@ -35,7 +35,7 @@ export class WebRTCManager {
 
     this.peerConnection = new RTCPeerConnection(this.config);
 
-    this.peerConnection.onicecandidate = (_event) => {
+    this.peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
         this.events.onSignal({
           type: 'candidate',
@@ -46,7 +46,7 @@ export class WebRTCManager {
       }
     };
 
-    this.peerConnection.ontrack = (_event) => {
+    this.peerConnection.ontrack = (event) => {
       this.remoteStream = event.streams[0];
       this.events.onTrack(this.remoteStream);
     };

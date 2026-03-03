@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({ success: true, synergies });
     } catch (error: unknown) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        const message = error instanceof Error ? error.message : "Internal Server Error";
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

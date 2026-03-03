@@ -169,7 +169,7 @@ export const EventSelectorModal = ({ open, onClose, onSelect }: EventSelectorMod
                     </Box>
                 ) : filteredEvents.length > 0 ? (
                     <List sx={{ pt: 0 }}>
-                        {filteredEvents.map((_event) => (
+                        {filteredEvents.map((event) => (
                             <ListItem 
                                 key={event.$id} 
                                 component="div"

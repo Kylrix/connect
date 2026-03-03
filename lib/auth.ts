@@ -89,7 +89,8 @@ export function useAuth() {
                 setUser(retrySession);
                 await UsersService.ensureProfileForUser(retrySession as any);
             } catch {
-                const isNetworkError = !error.response && error.message?.includes('Network Error') || error.message?.includes('Failed to fetch');
+                const err = error as any;
+                const isNetworkError = !err.response && (err.message?.includes('Network Error') || err.message?.includes('Failed to fetch'));
                 if (!isNetworkError) {
                     setUser(null);
                 }

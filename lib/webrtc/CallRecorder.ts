@@ -48,7 +48,7 @@ export class CallRecorder {
       this.mediaRecorder = new MediaRecorder(this.mixedStream);
     }
 
-    this.mediaRecorder.ondataavailable = (_event) => {
+    this.mediaRecorder.ondataavailable = (event) => {
       if (event.data.size > 0) {
         this.recordedChunks.push(event.data);
       }

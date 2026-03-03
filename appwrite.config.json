@@ -68,7 +68,7 @@
                 "create(\"users\")"
             ],
             "databaseId": "67ff05a9000296822396",
-            "name": "users",
+            "name": "accountUsers",
             "enabled": true,
             "rowSecurity": true,
             "columns": [
@@ -3435,7 +3435,7 @@
                 "create(\"users\")"
             ],
             "databaseId": "chat",
-            "name": "users",
+            "name": "connectUsers",
             "enabled": true,
             "rowSecurity": true,
             "columns": [

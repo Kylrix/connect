@@ -139,7 +139,7 @@ export function PasskeySetup({
         attestation: "none" as const,
       };
 
-      const regResp = await startRegistration(registrationOptions);
+      const regResp = await startRegistration({ optionsJSON: registrationOptions });
 
       const encoder = new TextEncoder();
       const credentialData = encoder.encode(regResp.id + userId);
@@ -191,7 +191,7 @@ export function PasskeySetup({
       const message =
         err.name === "InvalidStateError"
           ? "This passkey is already registered."
-          : err.message;
+          : (error instanceof Error ? error.message : "Unknown error");
       toast.error(`Failed to create passkey: ${message}`);
     }
     setLoading(false);

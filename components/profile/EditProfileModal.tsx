@@ -103,7 +103,8 @@ export const EditProfileModal = ({ open, onClose, profile, onUpdate }: EditProfi
             onUpdate();
             onClose();
         } catch (err: unknown) {
-            setError(err.message || 'Failed to update profile');
+            const message = err instanceof Error ? err.message : 'Failed to update profile';
+            setError(message);
         } finally {
             setLoading(false);
         }

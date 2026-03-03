@@ -1,0 +1,128 @@
+import { type Models } from 'appwrite';
+
+export enum NotesStatus {
+    DRAFT = "draft",
+    PUBLISHED = "published",
+    ARCHIVED = "archived"
+}
+
+export enum ReactionsTargetType {
+    NOTE = "note",
+    COMMENT = "comment"
+}
+
+export enum CollaboratorsPermission {
+    READ = "read",
+    WRITE = "write",
+    ADMIN = "admin"
+}
+
+export enum NoteRevisionsCause {
+    MANUAL = "manual",
+    AI = "ai",
+    COLLAB = "collab"
+}
+
+export enum SubscriptionsPlan {
+    FREE = "free",
+    PRO = "pro",
+    ORG = "org"
+}
+
+export enum SubscriptionsStatus {
+    ACTIVE = "active",
+    CANCELED = "canceled",
+    TRIALING = "trialing"
+}
+
+export enum MessagesType {
+    TEXT = "text",
+    IMAGE = "image",
+    VIDEO = "video",
+    AUDIO = "audio",
+    FILE = "file",
+    CALL_SIGNAL = "call_signal",
+    SYSTEM = "system"
+}
+
+export enum ConversationsType {
+    DIRECT = "direct",
+    GROUP = "group",
+    CHANNEL = "channel",
+    BROADCAST = "broadcast",
+    COMMUNITY = "community"
+}
+
+export enum ContactsRelationship {
+    FRIEND = "friend",
+    FAMILY = "family",
+    COLLEAGUE = "colleague",
+    ACQUAINTANCE = "acquaintance",
+    BLOCKED = "blocked",
+    FAVORITE = "favorite"
+}
+
+export enum FollowsStatus {
+    PENDING = "pending",
+    ACCEPTED = "accepted",
+    BLOCKED = "blocked"
+}
+
+export enum AppActivityStatus {
+    ONLINE = "online",
+    OFFLINE = "offline",
+    AWAY = "away",
+    BUSY = "busy"
+}
+
+export enum CallLinksType {
+    AUDIO = "audio",
+    VIDEO = "video"
+}
+
+export enum CallLogsType {
+    AUDIO = "audio",
+    VIDEO = "video"
+}
+
+export enum CallLogsStatus {
+    MISSED = "missed",
+    COMPLETED = "completed",
+    DECLINED = "declined",
+    ONGOING = "ongoing"
+}
+
+export enum MomentsType {
+    IMAGE = "image",
+    VIDEO = "video"
+}
+
+export type UsersCreate = {
+    "id"?: string | null;
+    "email"?: string | null;
+    "name"?: string | null;
+    "username"?: string;
+    "displayName"?: string | null;
+    "avatarUrl"?: string | null;
+    "avatarFileId"?: string | null;
+    "bio"?: string | null;
+    "walletAddress"?: string | null;
+    "createdAt"?: string | null;
+    "updatedAt"?: string | null;
+}
+
+export type Users = Models.Row & {
+    "id"?: string | null;
+    "email"?: string | null;
+    "name"?: string | null;
+    "username"?: string | null;
+    "displayName"?: string | null;
+    "avatarUrl"?: string | null;
+    "avatarFileId"?: string | null;
+    "bio"?: string | null;
+    "walletAddress"?: string | null;
+    "createdAt"?: string | null;
+    "updatedAt"?: string | null;
+}
+
+// ... the rest of the file ...

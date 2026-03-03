@@ -100,7 +100,7 @@ export enum MomentsType {
     VIDEO = "video"
 }
 
-export type Users = Models.Row & {
+export type AccountUsers = Models.Row & {
     id: string | null;
     email: string | null;
     name: string | null;
