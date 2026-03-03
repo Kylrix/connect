@@ -172,13 +172,13 @@ export const MasterPassModal = ({ open, onClose, onSuccess }: MasterPassModalPro
 
             <DialogContent>
                 {mode === 'pin' ? (
-                    <Box component="form" onSubmit={handlePinSubmit} sx={{ mt: 2 }}>
+                    <Box sx={{ mt: 2 }}>
                         <TextField
                             fullWidth
                             type="password"
                             placeholder="••••"
                             value={pin}
-                            onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                            onChange={handlePinChange}
                             error={Boolean(error)}
                             helperText={error}
                             autoFocus
@@ -229,22 +229,24 @@ export const MasterPassModal = ({ open, onClose, onSuccess }: MasterPassModalPro
             </DialogContent>
 
             <DialogActions sx={{ p: 3, pt: 1, flexDirection: 'column', gap: 2 }}>
-                <Button 
-                    fullWidth 
-                    variant="contained" 
-                    onClick={mode === 'pin' ? handlePinSubmit : handleSubmit} 
-                    disabled={loading || (mode === 'pin' ? pin.length !== 4 : !password)}
-                    sx={{ 
-                        borderRadius: '12px', 
-                        py: 1.2, 
-                        fontWeight: 700,
-                        bgcolor: 'primary.main',
-                        color: 'black',
-                        '&:hover': { bgcolor: alpha('#00F0FF', 0.8) }
-                    }}
-                >
-                    {loading ? <CircularProgress size={24} color="inherit" /> : mode === 'pin' ? 'Verify PIN' : 'Unlock Vault'}
-                </Button>
+                {mode === 'password' && (
+                    <Button 
+                        fullWidth 
+                        variant="contained" 
+                        onClick={handleSubmit} 
+                        disabled={loading || !password}
+                        sx={{ 
+                            borderRadius: '12px', 
+                            py: 1.2, 
+                            fontWeight: 700,
+                            bgcolor: 'primary.main',
+                            color: 'black',
+                            '&:hover': { bgcolor: alpha('#00F0FF', 0.8) }
+                        }}
+                    >
+                        {loading ? <CircularProgress size={24} color="inherit" /> : 'Unlock Vault'}
+                    </Button>
+                )}
 
                 <Box sx={{ display: 'flex', gap: 1, width: '100%', justifyContent: 'center' }}>
                     {mode !== 'password' && (
