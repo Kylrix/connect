@@ -53,6 +53,46 @@ export default function SudoModal({
     const [mode, setMode] = useState<"passkey" | "password" | "pin">("password");
     const [showPasskeyIncentive, setShowPasskeyIncentive] = useState(false);
 
+    const handlePinChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value.replace(/[^0-9]/g, "");
+        setPin(val);
+        if (val.length === 4 && user?.$id) {
+            setLoading(true);
+            try {
+                const success = await ecosystemSecurity.unlockWithPin(val, user.$id);
+                if (success) {
+                    onSuccess();
+                } else {
+                    toast.error("Invalid PIN");
+                    setPin("");
+                }
+            } catch (_e: unknown) {
+                toast.error("Verification failed");
+                setPin("");
+            } finally {
+                setLoading(false);
+            }
+        }
+    };
+
+    const handlePasswordVerify = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!user?.$id) return;
+        setLoading(true);
+        try {
+            const success = await ecosystemSecurity.unlockWithPassword(password, user.$id);
+            if (success) {
+                onSuccess();
+            } else {
+                toast.error("Invalid Master Password");
+            }
+        } catch (_e: unknown) {
+            toast.error("Verification failed");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handlePasskeyVerify = useCallback(async () => {
         if (!user?.$id || !isOpen) return;
         setPasskeyLoading(true);

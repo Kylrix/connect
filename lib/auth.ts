@@ -15,7 +15,7 @@ export function useAuth() {
     const [loading, setLoading] = useState(true);
     const [isAuthenticating, setIsAuthenticating] = useState(false);
 
-    const attemptSilentAuth = useCallback(async () => {
+    const attemptSilentAuth = useCallback(async (): Promise<void> => {
         if (typeof window === 'undefined') return;
 
         const authBaseUrl = 'https://accounts.kylrix.space';
@@ -55,6 +55,7 @@ export function useAuth() {
             window.addEventListener('message', handleIframeMessage);
             document.body.appendChild(iframe);
         });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const checkSession = useCallback(async (retryCount = 0): Promise<void> => {
@@ -77,7 +78,6 @@ export function useAuth() {
             if (hasAuthSignal && retryCount < 3) {
                 console.log(`Auth signal detected but session not found in connect. Retrying... (${retryCount + 1})`);
                 await new Promise(resolve => setTimeout(resolve, 1000));
-                // eslint-disable-next-line react-hooks/exhaustive-deps
                 return checkSession(retryCount + 1);
             }
 

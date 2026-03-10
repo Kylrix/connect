@@ -40,7 +40,6 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const theme = useTheme();
-    const _colorMode = useColorMode();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     const _router = useRouter();
     const [_anchorEl, _setAnchorEl] = useState<null | HTMLElement>(null);
