@@ -141,7 +141,7 @@ export default function SettingsPage() {
             } else {
                 setMessage({ type: 'error', text: 'Failed to setup PIN. Please ensure vault is unlocked.' });
             }
-        } catch (err: unknown) {
+        } catch (_err: unknown) {
             setMessage({ type: 'error', text: 'An unexpected error occurred.' });
         } finally {
             setLoading(false);

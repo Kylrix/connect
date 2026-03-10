@@ -8,7 +8,6 @@ import {
     DialogActions,
     Button,
     List,
-    ListItem,
     ListItemButton,
     ListItemText,
     ListItemIcon,
@@ -18,7 +17,7 @@ import {
     TextField,
     Tabs,
     Tab,
-    alpha
+    alpha as _alpha
 } from '@mui/material';
 import KeyIcon from '@mui/icons-material/VpnKeyOutlined';
 import ShieldIcon from '@mui/icons-material/ShieldOutlined';
@@ -46,13 +45,7 @@ export const SecretSelectorModal = ({ open, onClose, onSelect, isSelf }: SecretS
     const [unlockModalOpen, setUnlockModalOpen] = useState(false);
     const [pendingSelection, setPendingSelection] = useState<{ item: any, type: 'secret' | 'totp' } | null>(null);
 
-    useEffect(() => {
-        if (open && user) {
-            loadData();
-        }
-    }, [open, user]);
-
-    const loadData = async () => {
+    const loadData = React.useCallback(async () => {
         if (!user) return;
         setLoading(true);
         try {
@@ -67,7 +60,13 @@ export const SecretSelectorModal = ({ open, onClose, onSelect, isSelf }: SecretS
         } finally {
             setLoading(false);
         }
-    };
+    }, [user]);
+
+    useEffect(() => {
+        if (open && user) {
+            loadData();
+        }
+    }, [open, user, loadData]);
 
     const handleSelect = async (item: any, type: 'secret' | 'totp') => {
         if (type === 'secret' && !isSelf) {
@@ -97,7 +96,7 @@ export const SecretSelectorModal = ({ open, onClose, onSelect, isSelf }: SecretS
         }
     };
 
-    const filteredItems = tab === 0
+    const _filteredItems = tab === 0
         ? secrets.filter(s => (s.name || '').toLowerCase().includes(searchTerm.toLowerCase()))
         : totps.filter(t => (t.issuer || '').toLowerCase().includes(searchTerm.toLowerCase()));
 
@@ -146,12 +145,12 @@ export const SecretSelectorModal = ({ open, onClose, onSelect, isSelf }: SecretS
                         </Box>
                     ) : (
                         <List sx={{ maxHeight: '400px', overflowY: 'auto' }}>
-                            {filteredItems.length === 0 ? (
+                            {_filteredItems.length === 0 ? (
                                 <Typography variant="body2" sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
                                     No items found.
                                 </Typography>
                             ) : (
-                                filteredItems.map((item) => (
+                                _filteredItems.map((item) => (
                                     <ListItemButton
                                         key={item.$id}
                                         disabled={tab === 0 && !isSelf}

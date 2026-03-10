@@ -15,7 +15,7 @@ import {
     Box,
     CircularProgress,
     TextField,
-    alpha
+    alpha as _alpha
 } from '@mui/material';
 import NoteIcon from '@mui/icons-material/DescriptionOutlined';
 import SearchIcon from '@mui/icons-material/SearchOutlined';
@@ -34,13 +34,7 @@ export const NoteSelectorModal = ({ open, onClose, onSelect }: NoteSelectorModal
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
-    useEffect(() => {
-        if (open && user) {
-            loadNotes();
-        }
-    }, [open, user]);
-
-    const loadNotes = async () => {
+    const loadNotes = React.useCallback(async () => {
         if (!user) return;
         setLoading(true);
         try {
@@ -51,14 +45,20 @@ export const NoteSelectorModal = ({ open, onClose, onSelect }: NoteSelectorModal
         } finally {
             setLoading(false);
         }
-    };
+    }, [user]);
+
+    useEffect(() => {
+        if (open && user) {
+            loadNotes();
+        }
+    }, [open, user, loadNotes]);
 
     const handleSelect = (note: any) => {
         onSelect(note);
         onClose();
     };
 
-    const filteredNotes = notes.filter(note => {
+    const filteredNotes = notes.filter(_note => {
         // Note: Title might be encrypted, but let's assume we can't search easily if it is.
         // Some notes might have plaintext titles if they were migrated or public.
         // In this UI, we might only see "[Encrypted Note]" if locked.

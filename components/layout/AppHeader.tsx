@@ -15,7 +15,6 @@ import {
   Divider,
   ListItemIcon,
   ListItemText,
-  Paper,
   InputBase,
   alpha,
   Button

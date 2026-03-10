@@ -32,26 +32,7 @@ export const ChatList = () => {
     const [isUnlocked, setIsUnlocked] = useState(ecosystemSecurity.status.isUnlocked);
     const [unlockModalOpen, setUnlockModalOpen] = useState(false);
 
-    useEffect(() => {
-        const checkUnlock = setInterval(() => {
-            if (ecosystemSecurity.status.isUnlocked !== isUnlocked) {
-                const newStatus = ecosystemSecurity.status.isUnlocked;
-                setIsUnlocked(newStatus);
-                if (newStatus) {
-                    loadConversations();
-                }
-            }
-        }, 1000);
-        return () => clearInterval(checkUnlock);
-    }, [isUnlocked]);
-
-    useEffect(() => {
-        if (user) {
-            loadConversations();
-        }
-    }, [user]);
-
-    const loadConversations = async () => {
+    const loadConversations = React.useCallback(async () => {
         try {
             console.log('[ChatList] Loading conversations for user:', user!.$id);
             const response = await ChatService.getConversations(user!.$id);
@@ -100,7 +81,7 @@ export const ChatList = () => {
                                     otherUserId: otherId, 
                                     name: profile ? (profile.displayName || profile.username) : ('User ' + otherId.substring(0, 5)) 
                                 };
-                            } catch (e: unknown) {
+                            } catch (_e: unknown) {
                                 return { ...conv, name: 'User ' + otherId.substring(0, 5) };
                             }
                         }
@@ -135,7 +116,26 @@ export const ChatList = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [user]);
+
+    useEffect(() => {
+        const checkUnlock = setInterval(() => {
+            if (ecosystemSecurity.status.isUnlocked !== isUnlocked) {
+                const newStatus = ecosystemSecurity.status.isUnlocked;
+                setIsUnlocked(newStatus);
+                if (newStatus) {
+                    loadConversations();
+                }
+            }
+        }, 1000);
+        return () => clearInterval(checkUnlock);
+    }, [isUnlocked, loadConversations]);
+
+    useEffect(() => {
+        if (user) {
+            loadConversations();
+        }
+    }, [user, loadConversations]);
 
     if (loading) return <Box sx={{ p: 2, display: 'flex', justifyContent: 'center' }}><CircularProgress size={24} sx={{ color: 'primary.main' }} /></Box>;
 

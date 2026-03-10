@@ -11,10 +11,10 @@ import {
     IconButton,
     Typography,
     Box,
-    Stack,
+    Stack as _Stack,
     CircularProgress,
     alpha,
-    useTheme
+    useTheme as _useTheme
 } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOffOutlined';
@@ -45,6 +45,22 @@ export const MasterPassModal = ({ open, onClose, onSuccess }: MasterPassModalPro
     const [hasPasskey, setHasPasskey] = useState(false);
     const [showPasskeyIncentive, setShowPasskeyIncentive] = useState(false);
 
+    const handlePasskeyUnlock = React.useCallback(async () => {
+        if (!user?.$id || !open) return;
+        setLoading(true);
+        try {
+            const success = await unlockWithPasskey(user.$id);
+            if (success && open) {
+                onSuccess();
+                onClose();
+            }
+        } catch (e) {
+            console.error("Passkey unlock failed or cancelled", e);
+        } finally {
+            setLoading(false);
+        }
+    }, [user?.$id, open, onSuccess, onClose]);
+
     React.useEffect(() => {
         if (open && user) {
             const pinSet = ecosystemSecurity.isPinSet();
@@ -69,23 +85,7 @@ export const MasterPassModal = ({ open, onClose, onSuccess }: MasterPassModalPro
             setPin('');
             setError(null);
         }
-    }, [open, user]);
-
-    const handlePasskeyUnlock = async () => {
-        if (!user?.$id || !open) return;
-        setLoading(true);
-        try {
-            const success = await unlockWithPasskey(user.$id);
-            if (success && open) {
-                onSuccess();
-                onClose();
-            }
-        } catch (e) {
-            console.error("Passkey unlock failed or cancelled", e);
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, [open, user, handlePasskeyUnlock]);
 
     const handlePinSubmit = async (pinValue: string) => {
         if (pinValue.length !== 4 || loading) return;
