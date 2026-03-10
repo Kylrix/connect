@@ -227,7 +227,6 @@ export const AppHeader = () => {
                 width: { xs: 36, sm: 42 },
                 height: { xs: 36, sm: 42 },
                 animation: 'pulse-slow 4s infinite ease-in-out',
-                display: { xs: 'none', sm: 'flex' },
                 '@keyframes pulse-slow': {
                   '0%': { boxShadow: '0 0 0 0 rgba(99, 102, 241, 0.2)' },
                   '70%': { boxShadow: '0 0 0 10px rgba(99, 102, 241, 0)' },

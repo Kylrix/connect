@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { UsersService } from '@/lib/services/users';
 import { Messages } from '@/types/appwrite';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { realtime } from '@/lib/appwrite/client';
 import { APPWRITE_CONFIG } from '@/lib/appwrite/config';
 import { format } from 'date-fns';
@@ -465,14 +466,24 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
             case 'image':
                 return (
                     <Box>
-                        <img
-                            src={previewUrl}
-                            alt="attachment"
-                            width={300}
-                            height={300}
-                            style={{ maxWidth: '100%', borderRadius: 8, cursor: 'pointer', height: 'auto' }}
+                        <Box
+                            sx={{
+                                width: 300,
+                                height: 300,
+                                position: 'relative',
+                                borderRadius: 2,
+                                overflow: 'hidden',
+                                cursor: 'pointer'
+                            }}
                             onClick={() => window.open(viewUrl, '_blank')}
-                        />
+                        >
+                            <Image
+                                src={previewUrl}
+                                alt="attachment"
+                                fill
+                                style={{ objectFit: 'cover' }}
+                            />
+                        </Box>
                         {msg.content && <Typography variant="body2" sx={{ mt: 1 }}>{msg.content}</Typography>}
                     </Box>
                 );

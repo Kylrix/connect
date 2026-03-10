@@ -19,7 +19,7 @@ import {
     TextField,
     Tooltip
 } from '@mui/material';
-import { User, Search, Edit2, Check, X, ShieldAlert } from 'lucide-react';
+import { Search, Edit2, Check, X, ShieldAlert } from 'lucide-react';
 import { UsersService } from '@/lib/services/users';
 import { useAuth } from '@/lib/auth';
 import toast from 'react-hot-toast';
@@ -250,6 +250,7 @@ export const DiscoverabilitySettings = () => {
                         <Typography variant="caption" sx={{ mt: 1, display: 'block', opacity: 0.4 }}>
                             This handle is shared across the entire Kylrix ecosystem.
                         </Typography>
+                    </Box>
                 </Stack>
             </Paper>
 
