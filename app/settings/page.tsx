@@ -39,7 +39,7 @@ import toast from 'react-hot-toast';
 
 export default function SettingsPage() {
     const { user } = useAuth();
-    const muiTheme = useTheme();
+    const _muiTheme = useTheme();
     const [isUnlocked, setIsUnlocked] = useState(ecosystemSecurity.status.isUnlocked);
     const [unlockModalOpen, setUnlockModalOpen] = useState(false);
     const [passkeySetupOpen, setPasskeySetupOpen] = useState(false);
@@ -53,7 +53,24 @@ export default function SettingsPage() {
 
     // Passkey state
     const [passkeyEntries, setPasskeyEntries] = useState<any[]>([]);
-    const [loadingPasskeys, setLoadingPasskeys] = useState(true);
+    const [_loadingPasskeys, setLoadingPasskeys] = useState(true);
+
+    const loadPasskeys = React.useCallback(async () => {
+        if (!user?.$id) return;
+        try {
+            const entries = await KeychainService.listKeychainEntries(user.$id);
+            const pkEntries = entries.filter((e: any) => e.type === 'passkey').map((e: any) => ({
+                ...e,
+                params: typeof e.params === 'string' ? JSON.parse(e.params) : e.params
+            }));
+            
+            setPasskeyEntries(pkEntries);
+        } catch (e) {
+            console.error("Failed to load passkeys", e);
+        } finally {
+            setLoadingPasskeys(false);
+        }
+    }, [user?.$id]);
 
     useEffect(() => {
         setIsPinSet(ecosystemSecurity.isPinSet());
@@ -69,24 +86,7 @@ export default function SettingsPage() {
         }
 
         return () => clearInterval(interval);
-    }, [isUnlocked, user]);
-
-    const loadPasskeys = async () => {
-        if (!user?.$id) return;
-        try {
-            const entries = await KeychainService.listKeychainEntries(user.$id);
-            const pkEntries = entries.filter((e: any) => e.type === 'passkey').map((e: any) => ({
-                ...e,
-                params: typeof e.params === 'string' ? JSON.parse(e.params) : e.params
-            }));
-            
-            setPasskeyEntries(pkEntries);
-        } catch (e) {
-            console.error("Failed to load passkeys", e);
-        } finally {
-            setLoadingPasskeys(false);
-        }
-    };
+    }, [isUnlocked, user, loadPasskeys]);
 
     const handleRemovePasskey = async (id: string) => {
         if (!window.confirm("Are you sure you want to remove this passkey? This cannot be undone.")) return;
@@ -94,7 +94,7 @@ export default function SettingsPage() {
             await KeychainService.deleteKeychainEntry(id);
             toast.success("Passkey removed");
             loadPasskeys();
-        } catch (e) {
+        } catch (_e) {
             toast.error("Failed to remove passkey");
         }
     };

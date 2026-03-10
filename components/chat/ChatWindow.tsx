@@ -23,7 +23,6 @@ import {
     Menu,
     MenuItem,
     Divider,
-    ListItemIcon,
     Avatar,
     Stack,
     useTheme,
@@ -36,15 +35,10 @@ import {
     PlusCircle, 
     Mic, 
     Square, 
-    Image, 
-    Music, 
-    Video, 
     File, 
-    X, 
     Check, 
     CheckCheck, 
     MoreVertical, 
-    Info, 
     Shield, 
     Bookmark, 
     Users, 
@@ -80,6 +74,59 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
 
+    const loadConversation = React.useCallback(async () => {
+        try {
+            const conv = await ChatService.getConversationById(conversationId);
+            if (conv.type === 'direct') {
+                const otherId = conv.participants.find((p: string) => p !== user!.$id);
+                if (otherId) {
+                    try {
+                        const profile = await UsersService.getProfileById(otherId);
+                        setConversation({
+                            ...conv,
+                            name: profile ? (profile.displayName || profile.username) : 'User'
+                        });
+                    } catch (_e: unknown) {
+                        setConversation({ ...conv, name: 'User' });
+                    }
+                } else {
+                    setConversation({ ...conv, name: 'Note to Self' });
+                }
+            } else {
+                setConversation(conv);
+            }
+        } catch (error: unknown) {
+            console.error('Failed to load conversation:', error);
+        }
+    }, [conversationId, user]);
+
+    const loadMessages = React.useCallback(async () => {
+        try {
+            const response = await ChatService.getMessages(conversationId);
+            const conv = await ChatService.getConversationById(conversationId);
+            
+            // Filter by clearedAt if exists in settings
+            let displayMessages = response.rows;
+            if (user && conv.settings) {
+                try {
+                    const decryptedSettings = await ecosystemSecurity.decrypt(conv.settings);
+                    const settings = JSON.parse(decryptedSettings);
+                    const myClearedAt = settings.clearedAt?.[user.$id];
+                    if (myClearedAt) {
+                        displayMessages = displayMessages.filter((m: any) => new Date(m.$createdAt) > new Date(myClearedAt));
+                    }
+                } catch (_e: unknown) {}
+            }
+
+            // Reverse once for display order (bottom is newest)
+            setMessages(displayMessages.reverse() as unknown as Messages[]);
+        } catch (error: unknown) {
+            console.error('Failed to load messages:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [conversationId, user]);
+
     useEffect(() => {
         const checkUnlock = setInterval(() => {
             if (ecosystemSecurity.status.isUnlocked !== isUnlocked) {
@@ -91,7 +138,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
             }
         }, 1000);
         return () => clearInterval(checkUnlock);
-    }, [isUnlocked]);
+    }, [isUnlocked, loadConversation, loadMessages]);
 
     useEffect(() => {
         if (conversationId) {
@@ -133,70 +180,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                 else if (unsub?.unsubscribe) unsub.unsubscribe();
             };
         }
-    }, [conversationId, user]);
-
-    useEffect(() => {
-        if (conversationId && user) {
-            ChatService.markConversationAsRead(conversationId, user.$id);
-        }
-    }, [conversationId, user]);
-
-    useEffect(() => {
-        scrollToBottom();
-    }, [messages]);
-
-    const loadConversation = async () => {
-        try {
-            const conv = await ChatService.getConversationById(conversationId);
-            if (conv.type === 'direct') {
-                const otherId = conv.participants.find((p: string) => p !== user!.$id);
-                if (otherId) {
-                    try {
-                        const profile = await UsersService.getProfileById(otherId);
-                        setConversation({
-                            ...conv,
-                            name: profile ? (profile.displayName || profile.username) : 'User'
-                        });
-                    } catch (e: unknown) {
-                        setConversation({ ...conv, name: 'User' });
-                    }
-                } else {
-                    setConversation({ ...conv, name: 'Note to Self' });
-                }
-            } else {
-                setConversation(conv);
-            }
-        } catch (error: unknown) {
-            console.error('Failed to load conversation:', error);
-        }
-    };
-
-    const loadMessages = async () => {
-        try {
-            const response = await ChatService.getMessages(conversationId);
-            const conv = await ChatService.getConversationById(conversationId);
-            
-            // Filter by clearedAt if exists in settings
-            let displayMessages = response.rows;
-            if (user && conv.settings) {
-                try {
-                    const decryptedSettings = await ecosystemSecurity.decrypt(conv.settings);
-                    const settings = JSON.parse(decryptedSettings);
-                    const myClearedAt = settings.clearedAt?.[user.$id];
-                    if (myClearedAt) {
-                        displayMessages = displayMessages.filter((m: any) => new Date(m.$createdAt) > new Date(myClearedAt));
-                    }
-                } catch (e: unknown) {}
-            }
-
-            // Reverse once for display order (bottom is newest)
-            setMessages(displayMessages.reverse() as unknown as Messages[]);
-        } catch (error: unknown) {
-            console.error('Failed to load messages:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, [conversationId, user, loadConversation, loadMessages]);
 
     const handleClearChat = async (mode: 'me' | 'everyone') => {
         if (!user || !confirm(`Are you sure you want to wipe this chat ${mode === 'me' ? 'for yourself' : 'for everyone'}?`)) return;
@@ -237,9 +221,9 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
         setAnchorEl(null);
     };
 
-    const handleDeleteMessage = async (messageId: string, everyone: boolean) => {
+    const _handleDeleteMessage = async (messageId: string, _everyone: boolean) => {
         try {
-            if (everyone) {
+            if (_everyone) {
                 await ChatService.deleteMessage(messageId);
             } else {
                 // Individual 'delete for me' would require a schema change (deletedBy array)
@@ -320,7 +304,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
         router.push(`/call/${conversationId}?caller=true`);
     };
 
-    const handleAttachClick = (event: React.MouseEvent<HTMLElement>) => {
+    const _handleAttachClick = (event: React.MouseEvent<HTMLElement>) => {
         setAnchorEl(event.currentTarget);
     };
 
@@ -342,7 +326,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
         }
     };
 
-    const toggleRecording = () => {
+    const _toggleRecording = () => {
         if (isRecording) {
             setIsRecording(false);
             // Mock voice note for now
