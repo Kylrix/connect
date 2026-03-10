@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { 
     Dialog, 
     DialogTitle, 
@@ -14,11 +14,8 @@ import {
     Typography,
     CircularProgress,
     Box,
-    TextField,
-    InputAdornment,
     IconButton,
     alpha,
-    Paper,
     Fade,
     InputBase
 } from '@mui/material';

@@ -53,6 +53,22 @@ export default function SudoModal({
     const [mode, setMode] = useState<"passkey" | "password" | "pin">("password");
     const [showPasskeyIncentive, setShowPasskeyIncentive] = useState(false);
 
+    const handlePasskeyVerify = useCallback(async () => {
+        if (!user?.$id || !isOpen) return;
+        setPasskeyLoading(true);
+        try {
+            const success = await unlockWithPasskey(user.$id);
+            if (success && isOpen) {
+                toast.success("Verified via Passkey");
+                onSuccess();
+            }
+        } catch (e) {
+            console.error("Passkey verification failed or cancelled", e);
+        } finally {
+            setPasskeyLoading(false);
+        }
+    }, [user?.$id, isOpen, onSuccess]);
+
     // Check if user has passkey and PIN set up
     useEffect(() => {
         if (isOpen && user?.$id) {
@@ -89,92 +105,7 @@ export default function SudoModal({
             setLoading(false);
             setPasskeyLoading(false);
         }
-    }, [isOpen, user]);
-
-    const handlePasswordVerify = async (e?: React.FormEvent) => {
-        e?.preventDefault();
-        if (!user?.$id) return;
-        if (!password) return;
-
-        setLoading(true);
-        try {
-            // Find password keychain entry
-            const entries = await KeychainService.listKeychainEntries(user.$id);
-            const passwordEntry = entries.find((e: any) => e.type === 'password');
-            
-            if (!passwordEntry) {
-                toast.error("Master password not setup");
-                setLoading(false);
-                return;
-            }
-
-            const isValid = await ecosystemSecurity.unlock(password, passwordEntry);
-            if (isValid) {
-                if (!hasPasskey) {
-                    setShowPasskeyIncentive(true);
-                } else {
-                    toast.success("Verified");
-                    onSuccess();
-                }
-            } else {
-                toast.error("Incorrect master password");
-            }
-        } catch (error: unknown) {
-            console.error(error);
-            toast.error("Verification failed");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handlePinVerify = async (pinValue: string) => {
-        if (pinValue.length !== 4 || loading) return;
-
-        setLoading(true);
-        try {
-            const success = await ecosystemSecurity.unlockWithPin(pinValue);
-            if (success) {
-                if (!hasPasskey) {
-                    setShowPasskeyIncentive(true);
-                } else {
-                    toast.success("Verified via PIN");
-                    onSuccess();
-                }
-            } else {
-                toast.error("Incorrect PIN");
-                setPin("");
-            }
-        } catch (error: unknown) {
-            console.error(error);
-            toast.error("PIN verification failed");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = e.target.value.replace(/\D/g, '').slice(0, 4);
-        setPin(val);
-        if (val.length === 4) {
-            handlePinVerify(val);
-        }
-    };
-
-    const handlePasskeyVerify = async () => {
-        if (!user?.$id || !isOpen) return;
-        setPasskeyLoading(true);
-        try {
-            const success = await unlockWithPasskey(user.$id);
-            if (success && isOpen) {
-                toast.success("Verified via Passkey");
-                onSuccess();
-            }
-        } catch (e) {
-            console.error("Passkey verification failed or cancelled", e);
-        } finally {
-            setPasskeyLoading(false);
-        }
-    };
+    }, [isOpen, user, handlePasskeyVerify, onCancel, router]);
 
     if (showPasskeyIncentive && user) {
         return (

@@ -1,19 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
     Box, 
     Typography, 
     Paper, 
     Stack, 
     Switch, 
-    FormControlLabel, 
     Divider,
-    TextField,
     CircularProgress,
     alpha
 } from '@mui/material';
-import { User, Globe, Search } from 'lucide-react';
+import { User, Search } from 'lucide-react';
 import { UsersService } from '@/lib/services/users';
 import { useAuth } from '@/lib/auth';
 import toast from 'react-hot-toast';
@@ -25,23 +23,23 @@ export const DiscoverabilitySettings = () => {
     const [profile, setProfile] = useState<any>(null);
     const [username, setUsername] = useState('');
 
-    useEffect(() => {
-        if (user?.$id) {
-            loadProfile();
-        }
-    }, [user]);
-
-    const loadProfile = async () => {
+    const loadProfile = useCallback(async () => {
         try {
             const p = await UsersService.getProfileById(user!.$id);
             setProfile(p);
             if (p) setUsername(p.username);
-        } catch (e) {
-            console.error("Failed to load profile", e);
+        } catch (_e: unknown) {
+            console.error("Failed to load profile", _e);
         } finally {
             setLoading(false);
         }
-    };
+    }, [user]);
+
+    useEffect(() => {
+        if (user?.$id) {
+            loadProfile();
+        }
+    }, [user, loadProfile]);
 
     const handleToggleDiscoverability = async (checked: boolean) => {
         if (!user?.$id || !profile) return;
@@ -54,7 +52,7 @@ export const DiscoverabilitySettings = () => {
             await UsersService.updateProfile(user.$id, { appsActive });
             setProfile({ ...profile, appsActive });
             toast.success(checked ? "You are now discoverable" : "Discovery disabled");
-        } catch (e) {
+        } catch (_e: unknown) {
             toast.error("Failed to update preference");
         } finally {
             setSaving(false);

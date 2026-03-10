@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { UsersService } from '@/lib/services/users';
 import { SocialService } from '@/lib/services/social';
 import { useAuth } from '@/lib/auth';
@@ -11,7 +11,6 @@ import {
     Paper, 
     Button, 
     CircularProgress,
-    Divider,
     Stack
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
@@ -46,11 +45,7 @@ export const Profile = ({ username }: ProfileProps) => {
         (!normalizedUsername && profile?.$id === currentUser.$id)
     );
 
-    useEffect(() => {
-        loadProfile();
-    }, [username, currentUser]);
-
-    const loadProfile = async () => {
+    const loadProfile = useCallback(async () => {
         setLoading(true);
         try {
             let data;
@@ -74,7 +69,11 @@ export const Profile = ({ username }: ProfileProps) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [username, currentUser]);
+
+    useEffect(() => {
+        loadProfile();
+    }, [loadProfile]);
 
     const handleFollow = async () => {
         if (!currentUser) return; // Prompt to login

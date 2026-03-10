@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { SocialService } from '@/lib/services/social';
 import { UsersService } from '@/lib/services/users';
 import { ChatService } from '@/lib/services/chat';
@@ -28,7 +28,6 @@ import {
     MessageSquare, 
     Share2, 
     Bookmark, 
-    MoreHorizontal, 
     X, 
     FileText, 
     Calendar,
@@ -68,6 +67,60 @@ export const Feed = () => {
     const [viewingEvent, setViewingEvent] = useState<any>(null);
     const [isEventDrawerOpen, setIsEventDrawerOpen] = useState(false);
 
+    const fetchUserAvatar = useCallback(async () => {
+        const picId = getUserProfilePicId(user);
+        if (picId) {
+            try {
+                const url = await fetchProfilePreview(picId, 64, 64);
+                setUserAvatarUrl(url as unknown as string);
+            } catch (_e: unknown) {
+                console.warn('Feed failed to fetch user avatar', _e);
+            }
+        }
+    }, [user]);
+
+    const loadFeed = useCallback(async () => {
+        if (!user?.$id) return;
+        try {
+            const response = await SocialService.getFeed(user.$id);
+            // Enrich with creator details and avatars
+            const enriched = await Promise.all(response.rows.map(async (moment: any) => {
+                const creatorId = moment.userId || moment.creatorId;
+                try {
+                    const creator = await UsersService.getProfileById(creatorId);
+                    
+                    let avatarUrl = null;
+                    const picId = creator?.profilePicId || creator?.avatarFileId || creator?.avatarUrl || creator?.avatar;
+                    if (picId && typeof picId === 'string' && picId.length > 5) {
+                        try {
+                            const url = await fetchProfilePreview(picId, 64, 64);
+                            avatarUrl = url as unknown as string;
+                        } catch (_e: unknown) {}
+                    }
+
+                    if (creator) {
+                        return { ...moment, creator: { ...creator, avatarUrl } };
+                    }
+                    throw new Error('Creator not found');
+                } catch (_e: unknown) {
+                    return { 
+                        ...moment, 
+                        creator: { 
+                            username: `user_${creatorId.slice(0, 5)}`, 
+                            displayName: 'Kylrix User',
+                            $id: creatorId 
+                        } 
+                    };
+                }
+            }));
+            setMoments(enriched);
+        } catch (error: unknown) {
+            console.error('Failed to load feed:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [user]);
+
     useEffect(() => {
         if (user) {
             loadFeed();
@@ -90,7 +143,7 @@ export const Feed = () => {
                             try {
                                 const url = await fetchProfilePreview(picId, 64, 64);
                                 avatarUrl = url as unknown as string;
-                            } catch (e: unknown) {}
+                            } catch (_e: unknown) {}
                         }
 
                         const enrichedMoment = { 
@@ -107,8 +160,8 @@ export const Feed = () => {
                             if (prev.some(m => m.$id === enrichedMoment.$id)) return prev;
                             return [enrichedMoment, ...prev];
                         });
-                    } catch (e: unknown) {
-                        console.warn('Failed to enrich real-time moment', e);
+                    } catch (_e: unknown) {
+                        console.warn('Failed to enrich real-time moment', _e);
                     }
                 } else if (event.type === 'delete') {
                     setMoments(prev => prev.filter(m => m.$id !== event.payload.$id));
@@ -120,61 +173,7 @@ export const Feed = () => {
                 else (unsub as any).unsubscribe?.();
             };
         }
-    }, [user]);
-
-    const fetchUserAvatar = async () => {
-        const picId = getUserProfilePicId(user);
-        if (picId) {
-            try {
-                const url = await fetchProfilePreview(picId, 64, 64);
-                setUserAvatarUrl(url as unknown as string);
-            } catch (e: unknown) {
-                console.warn('Feed failed to fetch user avatar', e);
-            }
-        }
-    };
-
-    const loadFeed = async () => {
-        if (!user?.$id) return;
-        try {
-            const response = await SocialService.getFeed(user.$id);
-            // Enrich with creator details and avatars
-            const enriched = await Promise.all(response.rows.map(async (moment: any) => {
-                const creatorId = moment.userId || moment.creatorId;
-                try {
-                    const creator = await UsersService.getProfileById(creatorId);
-                    
-                    let avatarUrl = null;
-                    const picId = creator?.profilePicId || creator?.avatarFileId || creator?.avatarUrl || creator?.avatar;
-                    if (picId && typeof picId === 'string' && picId.length > 5) {
-                        try {
-                            const url = await fetchProfilePreview(picId, 64, 64);
-                            avatarUrl = url as unknown as string;
-                        } catch (e: unknown) {}
-                    }
-
-                    if (creator) {
-                        return { ...moment, creator: { ...creator, avatarUrl } };
-                    }
-                    throw new Error('Creator not found');
-                } catch (e: unknown) {
-                    return { 
-                        ...moment, 
-                        creator: { 
-                            username: `user_${creatorId.slice(0, 5)}`, 
-                            displayName: 'Kylrix User',
-                            $id: creatorId 
-                        } 
-                    };
-                }
-            }));
-            setMoments(enriched);
-        } catch (error: unknown) {
-            console.error('Failed to load feed:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, [user, loadFeed, fetchUserAvatar]);
 
     const handlePost = async () => {
         if (!newMoment.trim() && !selectedNote && !selectedEvent) return;
@@ -497,20 +496,9 @@ export const Feed = () => {
                                     </Typography>
                                     <Box sx={{ display: 'flex', gap: 1 }}>
                                         {moment.attachedNote.tags?.slice(0, 2).map((tag: string, i: number) => (
-                                            <Box 
-                                                key={i}
-                                                sx={{ 
-                                                    px: 1, 
-                                                    py: 0.25, 
-                                                    borderRadius: 1, 
-                                                    bgcolor: 'rgba(255, 255, 255, 0.05)', 
-                                                    fontSize: '0.65rem',
-                                                    color: 'rgba(255, 255, 255, 0.5)',
-                                                    fontWeight: 700
-                                                }}
-                                            >
-                                                #{tag}
-                                            </Box>
+                                <Box key={i} sx={{ px: 1, py: 0.25, borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.05)', fontSize: '0.65rem', color: 'rgba(255, 255, 255, 0.5)', fontWeight: 700 }}>
+                                    #{_tag}
+                                </Box>
                                         ))}
                                     </Box>
                                 </Box>

@@ -59,7 +59,7 @@ export const UserSearch = () => {
     const { user } = useAuth();
     const router = useRouter();
 
-    const fetchResults = async (term: string) => {
+    const fetchResults = useCallback(async (term: string) => {
         if (!term.trim() || term.length < 2) {
             setResults([]);
             return;
@@ -76,7 +76,7 @@ export const UserSearch = () => {
                     try {
                         const settings = JSON.parse(u.privacySettings);
                         if (settings.public === false || settings.searchable === false) return false;
-                    } catch (e: unknown) { }
+                    } catch (_e: unknown) { }
                 }
                 return true;
             }) as unknown as Users[];
@@ -87,7 +87,7 @@ export const UserSearch = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [user]);
 
     useEffect(() => {
         if (query.trim().length < 2) {
@@ -99,7 +99,7 @@ export const UserSearch = () => {
             fetchResults(query);
         }, 300);
         return () => clearTimeout(timer);
-    }, [query]);
+    }, [query, fetchResults]);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();

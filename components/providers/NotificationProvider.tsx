@@ -41,7 +41,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
 
-  const APPWRITE_TABLE_ID_ACTIVITYLOG = "activityLog";
+  const _APPWRITE_TABLE_ID_ACTIVITYLOG = "activityLog";
 
   const parseMetadata = (details: string | null): NotificationMetadata => {
     if (!details) return { read: false, originalDetails: null };
@@ -49,7 +49,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       if (details.startsWith('{')) {
         return JSON.parse(details);
       }
-    } catch (e: unknown) {}
+    } catch (_e: unknown) {}
     return { read: false, originalDetails: details };
   };
 

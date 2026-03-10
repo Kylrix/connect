@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { 
     Dialog, 
     DialogTitle, 
@@ -14,11 +14,8 @@ import {
     Typography,
     CircularProgress,
     Box,
-    TextField,
-    InputAdornment,
     IconButton,
     alpha,
-    Paper,
     Fade,
     InputBase
 } from '@mui/material';
@@ -45,13 +42,7 @@ export const EventSelectorModal = ({ open, onClose, onSelect }: EventSelectorMod
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
-    useEffect(() => {
-        if (open && user) {
-            loadEvents();
-        }
-    }, [open, user]);
-
-    const loadEvents = async () => {
+    const loadEvents = useCallback(async () => {
         if (!user?.$id) return;
         setLoading(true);
         try {
@@ -64,7 +55,13 @@ export const EventSelectorModal = ({ open, onClose, onSelect }: EventSelectorMod
         } finally {
             setLoading(false);
         }
-    };
+    }, [user]);
+
+    useEffect(() => {
+        if (open && user) {
+            loadEvents();
+        }
+    }, [open, user, loadEvents]);
 
     const filteredEvents = events.filter(event => 
         event.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
