@@ -36,7 +36,7 @@ import { getUserProfilePicId } from '@/lib/user-utils';
 import { fetchProfilePreview, getCachedProfilePreview } from '@/lib/profile-preview';
 import EcosystemPortal from '../common/EcosystemPortal';
 import Logo from '../common/Logo';
-import { KYLRIX_AUTH_URI } from '@/lib/constants';
+import { getEcosystemUrl } from '@/lib/constants';
 
 export const AppHeader = () => {
   const { user, logout } = useAuth();
@@ -270,7 +270,7 @@ export const AppHeader = () => {
             </IconButton>
           ) : (
             <Button
-              href={`${KYLRIX_AUTH_URI}/login?source=${typeof window !== 'undefined' ? encodeURIComponent(window.location.origin) : ''}`}
+              href={`${getEcosystemUrl('accounts')}/login?source=${typeof window !== 'undefined' ? encodeURIComponent(window.location.origin) : ''}`}
               variant="contained"
               size="small"
               sx={{
