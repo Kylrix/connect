@@ -153,12 +153,18 @@ export const UsersService = {
     },
 
     async searchUsers(query: string) {
-        const queries = [Query.limit(20)];
-        if (query) {
-            queries.push(Query.search('username', query));
-        } else {
-            queries.push(Query.orderDesc('createdAt'));
-        }
+        const cleaned = query.trim().replace(/^@/, '');
+        const queries = [
+            Query.or([
+                Query.startsWith('username', cleaned.toLowerCase()),
+                Query.startsWith('displayName', cleaned)
+            ]),
+            Query.limit(20)
+        ];
+        return await tablesDB.listRows(DB_ID, USERS_TABLE, queries);
+    },
+
+    async searchUsersWithQueries(queries: any[]) {
         return await tablesDB.listRows(DB_ID, USERS_TABLE, queries);
     }
 };

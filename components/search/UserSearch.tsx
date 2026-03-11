@@ -25,31 +25,11 @@ import MessageIcon from '@mui/icons-material/Message';
 import PersonIcon from '@mui/icons-material/Person';
 import { fetchProfilePreview } from '@/lib/profile-preview';
 
+import { useSudo } from '@/context/SudoContext';
+import { ecosystemSecurity } from '@/lib/ecosystem/security';
+
 const SearchResultAvatar = ({ u }: { u: any }) => {
-    const [url, setUrl] = useState<string | null>(u.avatarUrl || null);
-
-    useEffect(() => {
-        const fileId = u.avatarFileId || u.profilePicId || u.profilePic;
-        if (!fileId || url) return;
-
-        let mounted = true;
-        const load = async () => {
-            try {
-                const previewUrl = await fetchProfilePreview(fileId, 64, 64);
-                if (mounted && previewUrl) setUrl(previewUrl as unknown as string);
-            } catch (e: unknown) {
-                console.warn('Failed to fetch search avatar preview', e);
-            }
-        };
-        load();
-        return () => { mounted = false; };
-    }, [u, url]);
-
-    return (
-        <Avatar src={url || undefined}>
-            {!url && <PersonIcon />}
-        </Avatar>
-    );
+// ... existing SearchResultAvatar code ...
 };
 
 export const UserSearch = () => {
@@ -58,86 +38,72 @@ export const UserSearch = () => {
     const [loading, setLoading] = useState(false);
     const { user } = useAuth();
     const router = useRouter();
+    const { requestSudo } = useSudo();
 
-    const fetchResults = useCallback(async (term: string) => {
-        if (!term.trim() || term.length < 2) {
-            setResults([]);
-            return;
-        }
+    const handleSearch = useCallback(async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        if (!query.trim()) return;
 
         setLoading(true);
         try {
-            const response = await UsersService.searchUsers(term);
-            const filtered = (response.rows || []).filter((u: any) => {
-                // If it's me, skip
-                if (user && u.$id === user.$id) return false;
-                
-                if (u.privacySettings) {
-                    try {
-                        const settings = JSON.parse(u.privacySettings);
-                        if (settings.public === false || settings.searchable === false) return false;
-                    } catch (_e: unknown) { }
-                }
-                return true;
-            }) as unknown as Users[];
-            setResults(filtered);
-        } catch (error: unknown) {
+            const res = await UsersService.searchUsers(query);
+            setResults(res.rows);
+        } catch (error) {
             console.error('Search failed:', error);
-            setResults([]);
         } finally {
             setLoading(false);
         }
-    }, [user]);
+    }, [query]);
 
     useEffect(() => {
-        if (query.trim().length < 2) {
-            setResults([]);
-            setLoading(false);
-            return;
-        }
-        const timer = setTimeout(() => {
-            fetchResults(query);
-        }, 300);
-        return () => clearTimeout(timer);
-    }, [query, fetchResults]);
-
-    const handleSearch = (e: React.FormEvent) => {
-        e.preventDefault();
-        fetchResults(query);
-    };
+        const timeoutId = setTimeout(() => {
+            if (query.trim()) {
+                handleSearch();
+            } else {
+                setResults([]);
+            }
+        }, 500);
+        return () => clearTimeout(timeoutId);
+    }, [query, handleSearch]);
 
     const startChat = async (targetUserId: string) => {
         if (!user) return;
-        try {
-            const existing = await ChatService.getConversations(user.$id);
+        
+        // Ensure MasterPass/Sudo is setup and unlocked before chatting
+        requestSudo({
+            onSuccess: async () => {
+                try {
+                    const existing = await ChatService.getConversations(user.$id);
 
-            let found;
-            if (targetUserId === user.$id) {
-                // Self chat: look for direct chat with only 1 participant (me)
-                found = existing.rows.find((c: any) =>
-                    c.type === 'direct' &&
-                    c.participants.length === 1 &&
-                    c.participants[0] === user.$id
-                );
-            } else {
-                // Other chat: look for direct chat with target
-                found = existing.rows.find((c: any) =>
-                    c.type === 'direct' &&
-                    c.participants.includes(targetUserId) &&
-                    c.participants.length > 1
-                );
-            }
+                    let found;
+                    if (targetUserId === user.$id) {
+                        // Self chat: look for direct chat with only 1 participant (me)
+                        found = existing.rows.find((c: any) =>
+                            c.type === 'direct' &&
+                            c.participants.length === 1 &&
+                            c.participants[0] === user.$id
+                        );
+                    } else {
+                        // Other chat: look for direct chat with target
+                        found = existing.rows.find((c: any) =>
+                            c.type === 'direct' &&
+                            c.participants.includes(targetUserId) &&
+                            c.participants.length > 1
+                        );
+                    }
 
-            if (found) {
-                router.push(`/chat/${found.$id}`);
-            } else {
-                const participants = targetUserId === user.$id ? [user.$id] : [user.$id, targetUserId];
-                const newConv = await ChatService.createConversation(participants, 'direct');
-                router.push(`/chat/${newConv.$id}`);
+                    if (found) {
+                        router.push(`/chat/${found.$id}`);
+                    } else {
+                        const participants = targetUserId === user.$id ? [user.$id] : [user.$id, targetUserId];
+                        const newConv = await ChatService.createConversation(participants, 'direct');
+                        router.push(`/chat/${newConv.$id}`);
+                    }
+                } catch (error: unknown) {
+                    console.error('Failed to start chat:', error);
+                }
             }
-        } catch (error: unknown) {
-            console.error('Failed to start chat:', error);
-        }
+        });
     };
 
     return (
@@ -145,57 +111,94 @@ export const UserSearch = () => {
             <Paper
                 component="form"
                 onSubmit={handleSearch}
-                sx={{ p: '2px 4px', display: 'flex', alignItems: 'center', mb: 3 }}
+                sx={{ 
+                    p: '8px 16px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    mb: 4,
+                    borderRadius: '16px',
+                    bgcolor: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    boxShadow: 'none'
+                }}
             >
+                <SearchIcon sx={{ color: 'rgba(255, 255, 255, 0.3)', mr: 2 }} />
                 <TextField
-                    sx={{ ml: 1, flex: 1 }}
-                    placeholder="Search username..."
+                    sx={{ flex: 1 }}
+                    placeholder="Search by name or @username..."
                     variant="standard"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    InputProps={{ disableUnderline: true }}
+                    InputProps={{ 
+                        disableUnderline: true,
+                        sx: { color: 'white', fontWeight: 500 }
+                    }}
                 />
-                <IconButton type="submit" sx={{ p: '10px' }} aria-label="search" disabled={loading}>
-                    {loading ? <CircularProgress size={20} /> : <SearchIcon />}
-                </IconButton>
+                {loading && <CircularProgress size={20} sx={{ ml: 1 }} />}
             </Paper>
 
-            {loading && results.length === 0 && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                    <CircularProgress size={24} />
-                </Box>
-            )}
-
-            <List>
+            <List sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {(results as any[]).map((u) => (
-                    <Paper key={u.$id} sx={{ mb: 1, overflow: 'hidden' }} variant="outlined">
+                    <Paper 
+                        key={u.$id} 
+                        sx={{ 
+                            borderRadius: '20px',
+                            bgcolor: 'rgba(255, 255, 255, 0.02)',
+                            border: '1px solid rgba(255, 255, 255, 0.05)',
+                            transition: 'all 0.2s ease',
+                            '&:hover': {
+                                bgcolor: 'rgba(255, 255, 255, 0.04)',
+                                borderColor: 'rgba(0, 240, 255, 0.2)'
+                            }
+                        }} 
+                        elevation={0}
+                    >
                         <ListItem
+                            sx={{ p: 2 }}
                             secondaryAction={
                                 <Button
-                                    variant="outlined"
-                                    startIcon={<MessageIcon />}
+                                    variant="contained"
+                                    startIcon={<MessageIcon size={18} />}
                                     onClick={() => startChat(u.$id)}
-                                    size="small"
-                                    sx={{ borderRadius: 5 }}
+                                    sx={{ 
+                                        borderRadius: '12px',
+                                        textTransform: 'none',
+                                        fontWeight: 800,
+                                        bgcolor: 'primary.main',
+                                        color: 'black',
+                                        px: 3,
+                                        '&:hover': {
+                                            bgcolor: '#00D1DA'
+                                        }
+                                    }}
                                 >
                                     Message
                                 </Button>
                             }
                         >
-                            <ListItemAvatar>
+                            <ListItemAvatar sx={{ mr: 1 }}>
                                 <SearchResultAvatar u={u} />
                             </ListItemAvatar>
                             <ListItemText
-                                primary={u.displayName || u.username}
-                                secondary={`@${u.username}`}
+                                primary={
+                                    <Typography sx={{ fontWeight: 800, color: 'white', fontSize: '1rem' }}>
+                                        {u.displayName || u.username}
+                                    </Typography>
+                                }
+                                secondary={
+                                    <Typography sx={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '0.85rem', fontWeight: 600 }}>
+                                        @{u.username}
+                                    </Typography>
+                                }
                             />
                         </ListItem>
                     </Paper>
                 ))}
                 {results.length === 0 && query.trim().length >= 2 && !loading && (
-                    <Typography align="center" color="text.secondary" sx={{ py: 4 }}>
-                        No users found matching &quot;@{query}&quot;
-                    </Typography>
+                    <Box sx={{ textAlign: 'center', py: 8, opacity: 0.5 }}>
+                        <Typography variant="body1" sx={{ fontWeight: 700 }}>No users found</Typography>
+                        <Typography variant="body2">Try a different name or @username</Typography>
+                    </Box>
                 )}
             </List>
         </Box>
