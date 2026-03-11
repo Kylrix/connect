@@ -22,6 +22,7 @@ import {
 import { Search, Edit2, Check, X, ShieldAlert } from 'lucide-react';
 import { UsersService } from '@/lib/services/users';
 import { useAuth } from '@/lib/auth';
+import { ecosystemSecurity } from '@/lib/ecosystem/security';
 import toast from 'react-hot-toast';
 
 export const DiscoverabilitySettings = () => {
@@ -92,16 +93,28 @@ export const DiscoverabilitySettings = () => {
 
         setSaving(true);
         try {
+            let publicKey: string | undefined;
+            try {
+                // Silently try to get or establish the security public key
+                if (ecosystemSecurity.status.isUnlocked) {
+                    const pub = await ecosystemSecurity.ensureE2EIdentity(user.$id);
+                    if (pub) publicKey = pub;
+                }
+            } catch (e) {
+                console.warn("Could not sync public key during handle change", e);
+            }
+
             if (profile) {
-                await UsersService.updateProfile(user.$id, { username: normalized });
+                await UsersService.updateProfile(user.$id, { username: normalized, publicKey });
                 setUsername(normalized);
-                setProfile({ ...profile, username: normalized });
+                setProfile({ ...profile, username: normalized, publicKey });
                 toast.success("Handle updated");
             } else {
                 // Ensure profile for user handles creation with safe defaults
                 const p = await UsersService.createProfile(user.$id, normalized, {
                     displayName: user.name || normalized,
-                    appsActive: ['connect']
+                    appsActive: ['connect'],
+                    publicKey
                 });
                 setProfile(p);
                 setUsername(normalized);

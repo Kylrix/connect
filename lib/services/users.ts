@@ -41,13 +41,16 @@ export const UsersService = {
     async getProfileById(userId: string) {
         if (!userId) return null;
         try {
-            // Document ID ($id) in the users table is mapped to the Appwrite Account ID
+            // Attempt to get by document ID if it matches userId
             return await tablesDB.getRow(DB_ID, USERS_TABLE, userId);
         } catch (_e: unknown) {
-            // If getRow fails, try a list search as a robust backup
+            // Fallback: search by explicit userId attribute or $id
             try {
                 const res = await tablesDB.listRows(DB_ID, USERS_TABLE, [
-                    Query.equal('$id', userId),
+                    Query.or([
+                        Query.equal('userId', userId),
+                        Query.equal('$id', userId)
+                    ]),
                     Query.limit(1)
                 ]);
                 return res.rows[0] || null;
@@ -73,21 +76,26 @@ export const UsersService = {
     /**
      * Updates the global Chat directory profile.
      */
-    async updateProfile(userId: string, data: { username?: string; displayName?: string; bio?: string; avatarUrl?: string; appsActive?: string[] }) {
+    async updateProfile(userId: string, data: { username?: string; displayName?: string; bio?: string; avatarUrl?: string; appsActive?: string[], publicKey?: string }) {
+        const currentProfile = await this.getProfileById(userId);
+
         if (data.username) {
             const normalized = normalizeUsername(data.username);
             if (!normalized) throw new Error('Invalid username');
-            
+
             const available = await this.isUsernameAvailable(normalized);
-            if (!available) {
-                const currentProfile = await this.getProfileById(userId);
-                if (currentProfile?.username !== normalized) {
-                    throw new Error('Username already taken');
-                }
+            if (!available && currentProfile?.username !== normalized) {
+                throw new Error('Username already taken');
             }
             data.username = normalized;
         }
-        return await tablesDB.updateRow(DB_ID, USERS_TABLE, userId, data);
+
+        if (currentProfile) {
+            return await tablesDB.updateRow(DB_ID, USERS_TABLE, currentProfile.$id, data);
+        } else {
+            // Should not normally happen if they are calling update, but fallback to creating
+            return await this.createProfile(userId, data.username || `user_${userId.slice(0, 6)}`, data);
+        }
     },
 
     /**
@@ -96,21 +104,23 @@ export const UsersService = {
     async createProfile(
         userId: string,
         username: string,
-        data: { displayName?: string; bio?: string; avatarUrl?: string; appsActive?: string[] } = {}
+        data: { displayName?: string; bio?: string; avatarUrl?: string; appsActive?: string[], publicKey?: string } = {}
     ) {
         const normalized = normalizeUsername(username);
         if (!normalized) throw new Error('Invalid username');
 
         return await tablesDB.createRow(
-            DB_ID, 
-            USERS_TABLE, 
-            userId, 
+            DB_ID,
+            USERS_TABLE,
+            userId,
             {
+                userId: userId,
                 username: normalized,
                 displayName: data.displayName || username,
                 bio: data.bio || '',
                 avatarUrl: data.avatarUrl || null,
                 appsActive: data.appsActive || ['connect'],
+                publicKey: data.publicKey || null,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             },
@@ -128,7 +138,7 @@ export const UsersService = {
      */
     async ensureProfileForUser(user: { $id: string; email?: string; name?: string; prefs?: Record<string, any> }) {
         if (!user?.$id) return null;
-        
+
         const existing = await this.getProfileById(user.$id);
         if (existing) return existing;
 
