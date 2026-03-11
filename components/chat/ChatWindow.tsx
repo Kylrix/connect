@@ -27,7 +27,8 @@ import {
     Avatar,
     Stack,
     useTheme,
-    useMediaQuery
+    useMediaQuery,
+    alpha
 } from '@mui/material';
 import { 
     Send, 
@@ -46,15 +47,18 @@ import {
     User, 
     Trash2, 
     FileText, 
-    Key 
+    Key,
+    Clock
 } from 'lucide-react';
 import { NoteSelectorModal } from './NoteSelectorModal';
 import { SecretSelectorModal } from './SecretSelectorModal';
 import { ecosystemSecurity } from '@/lib/ecosystem/security';
 import { MasterPassModal } from './MasterPassModal';
+import { usePresence } from '../providers/PresenceProvider';
 
 export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
     const { user } = useAuth();
+    const { presence, getPresence } = usePresence() as any;
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     const [messages, setMessages] = useState<Messages[]>([]);
@@ -74,6 +78,8 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
+
+    const isSelf = conversation?.type === 'direct' && conversation?.participants?.every((p: string) => p === user?.$id);
 
     const loadConversation = React.useCallback(async () => {
         try {
@@ -142,6 +148,13 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
     }, [isUnlocked, loadConversation, loadMessages]);
 
     useEffect(() => {
+        if (conversationId && conversation?.type === 'direct' && !isSelf) {
+            const otherId = conversation.participants.find((p: string) => p !== user?.$id);
+            if (otherId) getPresence(otherId);
+        }
+    }, [conversationId, conversation, isSelf, user, getPresence]);
+
+    useEffect(() => {
         if (conversationId) {
             loadMessages();
             loadConversation();
@@ -151,20 +164,45 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
             const initRealtime = async () => {
                 unsub = await realtime.subscribe(
                     [`databases.${APPWRITE_CONFIG.DATABASES.CHAT}.collections.${APPWRITE_CONFIG.TABLES.CHAT.MESSAGES}.documents`],
-                    (response) => {
-                        const payload = response.payload as Messages;
+                    async (response) => {
+                        let payload = response.payload as Messages;
                         if (payload.conversationId === conversationId) {
                             if (response.events.some(e => e.includes('.create'))) {
+                                // Decrypt message before adding to state
+                                if (payload.type === 'text' && payload.content && payload.content.length > 40 && ecosystemSecurity.status.isUnlocked) {
+                                    try {
+                                        payload.content = await ecosystemSecurity.decrypt(payload.content);
+                                    } catch (_e: unknown) {}
+                                }
+
                                 setMessages(prev => {
+                                    // Remove optimistic message if content matches and it was an optimistic one
+                                    // This is a safety check to ensure we replace the optimistic UI with the official server doc
+                                    const withoutOptimistic = prev.filter(m => {
+                                        const isOptimistic = m.$id && String(m.$id).startsWith('optimistic-');
+                                        if (isOptimistic) {
+                                            // If content matches, it's likely the same message coming back from the server
+                                            return m.content !== payload.content;
+                                        }
+                                        return true;
+                                    });
+                                    
                                     // Avoid duplicates
-                                    if (prev.some(m => m.$id === payload.$id)) return prev;
-                                    return [...prev, payload];
+                                    if (withoutOptimistic.some(m => m.$id === payload.$id)) return withoutOptimistic;
+                                    return [...withoutOptimistic, payload];
                                 });
                                 // Mark as read if not from me
                                 if (user && payload.senderId !== user.$id) {
                                     ChatService.markAsRead(payload.$id, user.$id);
                                 }
+                                setTimeout(() => scrollToBottom(), 100);
                             } else if (response.events.some(e => e.includes('.update'))) {
+                                // Decrypt message before updating state
+                                if (payload.type === 'text' && payload.content && payload.content.length > 40 && ecosystemSecurity.status.isUnlocked) {
+                                    try {
+                                        payload.content = await ecosystemSecurity.decrypt(payload.content);
+                                    } catch (_e: unknown) {}
+                                }
                                 setMessages(prev => prev.map(m => m.$id === payload.$id ? payload : m));
                             } else if (response.events.some(e => e.includes('.delete'))) {
                                 setMessages(prev => prev.filter(m => m.$id === payload.$id));
@@ -244,12 +282,12 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
         if (e) e.preventDefault();
         if ((!inputText.trim() && !attachment) || !user || sending) return;
 
-        setSending(true);
         const text = inputText;
         const file = attachment;
 
         setInputText('');
         setAttachment(null);
+        setSending(true);
 
         let type: 'text' | 'image' | 'video' | 'audio' | 'file' = 'text';
         const initialAttachments: string[] = [];
@@ -273,10 +311,8 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
             status: 'sending'
         };
 
-        if (type === 'text') {
-            setMessages(prev => [...prev, optimisticMessage]);
-            setTimeout(() => scrollToBottom(), 50);
-        }
+        setMessages(prev => [...prev, optimisticMessage]);
+        setTimeout(() => scrollToBottom(), 50);
 
         try {
             let actualAttachments = initialAttachments;
@@ -286,14 +322,14 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                 actualAttachments = [uploaded.$id];
             }
 
-            await ChatService.sendMessage(conversationId, user.$id, text, type, actualAttachments);
+            const sentMessage = await ChatService.sendMessage(conversationId, user.$id, text, type, actualAttachments);
             
-            // Remove optimistic message if it was text (Realtime will bring the official one)
-            if (type === 'text') {
-                setMessages(prev => prev.filter(m => m.$id !== optimisticId));
-            }
+            // Replace optimistic message with the real one to maintain state (readBy, etc)
+            setMessages(prev => prev.map(m => m.$id === optimisticId ? (sentMessage as unknown as Messages) : m));
         } catch (error: unknown) {
             console.error('Failed to send message:', error);
+            // Mark optimistic message as failed
+            setMessages(prev => prev.map(m => m.$id === optimisticId ? ({ ...m, status: 'error' } as any) : m));
             setInputText(text);
             setAttachment(file);
         } finally {
@@ -524,8 +560,6 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
 
     if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>;
 
-    const isSelf = conversation?.type === 'direct' && conversation?.participants?.every((p: string) => p === user?.$id);
-
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: 'background.default', position: 'relative' }}>
             <AppBar position="static" color="transparent" elevation={0} sx={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', bgcolor: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(10px)' }}>
@@ -540,18 +574,39 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                         <Avatar sx={{ 
                             width: 36, 
                             height: 36, 
-                            bgcolor: isSelf ? 'rgba(244, 63, 94, 0.1)' : 'rgba(255, 255, 255, 0.05)',
-                            border: isSelf ? '1px solid rgba(244, 63, 94, 0.2)' : '1px solid rgba(255, 255, 255, 0.05)'
+                            bgcolor: isSelf ? alpha('#00F0FF', 0.1) : 'rgba(255, 255, 255, 0.05)',
+                            border: isSelf ? `1px solid ${alpha('#00F0FF', 0.2)}` : '1px solid rgba(255, 255, 255, 0.05)'
                         }}>
-                            {isSelf ? <Bookmark size={18} color="#F43F5E" strokeWidth={1.5} /> : (conversation?.type === 'group' ? <Users size={20} strokeWidth={1.5} /> : <User size={20} strokeWidth={1.5} />)}
+                            {isSelf ? <Bookmark size={18} color="#00F0FF" strokeWidth={1.5} /> : (conversation?.type === 'group' ? <Users size={20} strokeWidth={1.5} /> : <User size={20} strokeWidth={1.5} />)}
                         </Avatar>
                         <Box>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 800, fontFamily: 'var(--font-space-grotesk)', lineHeight: 1.2, color: isSelf ? '#F43F5E' : 'text.primary' }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 800, fontFamily: 'var(--font-space-grotesk)', lineHeight: 1.2, color: isSelf ? '#00F0FF' : 'text.primary' }}>
                                 {isSelf ? 'Saved Messages' : conversation?.name || 'Loading...'}
                             </Typography>
-                            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, opacity: 0.6 }}>
-                                {isSelf ? 'End-to-end encrypted vault' : 'Online'}
-                            </Typography>
+                            {!isSelf && conversation?.type === 'direct' && (
+                                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, opacity: 0.6, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    {(() => {
+                                        const otherId = conversation.participants.find((p: string) => p !== user?.$id);
+                                        const otherPresence = presence[otherId];
+                                        if (!otherPresence) return 'Offline';
+                                        
+                                        const isOnline = otherPresence.status === 'online' && (Date.now() - new Date(otherPresence.lastSeen).getTime() < 1000 * 60 * 5);
+                                        
+                                        if (isOnline) return (
+                                            <>
+                                                <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#00F0FF', boxShadow: '0 0 8px #00F0FF' }} />
+                                                Online
+                                            </>
+                                        );
+                                        return 'Offline';
+                                    })()}
+                                </Typography>
+                            )}
+                            {isSelf && (
+                                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, opacity: 0.6 }}>
+                                    End-to-end encrypted vault
+                                </Typography>
+                            )}
                         </Box>
                     </Box>
                     <Stack direction="row" spacing={0.5}>
@@ -633,25 +688,41 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                             flexDirection: 'column',
                             gap: 0.5
                         }}>
-                            <Paper sx={{
-                                p: 1.5,
-                                px: 2,
-                                borderRadius: msg.senderId === user?.$id ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                                bgcolor: msg.senderId === user?.$id ? 'rgba(244, 63, 94, 0.15)' : 'rgba(255, 255, 255, 0.03)',
-                                border: msg.senderId === user?.$id ? '1px solid rgba(244, 63, 94, 0.25)' : '1px solid rgba(255, 255, 255, 0.05)',
-                                color: 'text.primary',
-                                boxShadow: 'none'
-                            }}>
-                                {renderMessageContent(msg)}
-                            </Paper>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, alignSelf: msg.senderId === user?.$id ? 'flex-end' : 'flex-start', px: 0.5 }}>
-                                <Typography variant="caption" sx={{ fontSize: '0.65rem', opacity: 0.4, fontWeight: 600 }}>
-                                    {format(new Date(msg.$createdAt || Date.now()), 'h:mm a')}
-                                </Typography>
-                                {msg.senderId === user?.$id && (
-                                    msg.readBy?.length && msg.readBy.length > 1 ? <CheckCheck size={12} color="#F43F5E" strokeWidth={1.5} /> : <Check size={12} strokeWidth={1.5} style={{ opacity: 0.4 }} />
-                                )}
-                            </Box>
+                                <Paper sx={{
+                                    p: 1.2,
+                                    px: 1.8,
+                                    borderRadius: msg.senderId === user?.$id ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
+                                    bgcolor: msg.senderId === user?.$id ? alpha('#00F0FF', 0.1) : 'rgba(255, 255, 255, 0.03)',
+                                    border: msg.senderId === user?.$id ? `1px solid ${alpha('#00F0FF', 0.2)}` : '1px solid rgba(255, 255, 255, 0.05)',
+                                    color: 'text.primary',
+                                    boxShadow: 'none',
+                                    transition: 'all 0.2s ease',
+                                    '&:hover': {
+                                        bgcolor: msg.senderId === user?.$id ? alpha('#00F0FF', 0.15) : 'rgba(255, 255, 255, 0.05)',
+                                    }
+                                }}>
+                                    {renderMessageContent(msg)}
+                                </Paper>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, alignSelf: msg.senderId === user?.$id ? 'flex-end' : 'flex-start', px: 0.5 }}>
+                                    <Typography variant="caption" sx={{ fontSize: '0.65rem', opacity: 0.4, fontWeight: 600 }}>
+                                        {format(new Date(msg.$createdAt || Date.now()), 'h:mm a')}
+                                    </Typography>
+                                    {msg.senderId === user?.$id && (
+                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                        {String(msg.$id).startsWith('optimistic-') || (msg as any).status === 'sending' ? (
+                                            <Box sx={{ opacity: 0.4, display: 'flex' }}><Clock size={11} strokeWidth={2.5} /></Box>
+                                        ) : (msg as any).status === 'error' ? (
+                                            <Typography variant="caption" sx={{ color: '#ff4d4d', fontSize: '10px' }}>Failed</Typography>
+                                        ) : (
+                                            msg.readBy?.length && msg.readBy.length > 1 ? (
+                                                <CheckCheck size={13} color="#00F0FF" strokeWidth={2.5} />
+                                            ) : (
+                                                <Check size={13} strokeWidth={2.5} style={{ opacity: 0.4 }} />
+                                            )
+                                        )}
+                                    </Box>
+                                    )}
+                                </Box>
                         </Box>
                     ))
                 )}
@@ -711,19 +782,25 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                         </MenuItem>
                     </Menu>
                     
-                    <TextField
-                        fullWidth
-                        multiline
-                        maxRows={4}
-                        placeholder="Type a message..."
-                        value={inputText}
-                        onChange={(e) => setInputText(e.target.value)}
-                        variant="standard"
-                        InputProps={{
-                            disableUnderline: true,
-                            sx: { py: 1.2, px: 1, fontSize: '0.95rem' }
-                        }}
-                    />
+                        <TextField
+                            fullWidth
+                            multiline
+                            maxRows={6}
+                            placeholder="Type a message..."
+                            value={inputText}
+                            onChange={(e) => setInputText(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey && !isMobile) {
+                                    e.preventDefault();
+                                    handleSend();
+                                }
+                            }}
+                            variant="standard"
+                            InputProps={{
+                                disableUnderline: true,
+                                sx: { py: 1.2, px: 1, fontSize: '0.95rem', fontFamily: 'var(--font-satoshi)' }
+                            }}
+                        />
 
                     {inputText.trim() || attachment ? (
                         <IconButton 

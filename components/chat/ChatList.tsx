@@ -15,6 +15,7 @@ import {
     Typography, 
     Box,
     CircularProgress,
+    alpha,
 } from '@mui/material';
 import GroupIcon from '@mui/icons-material/GroupWorkOutlined';
 import PersonIcon from '@mui/icons-material/PersonOutlined';
@@ -221,9 +222,9 @@ export const ChatList = () => {
                                     <ListItemAvatar>
                                         <Avatar 
                                             sx={{ 
-                                                bgcolor: conv.isSelf ? 'rgba(244, 63, 94, 0.1)' : 'rgba(255, 255, 255, 0.03)',
-                                                color: conv.isSelf ? '#F43F5E' : 'text.secondary',
-                                                border: conv.isSelf ? '1px solid rgba(244, 63, 94, 0.2)' : '1px solid rgba(255, 255, 255, 0.05)',
+                                                bgcolor: conv.isSelf ? alpha('#00F0FF', 0.1) : 'rgba(255, 255, 255, 0.03)',
+                                                color: conv.isSelf ? '#00F0FF' : 'text.secondary',
+                                                border: conv.isSelf ? `1px solid ${alpha('#00F0FF', 0.2)}` : '1px solid rgba(255, 255, 255, 0.05)',
                                                 width: 44,
                                                 height: 44
                                             }}
@@ -244,7 +245,7 @@ export const ChatList = () => {
                                         primaryTypographyProps={{ 
                                             fontWeight: 700, 
                                             fontSize: '0.95rem',
-                                            color: conv.isSelf ? '#F43F5E' : 'text.primary',
+                                            color: conv.isSelf ? '#00F0FF' : 'text.primary',
                                             fontFamily: 'var(--font-space-grotesk)'
                                         }}
                                         secondaryTypographyProps={{ 

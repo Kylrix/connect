@@ -367,27 +367,15 @@ export function PasskeySetup({
         </Box>
       </DialogContent>
       <DialogActions sx={{ p: 4, pt: 0, gap: 1.5 }}>
-        {step === 1 && (
-          <>
-            <Button onClick={handleClose} variant="outlined" fullWidth sx={{ borderRadius: '12px' }}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleContinueToName}
-              disabled={!masterPassword.trim() || verifyingPassword}
-              variant="contained"
-              fullWidth
-              sx={{ borderRadius: '12px' }}
-            >
-              {verifyingPassword ? <CircularProgress size={20} /> : "Continue"}
-            </Button>
-          </>
-        )}
-
         {step === 2 && (
           <>
-            <Button onClick={() => setStep(1)} variant="outlined" fullWidth sx={{ borderRadius: '12px' }}>
-              Back
+            <Button 
+              onClick={handleClose} 
+              variant="outlined" 
+              fullWidth 
+              sx={{ borderRadius: '12px', color: 'text.secondary', borderColor: 'rgba(255,255,255,0.1)' }}
+            >
+              Skip
             </Button>
             <Button
               onClick={handleContinueToCreate}
@@ -408,7 +396,7 @@ export function PasskeySetup({
               onClick={() => setStep(2)}
               disabled={loading}
               fullWidth
-              sx={{ borderRadius: '12px' }}
+              sx={{ borderRadius: '12px', color: 'text.secondary', borderColor: 'rgba(255,255,255,0.1)' }}
             >
               Back
             </Button>

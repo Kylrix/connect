@@ -3,14 +3,35 @@
 import React, { createContext, useContext, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { ActivityService } from '@/lib/services/activity';
+import { realtime } from '@/lib/appwrite/client';
+import { APPWRITE_CONFIG } from '@/lib/appwrite/config';
 
-const PresenceContext = createContext({});
+const PresenceContext = createContext<{
+    getPresence: (userId: string) => any;
+    presence: Record<string, any>;
+}>({
+    getPresence: () => null,
+    presence: {}
+});
 
 export const PresenceProvider = ({ children }: { children: React.ReactNode }) => {
     const { user } = useAuth();
+    const [presence, setPresence] = React.useState<Record<string, any>>({});
 
     useEffect(() => {
         if (!user) return;
+
+        // Subscribe to presence updates
+        const unsub = realtime.subscribe(
+            [`databases.${APPWRITE_CONFIG.DATABASES.CHAT}.collections.${APPWRITE_CONFIG.TABLES.CHAT.APP_ACTIVITY}.documents`],
+            (response) => {
+                const payload = response.payload as any;
+                setPresence(prev => ({
+                    ...prev,
+                    [payload.userId]: payload
+                }));
+            }
+        );
 
         const updateStatus = (status: 'online' | 'offline' | 'away') => {
             ActivityService.updatePresence(user.$id, status);
@@ -30,25 +51,28 @@ export const PresenceProvider = ({ children }: { children: React.ReactNode }) =>
             }
         };
 
-        const handleBeforeUnload = () => {
-            // This is unreliable but worth a try
-            // In a production app, we'd use a Beacon API or Appwrite Function on disconnect
-            // updateStatus('offline');
-        };
-
         window.addEventListener('visibilitychange', handleVisibilityChange);
-        window.addEventListener('beforeunload', handleBeforeUnload);
 
         return () => {
             clearInterval(interval);
             window.removeEventListener('visibilitychange', handleVisibilityChange);
-            window.removeEventListener('beforeunload', handleBeforeUnload);
             updateStatus('offline');
+            if (typeof unsub === 'function') (unsub as any)();
+            else (unsub as any)?.unsubscribe?.();
         };
     }, [user]);
 
+    const getPresence = React.useCallback(async (userId: string) => {
+        if (presence[userId]) return presence[userId];
+        const p = await ActivityService.getUserPresence(userId);
+        if (p) {
+            setPresence(prev => ({ ...prev, [userId]: p }));
+        }
+        return p;
+    }, [presence]);
+
     return (
-        <PresenceContext.Provider value={{}}>
+        <PresenceContext.Provider value={{ getPresence, presence }}>
             {children}
         </PresenceContext.Provider>
     );

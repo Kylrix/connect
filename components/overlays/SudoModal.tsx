@@ -28,8 +28,7 @@ import { KeychainService } from "@/lib/appwrite/keychain";
 import { useAuth } from "@/lib/auth";
 import { unlockWithPasskey } from "@/lib/passkey";
 import { PasskeySetup } from "./PasskeySetup";
-import toast from "react-hot-toast";
-import { useRouter } from "next/navigation";
+import { toast } from "react-hot-toast";
 
 interface SudoModalProps {
     isOpen: boolean;
@@ -43,7 +42,6 @@ export default function SudoModal({
     onCancel,
 }: SudoModalProps) {
     const { user } = useAuth();
-    const router = useRouter();
     const [password, setPassword] = useState("");
     const [pin, setPin] = useState("");
     const [loading, setLoading] = useState(false);

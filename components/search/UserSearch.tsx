@@ -9,7 +9,6 @@ import { useRouter } from 'next/navigation';
 import {
     Box,
     TextField,
-    Button,
     List,
     ListItem,
     ListItemText,
@@ -17,16 +16,12 @@ import {
     Avatar,
     Typography,
     Paper,
-    IconButton,
     CircularProgress
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
-import MessageIcon from '@mui/icons-material/Message';
 import PersonIcon from '@mui/icons-material/Person';
-import { fetchProfilePreview } from '@/lib/profile-preview';
 
 import { useSudo } from '@/context/SudoContext';
-import { ecosystemSecurity } from '@/lib/ecosystem/security';
 
 const SearchResultAvatar = ({ u }: { u: any }) => {
     return (
@@ -59,7 +54,7 @@ export const UserSearch = () => {
         setLoading(true);
         try {
             const res = await UsersService.searchUsers(query);
-            setResults(res.rows);
+            setResults(res.rows as any);
         } catch (error) {
             console.error('Search failed:', error);
         } finally {
@@ -81,38 +76,41 @@ export const UserSearch = () => {
     const startChat = async (targetUserId: string) => {
         if (!user) return;
         
-        // Ensure MasterPass/Sudo is setup and unlocked before chatting
+        // Instant check: look for existing conversation locally first
+        try {
+            const existing = await ChatService.getConversations(user.$id);
+            let found;
+            if (targetUserId === user.$id) {
+                found = existing.rows.find((c: any) =>
+                    c.type === 'direct' &&
+                    c.participants.length === 1 &&
+                    c.participants[0] === user.$id
+                );
+            } else {
+                found = existing.rows.find((c: any) =>
+                    c.type === 'direct' &&
+                    c.participants.includes(targetUserId) &&
+                    c.participants.length > 1
+                );
+            }
+
+            if (found) {
+                router.push(`/chat/${found.$id}`);
+                return; // Instant jump
+            }
+        } catch (e) {
+            console.error("Local check failed", e);
+        }
+
+        // If not found, ensure Sudo is unlocked before creating
         requestSudo({
             onSuccess: async () => {
                 try {
-                    const existing = await ChatService.getConversations(user.$id);
-
-                    let found;
-                    if (targetUserId === user.$id) {
-                        // Self chat: look for direct chat with only 1 participant (me)
-                        found = existing.rows.find((c: any) =>
-                            c.type === 'direct' &&
-                            c.participants.length === 1 &&
-                            c.participants[0] === user.$id
-                        );
-                    } else {
-                        // Other chat: look for direct chat with target
-                        found = existing.rows.find((c: any) =>
-                            c.type === 'direct' &&
-                            c.participants.includes(targetUserId) &&
-                            c.participants.length > 1
-                        );
-                    }
-
-                    if (found) {
-                        router.push(`/chat/${found.$id}`);
-                    } else {
-                        const participants = targetUserId === user.$id ? [user.$id] : [user.$id, targetUserId];
-                        const newConv = await ChatService.createConversation(participants, 'direct');
-                        router.push(`/chat/${newConv.$id}`);
-                    }
+                    const participants = targetUserId === user.$id ? [user.$id] : [user.$id, targetUserId];
+                    const newConv = await ChatService.createConversation(participants, 'direct');
+                    router.push(`/chat/${newConv.$id}`);
                 } catch (error: unknown) {
-                    console.error('Failed to start chat:', error);
+                    console.error('Failed to create chat:', error);
                 }
             }
         });
