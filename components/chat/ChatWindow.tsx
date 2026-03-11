@@ -38,7 +38,7 @@ import {
     PlusCircle,
     Mic,
     Square,
-    File,
+    File as FileIcon,
     Check,
     CheckCheck,
     MoreVertical,
@@ -168,7 +168,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                 unsub = await realtime.subscribe(
                     [`databases.${APPWRITE_CONFIG.DATABASES.CHAT}.collections.${APPWRITE_CONFIG.TABLES.CHAT.MESSAGES}.documents`],
                     async (response) => {
-                        let payload = response.payload as Messages;
+                        const payload = response.payload as Messages;
                         if (payload.conversationId === conversationId) {
                             if (response.events.some(e => e.includes('.create'))) {
                                 // Ignore my own messages. The handleSend function manages optimistic insertions for my sent messages.
@@ -593,7 +593,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
             default:
                 return (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, bgcolor: 'rgba(0,0,0,0.05)', borderRadius: 1 }}>
-                        <File size={18} strokeWidth={1.5} />
+                        <FileIcon size={18} strokeWidth={1.5} />
                         <Typography
                             variant="body2"
                             component="a"
@@ -690,7 +690,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                 }}
             >
                 <MenuItem onClick={handleExport} sx={{ gap: 1.5, py: 1.2, fontWeight: 600, fontSize: '0.85rem' }}>
-                    <File size={18} strokeWidth={1.5} style={{ opacity: 0.7 }} /> Export Chat (.json)
+                    <FileIcon size={18} strokeWidth={1.5} style={{ opacity: 0.7 }} /> Export Chat (.json)
                 </MenuItem>
 
                 <Divider sx={{ my: 1, opacity: 0.1 }} />
@@ -825,7 +825,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                         }}
                     >
                         <MenuItem onClick={() => { handleFileSelect('*'); setAttachAnchorEl(null); }} sx={{ gap: 1.5, py: 1.2, fontWeight: 600, fontSize: '0.85rem' }}>
-                            <File size={18} strokeWidth={1.5} style={{ opacity: 0.7 }} /> Upload File
+                            <FileIcon size={18} strokeWidth={1.5} style={{ opacity: 0.7 }} /> Upload File
                         </MenuItem>
                         <MenuItem onClick={() => { setNoteModalOpen(true); setAttachAnchorEl(null); }} sx={{ gap: 1.5, py: 1.2, fontWeight: 600, fontSize: '0.85rem' }}>
                             <FileText size={18} strokeWidth={1.5} style={{ opacity: 0.7 }} /> Attach Note

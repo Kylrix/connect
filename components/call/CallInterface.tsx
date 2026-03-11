@@ -89,7 +89,7 @@ export const CallInterface = ({ conversationId, isCaller, callType = 'video' }: 
             unsubscribe();
             rtcManager.current?.cleanup();
         };
-    }, [user, conversationId, isCaller]);
+    }, [user, conversationId, isCaller, callType]);
 
     const endCall = () => {
         rtcManager.current?.cleanup();
