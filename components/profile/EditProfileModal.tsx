@@ -17,6 +17,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import { UsersService } from '@/lib/services/users';
 import { account } from '@/lib/appwrite/client';
+import { ecosystemSecurity } from '@/lib/ecosystem/security';
 
 interface EditProfileModalProps {
     open: boolean;
@@ -80,10 +81,21 @@ export const EditProfileModal = ({ open, onClose, profile, onUpdate }: EditProfi
         setLoading(true);
         setError('');
         try {
+            let publicKey: string | undefined;
+            try {
+                if (ecosystemSecurity.status.isUnlocked) {
+                    const pub = await ecosystemSecurity.ensureE2EIdentity(profile.$id);
+                    if (pub) publicKey = pub;
+                }
+            } catch (e) {
+                console.warn("Could not sync public key during profile update", e);
+            }
+
             await UsersService.updateProfile(profile.$id, {
                 username,
                 bio,
-                displayName
+                displayName,
+                publicKey
             });
 
             // Update global account name and username preference for ecosystem coherence
