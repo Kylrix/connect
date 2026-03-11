@@ -1,7 +1,8 @@
 import { ID, Query, Permission, Role } from 'appwrite';
-import { tablesDB } from '../appwrite/client';
+import { tablesDB, account } from '../appwrite/client';
 import { APPWRITE_CONFIG } from '../appwrite/config';
 import { ecosystemSecurity } from '../ecosystem/security';
+import { getEcosystemUrl } from '../constants';
 
 const DB_ID = APPWRITE_CONFIG.DATABASES.CHAT;
 const CONV_TABLE = APPWRITE_CONFIG.TABLES.CHAT.CONVERSATIONS;
@@ -143,28 +144,34 @@ export const ChatService = {
             encryptedName = await ecosystemSecurity.encryptWithKey(name, convKey);
         }
 
-        return await tablesDB.createRow(DB_ID, CONV_TABLE, ID.unique(), {
-            participants: uniqueParticipants,
-            participantCount: uniqueParticipants.length,
-            type,
-            name: encryptedName || 'Direct Chat',
-            creatorId: creatorId,
-            admins: [],
-            isPinned: [],
-            isMuted: [],
-            isArchived: [],
-            tags: [],
-            isEncrypted: true,
-            encryptionKey: encryptionKeyMap,
-            encryptionVersion: '1.0',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        }, Array.from(new Set([
-            Permission.read(Role.user(creatorId)),
-            Permission.update(Role.user(creatorId)),
-            Permission.delete(Role.user(creatorId)),
-            ...participants.map(p => Permission.read(Role.user(p)))
-        ])));
+        // Call our accounts server API to bypass client permission restrictions
+        const jwt = await account.createJWT();
+        const response = await fetch(`${getEcosystemUrl('accounts')}/api/connect/conversations`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${jwt.jwt}`
+            },
+            body: JSON.stringify({
+                participants: uniqueParticipants,
+                type,
+                name: encryptedName || 'Direct Chat',
+                encryptionKey: encryptionKeyMap,
+                creatorId
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Failed to create conversation via API');
+        }
+
+        const newConv = await response.json();
+        
+        // Cache the local key for this session
+        ecosystemSecurity.setConversationKey(newConv.$id, convKey);
+        
+        return newConv;
     },
 
     async sendMessage(conversationId: string, senderId: string, content: string, type: 'text' | 'image' | 'video' | 'audio' | 'file' | 'call_signal' | 'system' = 'text', attachments: string[] = [], replyTo?: string) {

@@ -90,7 +90,7 @@ export const Profile = ({ username }: ProfileProps) => {
 
     const handleMessage = () => {
         if (!profile) return;
-        router.push(`/chat?userId=${profile.$id}`);
+        router.push(`/chats?userId=${profile.$id}`);
     };
 
     if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>;

@@ -74,8 +74,14 @@ export const UserSearch = () => {
         return () => clearTimeout(timeoutId);
     }, [query, handleSearch]);
 
-    const startChat = async (targetUserId: string) => {
+    const startChat = async (targetUser: any) => {
         if (!user) return;
+        const targetUserId = targetUser.$id;
+
+        if (!targetUser.publicKey) {
+            toast.error(`${targetUser.displayName || targetUser.username} hasn't set up their account for secure chatting yet.`);
+            return;
+        }
 
         // Instant check: look for existing conversation locally first
         try {
@@ -173,7 +179,7 @@ export const UserSearch = () => {
                                     bgcolor: 'rgba(255, 255, 255, 0.04)',
                                 }
                             }}
-                            onClick={() => startChat(u.$id)}
+                            onClick={() => startChat(u)}
                         >
                             <ListItemAvatar sx={{ mr: 1 }}>
                                 <SearchResultAvatar u={u} />
