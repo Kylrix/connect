@@ -374,9 +374,12 @@ export class EcosystemSecurity {
         try {
           // Attempt to get user by their document ID instead of userId attribute
           try {
-            const uDoc = await tablesDB.getRow(CHAT_DB, CHAT_USERS_TABLE, userId);
-            if (uDoc) {
-              await tablesDB.updateRow(CHAT_DB, CHAT_USERS_TABLE, uDoc.$id, {
+            const res = await tablesDB.listRows(CHAT_DB, CHAT_USERS_TABLE, [
+              Query.equal('userId', userId),
+              Query.limit(1)
+            ]);
+            if (res.total > 0) {
+              await tablesDB.updateRow(CHAT_DB, CHAT_USERS_TABLE, res.rows[0].$id, {
                 publicKey: doc.publicKey
               });
             }
@@ -412,9 +415,12 @@ export class EcosystemSecurity {
 
       try {
         try {
-          const uDoc = await tablesDB.getRow(CHAT_DB, CHAT_USERS_TABLE, userId);
-          if (uDoc) {
-            await tablesDB.updateRow(CHAT_DB, CHAT_USERS_TABLE, uDoc.$id, {
+          const res = await tablesDB.listRows(CHAT_DB, CHAT_USERS_TABLE, [
+            Query.equal('userId', userId),
+            Query.limit(1)
+          ]);
+          if (res.total > 0) {
+            await tablesDB.updateRow(CHAT_DB, CHAT_USERS_TABLE, res.rows[0].$id, {
               publicKey: pubBase64
             });
           }
