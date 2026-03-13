@@ -36,6 +36,7 @@ export const DiscoverabilitySettings = () => {
     const [showConfirm, setShowConfirm] = useState(false);
     const [checkingAvailability, setCheckingAvailability] = useState(false);
     const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
+    const [syncError, setSyncError] = useState<string | null>(null);
 
     const loadProfile = useCallback(async () => {
         try {
@@ -99,13 +100,18 @@ export const DiscoverabilitySettings = () => {
             }
 
             setSaving(true);
+            setSyncError(null);
             try {
                 const pub = await ecosystemSecurity.ensureE2EIdentity(user.$id);
                 if (pub) {
                     setProfile({ ...profile, publicKey: pub });
                     toast.success("E2E Identity initialized and discovery enabled");
+                } else {
+                    setSyncError("Identity exists locally but could not be published to the global chat directory. Check console for details.");
                 }
-            } catch (e) {
+            } catch (e: any) {
+                console.error("Sync error:", e);
+                setSyncError(e.message || "Failed to sync identity keys");
                 toast.error("Failed to initialize identity");
             } finally {
                 setSaving(false);
@@ -192,6 +198,75 @@ export const DiscoverabilitySettings = () => {
 
                     <Divider sx={{ opacity: 0.05 }} />
 
+                    {profile && !profile.publicKey && (
+                        <Box sx={{
+                            mt: 1,
+                            mb: 1,
+                            p: 2,
+                            borderRadius: '20px',
+                            bgcolor: alpha('#E2B714', 0.05),
+                            border: '1px solid',
+                            borderColor: alpha('#E2B714', 0.15),
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 1.5
+                        }}>
+                            <Stack direction="row" spacing={2} alignItems="center">
+                                <Box sx={{
+                                    p: 1,
+                                    borderRadius: '12px',
+                                    bgcolor: alpha('#E2B714', 0.1),
+                                    color: '#E2B714',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}>
+                                    <ShieldAlert size={20} />
+                                </Box>
+                                <Box sx={{ flex: 1 }}>
+                                    <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#E2B714', letterSpacing: '-0.01em' }}>
+                                        Communication Sync Incomplete
+                                    </Typography>
+                                    <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.5)', lineHeight: 1.4 }}>
+                                        Your handle is reserved, but your E2E encryption keys aren't published.
+                                        Others cannot send you encrypted messages yet.
+                                    </Typography>
+                                </Box>
+                                <Button
+                                    size="small"
+                                    variant="contained"
+                                    onClick={() => handleToggleDiscoverability(true)}
+                                    disabled={saving}
+                                    sx={{
+                                        bgcolor: '#E2B714',
+                                        color: '#000',
+                                        '&:hover': { bgcolor: alpha('#E2B714', 0.8) },
+                                        textTransform: 'none',
+                                        fontWeight: 800,
+                                        borderRadius: '10px',
+                                        px: 2,
+                                        whiteSpace: 'nowrap'
+                                    }}
+                                >
+                                    {saving ? <CircularProgress size={16} color="inherit" /> : "Sync Keys"}
+                                </Button>
+                            </Stack>
+                            {syncError && (
+                                <Box sx={{
+                                    p: 1.5,
+                                    borderRadius: '12px',
+                                    bgcolor: alpha('#FF5252', 0.05),
+                                    border: '1px solid',
+                                    borderColor: alpha('#FF5252', 0.2)
+                                }}>
+                                    <Typography variant="caption" sx={{ color: '#FF5252', display: 'flex', alignItems: 'center', gap: 1, fontWeight: 600 }}>
+                                        <X size={12} /> Sync Error: {syncError}
+                                    </Typography>
+                                </Box>
+                            )}
+                        </Box>
+                    )}
+
                     <Box>
                         <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: 'rgba(255, 255, 255, 0.7)' }}>
                             Your Universal Handle
@@ -265,10 +340,10 @@ export const DiscoverabilitySettings = () => {
                                             </IconButton>
                                         </Tooltip>
                                         <Tooltip title="Save">
-                                            <IconButton 
-                                                size="small" 
-                                                onClick={() => setShowConfirm(true)} 
-                                                sx={{ color: 'success.main' }} 
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => setShowConfirm(true)}
+                                                sx={{ color: 'success.main' }}
                                                 disabled={saving || !newUsername || isAvailable === false || checkingAvailability || (newUsername === username && !!profile)}
                                             >
                                                 <Check size={18} />

@@ -374,17 +374,15 @@ export class EcosystemSecurity {
         try {
           // Attempt to get user by their document ID instead of userId attribute
           try {
-            const res = await tablesDB.listRows(CHAT_DB, CHAT_USERS_TABLE, [
-              Query.equal('userId', userId),
-              Query.limit(1)
-            ]);
-            if (res.total > 0) {
-              await tablesDB.updateRow(CHAT_DB, CHAT_USERS_TABLE, res.rows[0].$id, {
+            const uDoc = await tablesDB.getRow(CHAT_DB, CHAT_USERS_TABLE, userId);
+            if (uDoc) {
+              await tablesDB.updateRow(CHAT_DB, CHAT_USERS_TABLE, uDoc.$id, {
                 publicKey: doc.publicKey
               });
             }
           } catch (_e) {
             // Ignore if document not found
+            console.warn("Failed to find chat user", _e);
           }
         } catch (_e) {
           console.warn("Failed to publish existing public key to chat.users", _e);
@@ -415,17 +413,15 @@ export class EcosystemSecurity {
 
       try {
         try {
-          const res = await tablesDB.listRows(CHAT_DB, CHAT_USERS_TABLE, [
-            Query.equal('userId', userId),
-            Query.limit(1)
-          ]);
-          if (res.total > 0) {
-            await tablesDB.updateRow(CHAT_DB, CHAT_USERS_TABLE, res.rows[0].$id, {
+          const uDoc = await tablesDB.getRow(CHAT_DB, CHAT_USERS_TABLE, userId);
+          if (uDoc) {
+            await tablesDB.updateRow(CHAT_DB, CHAT_USERS_TABLE, uDoc.$id, {
               publicKey: pubBase64
             });
           }
         } catch (_e) {
           // Ignore if document not found
+          console.warn("Failed to find chat user", _e);
         }
       } catch (_e) {
         console.warn("Failed to publish public key to chat.users", _e);
