@@ -82,7 +82,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
     const audioChunksRef = useRef<Blob[]>([]);
     const router = useRouter();
 
-    const isSelf = conversation?.type === 'direct' && conversation?.participants?.every((p: string) => p === user?.$id);
+    const isSelf = conversation?.type === 'direct' && conversation?.participants && (conversation.participants.length === 1 || conversation.participants.length === 2) && conversation.participants.every((p: string) => p === user?.$id);
 
     const loadConversation = React.useCallback(async () => {
         try {

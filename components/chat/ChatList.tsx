@@ -6,14 +6,14 @@ import { useAuth } from '@/lib/auth';
 import Link from 'next/link';
 import { UsersService } from '@/lib/services/users';
 import { KeychainService } from '@/lib/appwrite/keychain';
-import { 
-    List, 
-    ListItem, 
-    ListItemButton, 
-    ListItemAvatar, 
-    Avatar, 
-    ListItemText, 
-    Typography, 
+import {
+    List,
+    ListItem,
+    ListItemButton,
+    ListItemAvatar,
+    Avatar,
+    ListItemText,
+    Typography,
     Box,
     CircularProgress,
     alpha,
@@ -39,7 +39,7 @@ export const ChatList = () => {
             console.log('[ChatList] Loading conversations for user:', user!.$id);
             const response = await ChatService.getConversations(user!.$id);
             let rows = [...response.rows];
-            
+
             // Check if we need to prompt for unlock
             const hasEncrypted = rows.some(c => c.isEncrypted);
             if (hasEncrypted && !ecosystemSecurity.status.isUnlocked) {
@@ -49,19 +49,26 @@ export const ChatList = () => {
             console.log('[ChatList] Fetched rows count:', rows.length);
 
             // Bridge: Ensure self-chat exists if tier 2 encryption is setup
-            const selfChat = rows.find(c => 
-                c.type === 'direct' && 
-                c.participants && c.participants.length > 0 &&
+            const selfChat = rows.find(c =>
+                c.type === 'direct' &&
+                c.participants && (c.participants.length === 1 || c.participants.length === 2) &&
                 c.participants.every((p: string) => p === user!.$id)
             );
-            
+
             console.log('[ChatList] Self chat found:', !!selfChat);
 
-            const hasTier2 = await KeychainService.hasMasterpass(user!.$id);
-
-            if (hasTier2 && !selfChat) {
-                console.log('[ChatList] Self chat not found and Tier 2 is active, creating one...');
+            if (!selfChat) {
+                const hasTier2 = await KeychainService.hasMasterpass(user!.$id);
+                console.log('[ChatList] Self chat not found, auto-initializing... hasTier2:', hasTier2);
                 try {
+                    // If they have Tier 2 but are locked, we wait (to ensure it's created as E2E)
+                    if (hasTier2 && !ecosystemSecurity.status.isUnlocked) {
+                        console.log('[ChatList] Vault is locked. Self chat auto-creation deferred until unlock.');
+                        setUnlockModalOpen(true);
+                        setLoading(false);
+                        return;
+                    }
+
                     const newSelfChat = await ChatService.createConversation([user!.$id], 'direct');
                     console.log('[ChatList] Self chat created:', newSelfChat.$id);
                     rows = [newSelfChat, ...rows];
@@ -73,17 +80,17 @@ export const ChatList = () => {
             // Enrich with other participant's name
             const enriched = await Promise.all(rows.map(async (conv: any) => {
                 if (conv.type === 'direct') {
-                    const isActuallySelf = conv.participants && conv.participants.length > 0 && conv.participants.every((p: string) => p === user!.$id);
-                    
+                    const isActuallySelf = conv.participants && (conv.participants.length === 1 || conv.participants.length === 2) && conv.participants.every((p: string) => p === user!.$id);
+
                     if (!isActuallySelf) {
                         const otherId = conv.participants.find((p: string) => p !== user!.$id);
                         if (otherId) {
                             try {
                                 const profile = await UsersService.getProfileById(otherId);
-                                return { 
-                                    ...conv, 
-                                    otherUserId: otherId, 
-                                    name: profile ? (profile.displayName || profile.username) : ('User ' + otherId.substring(0, 5)) 
+                                return {
+                                    ...conv,
+                                    otherUserId: otherId,
+                                    name: profile ? (profile.displayName || profile.username) : ('User ' + otherId.substring(0, 5))
                                 };
                             } catch (_e: unknown) {
                                 return { ...conv, name: 'User ' + otherId.substring(0, 5) };
@@ -145,17 +152,17 @@ export const ChatList = () => {
 
     if (loading) return <Box sx={{ p: 2, display: 'flex', justifyContent: 'center' }}><CircularProgress size={24} sx={{ color: 'primary.main' }} /></Box>;
 
-    const filteredConversations = conversations.filter(c => 
+    const filteredConversations = conversations.filter(c =>
         c.name?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: 'background.default', position: 'relative' }}>
             <Box sx={{ p: 3, pb: 2 }}>
-                <Typography 
-                    variant="h5" 
-                    sx={{ 
-                        fontWeight: 900, 
+                <Typography
+                    variant="h5"
+                    sx={{
+                        fontWeight: 900,
                         fontFamily: 'var(--font-clash)',
                         letterSpacing: '-0.02em',
                         mb: 2,
@@ -164,12 +171,12 @@ export const ChatList = () => {
                 >
                     Messages
                 </Typography>
-                
-                <Box 
-                    sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: 1, 
+
+                <Box
+                    sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
                         bgcolor: 'rgba(255, 255, 255, 0.03)',
                         borderRadius: '12px',
                         px: 2,
@@ -182,7 +189,7 @@ export const ChatList = () => {
                     }}
                 >
                     <SearchIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
-                    <input 
+                    <input
                         placeholder="Search conversations..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -199,9 +206,9 @@ export const ChatList = () => {
                 </Box>
             </Box>
 
-            <Box sx={{ 
-                overflowY: 'auto', 
-                flex: 1, 
+            <Box sx={{
+                overflowY: 'auto',
+                flex: 1,
                 px: 1
             }}>
                 {filteredConversations.length === 0 ? (
@@ -213,10 +220,10 @@ export const ChatList = () => {
                     <List sx={{ pt: 0 }}>
                         {filteredConversations.map((conv) => (
                             <ListItem key={conv.$id} disablePadding sx={{ mb: 0.5 }}>
-                                <ListItemButton 
-                                    component={Link} 
+                                <ListItemButton
+                                    component={Link}
                                     href={`/chat/${conv.$id}`}
-                                    sx={{ 
+                                    sx={{
                                         borderRadius: '12px',
                                         py: 1.5,
                                         '&:hover': {
@@ -225,8 +232,8 @@ export const ChatList = () => {
                                     }}
                                 >
                                     <ListItemAvatar>
-                                        <Avatar 
-                                            sx={{ 
+                                        <Avatar
+                                            sx={{
                                                 bgcolor: conv.isSelf ? alpha('#F59E0B', 0.1) : 'rgba(255, 255, 255, 0.03)',
                                                 color: conv.isSelf ? 'var(--color-electric)' : 'text.secondary',
                                                 border: conv.isSelf ? `1px solid ${alpha('#F59E0B', 0.2)}` : '1px solid rgba(255, 255, 255, 0.05)',
@@ -237,7 +244,7 @@ export const ChatList = () => {
                                             {conv.isSelf ? <BookmarkIcon sx={{ fontSize: 20 }} /> : (conv.type === 'group' ? <GroupIcon sx={{ fontSize: 22 }} /> : <PersonIcon sx={{ fontSize: 22 }} />)}
                                         </Avatar>
                                     </ListItemAvatar>
-                                    <ListItemText 
+                                    <ListItemText
                                         primary={conv.name || (conv.type === 'direct' ? conv.otherUserId : 'Group Chat')}
                                         secondary={
                                             (conv.isEncrypted && !isUnlocked && conv.lastMessageText) ? (
@@ -247,13 +254,13 @@ export const ChatList = () => {
                                                 </Box>
                                             ) : (conv.lastMessageText || 'No messages yet')
                                         }
-                                        primaryTypographyProps={{ 
-                                            fontWeight: 700, 
+                                        primaryTypographyProps={{
+                                            fontWeight: 700,
                                             fontSize: '0.95rem',
                                             color: conv.isSelf ? 'var(--color-electric)' : 'text.primary',
                                             fontFamily: 'var(--font-clash)'
                                         }}
-                                        secondaryTypographyProps={{ 
+                                        secondaryTypographyProps={{
                                             noWrap: true,
                                             fontSize: '0.75rem',
                                             sx: { opacity: 0.5, mt: 0.3 }
@@ -271,9 +278,9 @@ export const ChatList = () => {
                 )}
             </Box>
 
-            <SudoModal 
-                isOpen={unlockModalOpen} 
-                onCancel={() => setUnlockModalOpen(false)} 
+            <SudoModal
+                isOpen={unlockModalOpen}
+                onCancel={() => setUnlockModalOpen(false)}
                 onSuccess={() => {
                     setUnlockModalOpen(false);
                     setIsUnlocked(true);
