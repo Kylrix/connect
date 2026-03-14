@@ -60,6 +60,7 @@ export default function SudoModal({
     const [hasPin, setHasPin] = useState(false);
     const [hasMasterpass, setHasMasterpass] = useState<boolean | null>(null);
     const [mode, setMode] = useState<"passkey" | "password" | "pin" | "initialize" | null>(null);
+    const modeStr = mode as string;
     const [isDetecting, setIsDetecting] = useState(true);
     const [showPasskeyIncentive, setShowPasskeyIncentive] = useState(false);
 
@@ -325,7 +326,7 @@ export default function SudoModal({
                             border: '3px solid #0a0a0a',
                             zIndex: 1
                         }}>
-                            <Shield size={14} strokeWidth={3} />
+                            <Lock size={14} strokeWidth={3} />
                         </Box>
                     </Box>
                 </Box>
@@ -339,13 +340,13 @@ export default function SudoModal({
                 }}>
                     {user?.name || "User"}
                 </Typography>
-                <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.4)', mt: 1, fontFamily: 'var(--font-satoshi)' }}>
-                    Security verification required
+                <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.4)', mt: 1, fontFamily: 'var(--font-satoshi)', fontWeight: 600 }}>
+                    Enter MasterPass to continue
                 </Typography>
             </DialogTitle>
 
             <DialogContent sx={{ pb: 4 }}>
-                {isDetecting || (loading && !password && mode !== "pin") ? (
+                {isDetecting || (loading && !password && modeStr !== "pin") ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                         <CircularProgress sx={{ color: '#A855F7' }} />
                     </Box>
@@ -521,10 +522,10 @@ export default function SudoModal({
                                 }
                             }}
                         >
-                            {loading ? <CircularProgress size={24} color="inherit" /> : "Confirm Security Entry"}
+                            {loading ? <CircularProgress size={24} color="inherit" /> : "Verify Identity"}
                         </Button>
 
-                        {hasPasskey && mode !== "passkey" && (
+                        {hasPasskey && modeStr !== "passkey" && (
                             <Button
                                 fullWidth
                                 variant="text"
@@ -549,7 +550,7 @@ export default function SudoModal({
                             </Button>
                         )}
 
-                        {hasPin && mode !== "pin" && (
+                        {hasPin && modeStr !== "pin" && (
                             <Button
                                 fullWidth
                                 variant="text"
@@ -596,15 +597,7 @@ export default function SudoModal({
             </DialogContent>
 
             <DialogActions sx={{ flexDirection: 'column', p: 4, pt: 0, gap: 2 }}>
-                <Button
-                    variant="text"
-                    size="small"
-                    onClick={handleLogout}
-                    startIcon={<LogOut size={14} />}
-                    sx={{ color: 'rgba(255, 255, 255, 0.4)', fontWeight: 600, '&:hover': { color: 'white' } }}
-                >
-                    Logout from Account
-                </Button>
+                {/* No logout here */}
             </DialogActions>
         </Dialog>
     );
