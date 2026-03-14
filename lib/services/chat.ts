@@ -179,6 +179,23 @@ export const ChatService = {
         const isSelf = type === 'direct' && participants.length === 1 && participants[0] === participants[participants.length - 1];
         const uniqueParticipants = isSelf ? [participants[0], participants[0]] : Array.from(new Set(participants));
 
+        // GUARD: Prevent duplicate self-chats by checking server-side first
+        if (isSelf) {
+            const existing = await tablesDB.listRows(DB_ID, CONV_TABLE, [
+                Query.contains('participants', creatorId),
+                Query.equal('type', 'direct'),
+                Query.limit(50)
+            ]);
+            const existingSelf = existing.rows.find((c: any) =>
+                c.participants && (c.participants.length === 1 || c.participants.length === 2) &&
+                c.participants.every((p: string) => p === creatorId)
+            );
+            if (existingSelf) {
+                console.log('[ChatService] Self-chat already exists, returning existing:', existingSelf.$id);
+                return existingSelf;
+            }
+        }
+
         let encryptionKeyMap: string | undefined;
         let convKey: CryptoKey | null = null;
 

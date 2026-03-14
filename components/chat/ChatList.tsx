@@ -6,6 +6,8 @@ import { useAuth } from '@/lib/auth';
 import Link from 'next/link';
 import { UsersService } from '@/lib/services/users';
 import { KeychainService } from '@/lib/appwrite/keychain';
+import { tablesDB } from '@/lib/appwrite/client';
+import { APPWRITE_CONFIG } from '@/lib/appwrite/config';
 import {
     List,
     ListItem,
@@ -48,14 +50,42 @@ export const ChatList = () => {
 
             console.log('[ChatList] Fetched rows count:', rows.length);
 
-            // Bridge: Ensure self-chat exists if tier 2 encryption is setup
-            const selfChat = rows.find(c =>
+            // Bridge: Detect and deduplicate self-chats, then ensure one exists
+            const isSelfChat = (c: any) =>
                 c.type === 'direct' &&
                 c.participants && (c.participants.length === 1 || c.participants.length === 2) &&
-                c.participants.every((p: string) => p === user!.$id)
-            );
+                c.participants.every((p: string) => p === user!.$id);
 
-            console.log('[ChatList] Self chat found:', !!selfChat);
+            const allSelfChats = rows.filter(isSelfChat);
+            console.log('[ChatList] Self chats found:', allSelfChats.length);
+
+            // Dedup: If more than one self-chat exists, keep the best one and delete the rest
+            if (allSelfChats.length > 1) {
+                console.log('[ChatList] Duplicate self-chats detected, deduplicating...');
+                // Sort: prefer the one with most recent activity, fallback to newest created
+                allSelfChats.sort((a, b) => {
+                    const timeA = new Date(a.lastMessageAt || a.$createdAt || 0).getTime();
+                    const timeB = new Date(b.lastMessageAt || b.$createdAt || 0).getTime();
+                    return timeB - timeA;
+                });
+
+                const keeper = allSelfChats[0];
+                const extras = allSelfChats.slice(1);
+
+                // Delete duplicates in background
+                for (const dup of extras) {
+                    console.log('[ChatList] Removing duplicate self-chat:', dup.$id);
+                    ChatService.nuclearWipe(dup.$id)
+                        .then(() => tablesDB.deleteRow(APPWRITE_CONFIG.DATABASES.CHAT, APPWRITE_CONFIG.TABLES.CHAT.CONVERSATIONS, dup.$id))
+                        .catch(err => console.warn('[ChatList] Failed to remove duplicate self-chat', dup.$id, err));
+                }
+
+                // Remove extras from rows
+                const extraIds = new Set(extras.map((e: any) => e.$id));
+                rows = rows.filter(r => !extraIds.has(r.$id));
+            }
+
+            const selfChat = rows.find(isSelfChat);
 
             if (!selfChat) {
                 const hasTier2 = await KeychainService.hasMasterpass(user!.$id);
@@ -70,8 +100,6 @@ export const ChatList = () => {
                     }
 
                     // CRITICAL: Ensure E2E identity is ready before creating conversation.
-                    // createConversation -> _wrapConversationKey -> wrapKeyWithECDH requires identityKeyPair.
-                    // If the vault was just unlocked, ensureE2EIdentity might not have run yet.
                     if (ecosystemSecurity.status.isUnlocked) {
                         console.log('[ChatList] Ensuring E2E identity before self-chat creation...');
                         await ecosystemSecurity.ensureE2EIdentity(user!.$id);
