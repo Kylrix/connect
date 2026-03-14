@@ -71,7 +71,7 @@ export const SecretSelectorModal = ({ open, onClose, onSelect, isSelf }: SecretS
     const handleSelect = async (item: any, type: 'secret' | 'totp') => {
         if (type === 'secret' && !isSelf) {
             // Restrictions: Can only share secrets to self for now
-            alert("For security, secrets can only be shared in 'Saved Messages'. TOTP codes can be shared anywhere.");
+            alert("For security, secrets can only be shared in your self-chat. TOTP codes can be shared anywhere.");
             return;
         }
 
@@ -189,6 +189,7 @@ export const SecretSelectorModal = ({ open, onClose, onSelect, isSelf }: SecretS
                 isOpen={unlockModalOpen}
                 onCancel={() => setUnlockModalOpen(false)}
                 onSuccess={async () => {
+                    setUnlockModalOpen(false);
                     if (pendingSelection) {
                         const { item, type } = pendingSelection;
                         try {

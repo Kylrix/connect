@@ -100,7 +100,9 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                         setConversation({ ...conv, name: 'User' });
                     }
                 } else {
-                    setConversation({ ...conv, name: 'Note to Self' });
+                    const myProfile = await UsersService.getProfileById(user!.$id);
+                    const myName = myProfile ? (myProfile.displayName || myProfile.username) : (user!.name || 'You');
+                    setConversation({ ...conv, name: `${myName} (You)` });
                 }
             } else {
                 setConversation(conv);
@@ -149,6 +151,16 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
         }, 1000);
         return () => clearInterval(checkUnlock);
     }, [isUnlocked, loadConversation, loadMessages]);
+
+    // Background re-wrap check when opening a conversation
+    useEffect(() => {
+        if (conversationId && isUnlocked && conversation) {
+            // Trigger background re-wrap to ensure keys are synced
+            ChatService.rewrapConversationKeys(conversationId).catch(err =>
+                console.warn("[ChatWindow] Background re-wrap failed:", err)
+            );
+        }
+    }, [conversationId, isUnlocked, !!conversation]);
 
     useEffect(() => {
         if (conversationId && conversation?.type === 'direct' && !isSelf) {
@@ -631,7 +643,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                         </Avatar>
                         <Box>
                             <Typography variant="subtitle1" sx={{ fontWeight: 800, fontFamily: 'var(--font-clash)', lineHeight: 1.2, color: isSelf ? 'var(--color-electric)' : 'text.primary' }}>
-                                {isSelf ? 'Saved Messages' : conversation?.name || 'Loading...'}
+                                {conversation?.name || 'Loading...'}
                             </Typography>
                             {!isSelf && conversation?.type === 'direct' && (
                                 <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, opacity: 0.6, display: 'flex', alignItems: 'center', gap: 0.5 }}>

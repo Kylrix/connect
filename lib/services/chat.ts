@@ -46,10 +46,12 @@ export const ChatService = {
 
         try {
             const keyMap = JSON.parse(conv.encryptionKey);
-            const myWrappedKey = keyMap[myUserId];
+            let myWrappedKey = keyMap[myUserId];
 
+            // If we don't have a wrapped key, but we have a valid identity, we might need a re-wrap
+            // This happens after a Master Password reset where the user has a new public key.
             if (!myWrappedKey) {
-                console.warn(`No wrapped key found for user ${myUserId} in conversation ${conv.$id}`);
+                console.warn(`No wrapped key found for user ${myUserId} in conversation ${conv.$id}. Re-wrap required.`);
                 return null;
             }
 
@@ -67,14 +69,62 @@ export const ChatService = {
                     ecosystemSecurity.setConversationKey(conv.$id, key);
                 }
             } catch (_e) {
-                throw new Error("Could not retrieve creator public key");
+                // If unwrapping fails, it might be because the creator rotated their key too
+                // or we are using a new identity that doesn't match this wrapped key.
+                console.error("Could not unwrap key with creator's public key", _e);
+                throw new Error("Could not retrieve creator public key or decryption failed");
             }
             return key;
-            } catch (_e) {
+        } catch (_e) {
             console.error("Failed to unwrap conversation key", _e);
             return null;
+        }
+    },
+
+    /**
+     * Re-wraps the conversation key for participants who are missing it.
+     * This is crucial for maintaining group access after a participant resets their identity.
+     */
+    async rewrapConversationKeys(conversationId: string) {
+        if (!ecosystemSecurity.status.isUnlocked) return;
+
+        const convKey = ecosystemSecurity.getConversationKey(conversationId);
+        if (!convKey) return; // We need the key to wrap it!
+
+        const conv = await tablesDB.getRow(DB_ID, CONV_TABLE, conversationId);
+        const participants = conv.participants || [];
+        const currentKeyMap = JSON.parse(conv.encryptionKey || '{}');
+
+        // Fetch all current public keys
+        const CHAT_DB = APPWRITE_CONFIG.DATABASES.CHAT;
+        const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.USERS;
+
+        const res = await tablesDB.listRows(CHAT_DB, USERS_TABLE, [
+            Query.equal('$id', participants),
+        ]);
+
+        let updated = false;
+        for (const doc of res.rows) {
+            if (doc.publicKey) {
+                // Check if the key needs updating (either missing or creator rotated)
+                // For simplicity, we re-wrap if it's missing or if we are the creator and want to ensure everyone is synced
+                if (!currentKeyMap[doc.$id]) {
+                    try {
+                        currentKeyMap[doc.$id] = await ecosystemSecurity.wrapKeyWithECDH(convKey, doc.publicKey);
+                        updated = true;
+                    } catch (e) {
+                        console.error(`Failed to re-wrap key for user ${doc.$id}`, e);
+                    }
+                }
             }
-            },
+        }
+
+        if (updated) {
+            await tablesDB.updateRow(DB_ID, CONV_TABLE, conversationId, {
+                encryptionKey: JSON.stringify(currentKeyMap)
+            });
+        }
+    },
     async getConversationById(conversationId: string, userId?: string) {
         const conv = await tablesDB.getRow(DB_ID, CONV_TABLE, conversationId);
         return await this._decryptConversation(conv, userId);
@@ -209,6 +259,14 @@ export const ChatService = {
             lastMessageText: type === 'text' ? finalContent : `[${type}]`,
             updatedAt: now
         });
+
+        // 3. (Background) If this is a group, check if any participant needs re-keying
+        // This ensures a reset participant can receive future messages
+        if (ecosystemSecurity.status.isUnlocked) {
+            this.rewrapConversationKeys(conversationId).catch(err => 
+                console.warn("[ChatService] Background re-wrap failed:", err)
+            );
+        }
 
         return message;
     },

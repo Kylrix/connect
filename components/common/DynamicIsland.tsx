@@ -111,7 +111,7 @@ export const IslandProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           {
             type: 'suggestion' as IslandType,
             title: "Thinking space",
-            message: "Use 'Saved Messages' to store ideas, snippets, and secrets for yourself.",
+            message: "Use your self-chat to store ideas, snippets, and secrets for yourself.",
             action: { label: "Open Vault", onClick: () => {} }
           }
         ];

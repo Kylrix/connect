@@ -65,21 +65,21 @@ export function SudoModal({
     const [showPasskeyIncentive, setShowPasskeyIncentive] = useState(false);
 
     const handleSuccessWithSync = useCallback(async () => {
+        onSuccess();
+        
         if (user?.$id) {
             try {
                 // Sudo Hook: Ensure E2E Identity is created and published upon successful MasterPass unlock
                 console.log("[Connect] Synchronizing Identity...");
                 await ecosystemSecurity.ensureE2EIdentity(user.$id);
 
+                if (intent === "reset") {
+                    return;
+                }
+
                 // Passkey Incentive
                 const entries = await KeychainService.listKeychainEntries(user.$id);
                 const hasPasskey = entries.some((e: any) => e.type === 'passkey');
-
-                if (intent === "reset") {
-                    const callbackUrl = encodeURIComponent(window.location.href);
-                    window.location.href = `https://vault.kylrix.space/masterpass/reset?callbackUrl=${callbackUrl}`;
-                    return;
-                }
 
                 if (!hasPasskey) {
                     const skipTimestamp = localStorage.getItem(`passkey_skip_${user.$id}`);
@@ -93,7 +93,6 @@ export function SudoModal({
                 console.error("[Connect] Failed to sync identity on unlock", e);
             }
         }
-        onSuccess();
     }, [user, onSuccess, intent]);
 
     const handleRedirectToVaultSetup = useCallback(() => {

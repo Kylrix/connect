@@ -5,6 +5,7 @@ import { ChatService } from '@/lib/services/chat';
 import { useAuth } from '@/lib/auth';
 import Link from 'next/link';
 import { UsersService } from '@/lib/services/users';
+import { KeychainService } from '@/lib/appwrite/keychain';
 import { 
     List, 
     ListItem, 
@@ -47,7 +48,7 @@ export const ChatList = () => {
 
             console.log('[ChatList] Fetched rows count:', rows.length);
 
-            // Bridge: Ensure self-chat (Saved Messages) exists
+            // Bridge: Ensure self-chat exists if tier 2 encryption is setup
             const selfChat = rows.find(c => 
                 c.type === 'direct' && 
                 c.participants && c.participants.length > 0 &&
@@ -56,8 +57,10 @@ export const ChatList = () => {
             
             console.log('[ChatList] Self chat found:', !!selfChat);
 
-            if (!selfChat) {
-                console.log('[ChatList] Self chat not found, creating one...');
+            const hasTier2 = await KeychainService.hasMasterpass(user!.$id);
+
+            if (hasTier2 && !selfChat) {
+                console.log('[ChatList] Self chat not found and Tier 2 is active, creating one...');
                 try {
                     const newSelfChat = await ChatService.createConversation([user!.$id], 'direct');
                     console.log('[ChatList] Self chat created:', newSelfChat.$id);
@@ -88,10 +91,12 @@ export const ChatList = () => {
                         }
                     } else {
                         // Self Chat
+                        const myProfile = await UsersService.getProfileById(user!.$id);
+                        const myName = myProfile ? (myProfile.displayName || myProfile.username) : (user!.name || 'You');
                         return {
                             ...conv,
                             otherUserId: user!.$id,
-                            name: 'Saved Messages',
+                            name: `${myName} (You)`,
                             isSelf: true
                         };
                     }
@@ -270,6 +275,7 @@ export const ChatList = () => {
                 isOpen={unlockModalOpen} 
                 onCancel={() => setUnlockModalOpen(false)} 
                 onSuccess={() => {
+                    setUnlockModalOpen(false);
                     setIsUnlocked(true);
                     loadConversations();
                 }}
