@@ -15,6 +15,7 @@ import {
     Fade,
     alpha,
     InputAdornment,
+    useTheme,
 } from "@mui/material";
 import {
     Lock,
@@ -41,6 +42,7 @@ export default function SudoModal({
     onSuccess,
     onCancel,
 }: SudoModalProps) {
+    const theme = useTheme();
     const { user } = useAuth();
     const [password, setPassword] = useState("");
     const [pin, setPin] = useState("");
@@ -107,14 +109,26 @@ export default function SudoModal({
         if (user?.$id) {
             try {
                 // Sudo Hook: Ensure E2E Identity is created and published upon successful MasterPass unlock
-                console.log("Synchronizing Identity...");
+                console.log("[Connect] Synchronizing Identity...");
                 await ecosystemSecurity.ensureE2EIdentity(user.$id);
             } catch (e) {
-                console.error("Failed to sync identity on unlock", e);
+                console.error("[Connect] Failed to sync identity on unlock", e);
             }
         }
-        onSuccess();
-    }, [user?.$id, onSuccess]);
+
+        const skipTimestamp = localStorage.getItem(`passkey_skip_${user?.$id}`);
+        const sevenDays = 7 * 24 * 60 * 60 * 1000;
+        const shouldShowIncentive =
+            !hasPasskey &&
+            (!skipTimestamp ||
+                Date.now() - parseInt(skipTimestamp) > sevenDays);
+
+        if (shouldShowIncentive) {
+            setShowPasskeyIncentive(true);
+        } else {
+            onSuccess();
+        }
+    }, [user, hasPasskey, onSuccess]);
 
     const handlePinChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value.replace(/[^0-9]/g, "");
@@ -557,10 +571,10 @@ export default function SudoModal({
                             fullWidth
                             variant="text"
                             size="small"
-                            onClick={() => setMode("password")}
-                            sx={{ color: 'rgba(255, 255, 255, 0.5)', '&:hover': { color: 'white' } }}
+                            onClick={() => window.open("https://vault.kylrix.space/masterpass/reset", "_blank")}
+                            sx={{ color: 'error.main', '&:hover': { bgcolor: alpha(theme.palette.error.main, 0.1) }, mt: 2 }}
                         >
-                            Use Master Password
+                            Reset Master Password
                         </Button>
                     </Stack>
                 ) : (
