@@ -19,7 +19,7 @@ const QuickNote = () => {
 import { ecosystemSecurity } from '@/lib/ecosystem/security';
 import { KeychainService } from '@/lib/appwrite/keychain';
 import { useAuth } from '@/lib/auth';
-import SudoModal from '@/components/overlays/SudoModal';
+import { SudoModal } from '@/components/overlays/SudoModal';
 import { useEffect } from 'react';
 
 const VaultStatus = () => {

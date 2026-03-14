@@ -25,7 +25,7 @@ import SearchIcon from '@mui/icons-material/SearchOutlined';
 import { EcosystemService } from '@/lib/services/ecosystem';
 import { useAuth } from '@/lib/auth';
 import { ecosystemSecurity } from '@/lib/ecosystem/security';
-import { MasterPassModal } from './MasterPassModal';
+import { SudoModal } from '../overlays/SudoModal';
 import { generateSync } from 'otplib';
 
 interface SecretSelectorModalProps {
@@ -185,9 +185,9 @@ export const SecretSelectorModal = ({ open, onClose, onSelect, isSelf }: SecretS
                 </DialogActions>
             </Dialog>
 
-            <MasterPassModal
-                open={unlockModalOpen}
-                onClose={() => setUnlockModalOpen(false)}
+            <SudoModal
+                isOpen={unlockModalOpen}
+                onCancel={() => setUnlockModalOpen(false)}
                 onSuccess={async () => {
                     if (pendingSelection) {
                         const { item, type } = pendingSelection;
@@ -210,3 +210,4 @@ export const SecretSelectorModal = ({ open, onClose, onSelect, isSelf }: SecretS
         </>
     );
 };
+

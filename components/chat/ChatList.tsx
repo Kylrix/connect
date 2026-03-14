@@ -23,7 +23,7 @@ import BookmarkIcon from '@mui/icons-material/BookmarkOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import LockIcon from '@mui/icons-material/LockOutlined';
 import { ecosystemSecurity } from '@/lib/ecosystem/security';
-import { MasterPassModal } from './MasterPassModal';
+import { SudoModal } from '../overlays/SudoModal';
 
 export const ChatList = () => {
     const { user } = useAuth();
@@ -266,9 +266,9 @@ export const ChatList = () => {
                 )}
             </Box>
 
-            <MasterPassModal 
-                open={unlockModalOpen} 
-                onClose={() => setUnlockModalOpen(false)} 
+            <SudoModal 
+                isOpen={unlockModalOpen} 
+                onCancel={() => setUnlockModalOpen(false)} 
                 onSuccess={() => {
                     setIsUnlocked(true);
                     loadConversations();

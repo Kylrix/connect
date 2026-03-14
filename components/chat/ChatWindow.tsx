@@ -54,7 +54,7 @@ import {
 import { NoteSelectorModal } from './NoteSelectorModal';
 import { SecretSelectorModal } from './SecretSelectorModal';
 import { ecosystemSecurity } from '@/lib/ecosystem/security';
-import { MasterPassModal } from './MasterPassModal';
+import { SudoModal } from '../overlays/SudoModal';
 import { usePresence } from '../providers/PresenceProvider';
 
 export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
@@ -895,10 +895,11 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                 onSelect={handleSecretSelect}
                 isSelf={isSelf || false}
             />
-            <MasterPassModal
-                open={unlockModalOpen}
-                onClose={() => setUnlockModalOpen(false)}
+            <SudoModal
+                isOpen={unlockModalOpen}
+                onCancel={() => setUnlockModalOpen(false)}
                 onSuccess={() => {
+                    setUnlockModalOpen(false);
                     setIsUnlocked(true);
                     loadMessages();
                     loadConversation();

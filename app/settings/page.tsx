@@ -30,12 +30,11 @@ import {
     Trash2
 } from 'lucide-react';
 import { ecosystemSecurity } from '@/lib/ecosystem/security';
-import { MasterPassModal } from '@/components/chat/MasterPassModal';
-import { PasskeySetup } from '@/components/overlays/PasskeySetup';
-import { DiscoverabilitySettings } from '@/components/settings/DiscoverabilitySettings';
+import { SudoModal } from '@/components/overlays/SudoModal';
 import { useAuth } from '@/lib/auth';
 import { KeychainService } from '@/lib/appwrite/keychain';
-import toast from 'react-hot-toast';
+import { PasskeySetup } from '@/components/overlays/PasskeySetup';
+import { toast } from 'react-hot-toast';
 
 export default function SettingsPage() {
     const { user } = useAuth();
@@ -173,8 +172,6 @@ export default function SettingsPage() {
                 </Typography>
 
                 <Stack spacing={4}>
-                    {/* Security Section */}
-                    <DiscoverabilitySettings />
                     <Box>
                         <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Shield size={20} color="#00F0FF" /> Security & Privacy
@@ -384,9 +381,9 @@ export default function SettingsPage() {
                 </Stack>
             </Box>
 
-            <MasterPassModal 
-                open={unlockModalOpen}
-                onClose={() => {
+            <SudoModal 
+                isOpen={unlockModalOpen}
+                onCancel={() => {
                     setUnlockModalOpen(false);
                     setPendingAction(null);
                 }}

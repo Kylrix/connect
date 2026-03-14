@@ -43,7 +43,7 @@ interface SudoModalProps {
     intent?: "unlock" | "initialize" | "reset";
 }
 
-export default function SudoModal({
+export function SudoModal({
     isOpen,
     onSuccess,
     onCancel,
