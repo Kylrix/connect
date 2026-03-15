@@ -93,10 +93,11 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
     const isSelf = conversation?.type === 'direct' && conversation?.participants && (conversation.participants.length === 1 || conversation.participants.length === 2) && conversation.participants.every((p: string) => p === user?.$id);
 
     const loadConversation = React.useCallback(async () => {
+        if (!user?.$id) return;
         try {
-            const conv = await ChatService.getConversationById(conversationId, user?.$id);
+            const conv = await ChatService.getConversationById(conversationId, user.$id);
             if (conv.type === 'direct') {
-                const otherId = conv.participants.find((p: string) => p !== user!.$id);
+                const otherId = conv.participants.find((p: string) => p !== user.$id);
                 if (otherId) {
                     try {
                         const profile = await UsersService.getProfileById(otherId);
@@ -108,8 +109,8 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                         setConversation({ ...conv, name: 'User' });
                     }
                 } else {
-                    const myProfile = await UsersService.getProfileById(user!.$id);
-                    const myName = myProfile ? (myProfile.displayName || myProfile.username) : (user!.name || 'You');
+                    const myProfile = await UsersService.getProfileById(user.$id);
+                    const myName = myProfile ? (myProfile.displayName || myProfile.username) : (user.name || 'You');
                     setConversation({ ...conv, name: `${myName} (You)` });
                 }
             } else {
@@ -181,6 +182,11 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
         if (conversationId) {
             loadMessages();
             loadConversation();
+
+            // Proactively trigger sudo modal if conversation is encrypted and vault is locked
+            if (conversation?.isEncrypted && !isUnlocked && !unlockModalOpen) {
+                setUnlockModalOpen(true);
+            }
 
         // Subscribe to real-time messages
         let unsub: any;
@@ -315,6 +321,12 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
     const handleSend = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
         if ((!inputText.trim() && !attachment) || !user || sending) return;
+
+        // Ensure vault is unlocked before sending in an encrypted conversation
+        if (conversation?.isEncrypted && !isUnlocked) {
+            setUnlockModalOpen(true);
+            return;
+        }
 
         const text = inputText;
         const file = attachment;
@@ -839,6 +851,24 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
     };
 
     const renderMessageContent = (msg: Messages) => {
+        // Handle gibberish display when vault is locked
+        const isLikelyEncrypted = (val: string) => {
+            if (!val) return false;
+            // Check if it's base64 with IV (standard WESP format) or just long gibberish
+            return val.length > 40 && !val.includes(' ');
+        };
+
+        if (msg.type === MessagesType.TEXT && !isUnlocked && isLikelyEncrypted(msg.content)) {
+            return (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5, opacity: 0.8 }}>
+                    <Lock size={14} strokeWidth={2.5} />
+                    <Typography variant="body2" sx={{ fontStyle: 'italic', fontWeight: 500 }}>
+                        Encrypted message
+                    </Typography>
+                </Box>
+            );
+        }
+
         const metadata: AttachmentMetadata | null = msg.metadata ? (typeof msg.metadata === 'string' ? JSON.parse(msg.metadata) : msg.metadata) : null;
 
         if (metadata && metadata.type === 'attachment') {

@@ -6,6 +6,7 @@
 
 import { MeshProtocol } from './mesh';
 import { tablesDB } from '../appwrite/client';
+import { databases as genDB } from '../../generated/appwrite';
 import { APPWRITE_CONFIG } from '../appwrite/config';
 import { Query, ID } from 'appwrite';
 
@@ -223,7 +224,7 @@ export class EcosystemSecurity {
       const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.PROFILES;
 
       try {
-        await tablesDB.updateRow(CHAT_DB, USERS_TABLE, userId, {
+        await genDB.use('chat').use('profiles').update(userId, {
           updatedAt: new Date().toISOString()
         });
       } catch (updateErr: any) {
@@ -355,7 +356,7 @@ export class EcosystemSecurity {
         };
 
         // Try to update existing document (doc ID = userId)
-        await tablesDB.updateRow(CHAT_DB, CHAT_USERS_TABLE, userId, updatePayload);
+        await genDB.use('chat').use('profiles').update(userId, updatePayload);
         console.log('[Security] Published publicKey to chat.users via update');
       } catch (updateErr: any) {
         console.error('[Security] Failed to update publicKey in chat.users:', updateErr?.message || updateErr);

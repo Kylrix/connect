@@ -1,5 +1,6 @@
 import { Query } from 'appwrite';
 import { tablesDB } from '../appwrite/client';
+import { databases as genDB } from '../../generated/appwrite';
 import { APPWRITE_CONFIG } from '../appwrite/config';
 
 const DB_ID = APPWRITE_CONFIG.DATABASES.CHAT;
@@ -94,7 +95,7 @@ export const UsersService = {
 
             console.log('[UsersService] Updating profile for', userId, 'with payload:', JSON.stringify(updatePayload));
             try {
-                const result = await tablesDB.updateRow(DB_ID, USERS_TABLE, currentProfile.$id, updatePayload);
+                const result = await genDB.use('chat').use('profiles').update(currentProfile.$id, updatePayload);
                 console.log('[UsersService] Update result:', result);
                 return result;
             } catch (err: any) {
