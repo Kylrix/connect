@@ -5,9 +5,9 @@
  */
 
 import { MeshProtocol } from './mesh';
-import { tablesDB } from '../appwrite/client';
+import { tablesDB, databases } from '../appwrite/client';
 import { APPWRITE_CONFIG } from '../appwrite/config';
-import { Query, ID } from 'appwrite';
+import { Query, ID, Permission, Role } from 'appwrite';
 
 const PW_DB = APPWRITE_CONFIG.DATABASES.PASSWORD_MANAGER;
 const KEYCHAIN_TABLE = APPWRITE_CONFIG.TABLES.PASSWORD_MANAGER.KEYCHAIN;
@@ -221,21 +221,38 @@ export class EcosystemSecurity {
       const CHAT_DB = APPWRITE_CONFIG.DATABASES.CHAT;
       const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.USERS;
 
-      // Check if user doc exists in CHAT database
       try {
-        const uDoc = await tablesDB.getRow(CHAT_DB, USERS_TABLE, userId);
-        if (uDoc) {
-          await tablesDB.updateRow(CHAT_DB, USERS_TABLE, uDoc.$id, {
-            hasMasterpass: true
-          });
+        await databases.updateDocument(CHAT_DB, USERS_TABLE, userId, {
+          hasMasterpass: true
+        });
+      } catch (updateErr: any) {
+        // Document doesn't exist — create it
+        if (updateErr?.code === 404 || updateErr?.type === 'document_not_found') {
+          try {
+            await databases.createDocument(CHAT_DB, USERS_TABLE, userId, {
+              hasMasterpass: true,
+              username: '',
+              displayName: '',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            }, [
+              Permission.read(Role.any()),
+              Permission.update(Role.user(userId)),
+              Permission.delete(Role.user(userId))
+            ]);
+          } catch (createErr: any) {
+            if (createErr?.code === 409) {
+              // Already exists (race condition), retry update
+              await databases.updateDocument(CHAT_DB, USERS_TABLE, userId, {
+                hasMasterpass: true
+              }).catch(() => { });
+            } else {
+              console.error('[Security] Failed to create chat.users doc for masterpass flag:', createErr);
+            }
+          }
+        } else {
+          console.error('[Security] Failed to update masterpass flag:', updateErr);
         }
-      } catch (_e) {
-        // Create user doc if it doesn't exist (assuming create works, but if no permission it fails, which is caught)
-        try {
-          await tablesDB.createRow(CHAT_DB, USERS_TABLE, userId, {
-            hasMasterpass: true
-          });
-        } catch (_inner) { }
       }
     } catch (_e: unknown) {
       console.error('[Security] Failed to set masterpass flag:', _e);
@@ -352,6 +369,50 @@ export class EcosystemSecurity {
     const CHAT_DB = APPWRITE_CONFIG.DATABASES.CHAT || 'chat';
     const CHAT_USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT?.USERS || 'users';
 
+    // Helper: Publish publicKey to chat.users using the standard Databases API
+    const publishPublicKey = async (publicKey: string) => {
+      try {
+        // Try to update existing document
+        await databases.updateDocument(CHAT_DB, CHAT_USERS_TABLE, userId, {
+          publicKey
+        });
+        console.log('[Security] Published publicKey to chat.users via update');
+      } catch (updateErr: any) {
+        // Document doesn't exist — create it
+        if (updateErr?.code === 404 || updateErr?.type === 'document_not_found') {
+          try {
+            await databases.createDocument(CHAT_DB, CHAT_USERS_TABLE, userId, {
+              publicKey,
+              hasMasterpass: true,
+              username: '',
+              displayName: '',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            }, [
+              Permission.read(Role.any()),
+              Permission.update(Role.user(userId)),
+              Permission.delete(Role.user(userId))
+            ]);
+            console.log('[Security] Created chat.users doc with publicKey');
+          } catch (createErr: any) {
+            // 409 = already exists (race condition), try update again
+            if (createErr?.code === 409) {
+              try {
+                await databases.updateDocument(CHAT_DB, CHAT_USERS_TABLE, userId, { publicKey });
+                console.log('[Security] Published publicKey via retry update after 409');
+              } catch (retryErr) {
+                console.error('[Security] Final retry to publish publicKey failed:', retryErr);
+              }
+            } else {
+              console.error('[Security] Failed to create chat.users doc:', createErr);
+            }
+          }
+        } else {
+          console.error('[Security] Failed to update publicKey in chat.users:', updateErr);
+        }
+      }
+    };
+
     try {
       const res = await tablesDB.listRows(PW_DB_ID, IDENTITIES_TABLE_ID, [
         Query.equal('userId', userId),
@@ -371,22 +432,8 @@ export class EcosystemSecurity {
 
         this.identityKeyPair = { publicKey: pubKey, privateKey: privKey };
 
-        try {
-          // Attempt to get user by their document ID instead of userId attribute
-          try {
-            const uDoc = await tablesDB.getRow(CHAT_DB, CHAT_USERS_TABLE, userId);
-            if (uDoc) {
-              await tablesDB.updateRow(CHAT_DB, CHAT_USERS_TABLE, uDoc.$id, {
-                publicKey: doc.publicKey
-              });
-            }
-          } catch (_e) {
-            // Ignore if document not found
-            console.warn("Failed to find chat user", _e);
-          }
-        } catch (_e) {
-          console.warn("Failed to publish existing public key to chat.users", _e);
-        }
+        // Publish publicKey to chat.users
+        await publishPublicKey(doc.publicKey);
 
         return doc.publicKey;
       }
@@ -411,21 +458,8 @@ export class EcosystemSecurity {
 
       this.identityKeyPair = pair;
 
-      try {
-        try {
-          const uDoc = await tablesDB.getRow(CHAT_DB, CHAT_USERS_TABLE, userId);
-          if (uDoc) {
-            await tablesDB.updateRow(CHAT_DB, CHAT_USERS_TABLE, uDoc.$id, {
-              publicKey: pubBase64
-            });
-          }
-        } catch (_e) {
-          // Ignore if document not found
-          console.warn("Failed to find chat user", _e);
-        }
-      } catch (_e) {
-        console.warn("Failed to publish public key to chat.users", _e);
-      }
+      // Publish publicKey to chat.users
+      await publishPublicKey(pubBase64);
 
       return pubBase64;
     } catch (_e: unknown) {
