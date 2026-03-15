@@ -29,7 +29,7 @@ const createQueryBuilder = <T>(): QueryBuilder<T> => ({
 
 const tableIdMap: Record<string, Record<string, string>> = Object.create(null);
 tableIdMap["67ff05a9000296822396"] = Object.create(null);
-tableIdMap["67ff05a9000296822396"]["accountUsers"] = "67ff05c900247b5673d3";
+tableIdMap["67ff05a9000296822396"]["users"] = "67ff05c900247b5673d3";
 tableIdMap["67ff05a9000296822396"]["notes"] = "67ff05f3002502ef239e";
 tableIdMap["67ff05a9000296822396"]["tags"] = "67ff06280034908cf08a";
 tableIdMap["67ff05a9000296822396"]["apiKeys"] = "67ff064400263631ffe4";
@@ -56,7 +56,7 @@ tableIdMap["chat"] = Object.create(null);
 tableIdMap["chat"]["Messages"] = "messages";
 tableIdMap["chat"]["Conversations"] = "conversations";
 tableIdMap["chat"]["Contacts"] = "contacts";
-tableIdMap["chat"]["connectUsers"] = "users";
+tableIdMap["chat"]["users"] = "users";
 tableIdMap["chat"]["Follows"] = "follows";
 tableIdMap["chat"]["AppActivity"] = "app_activity";
 tableIdMap["chat"]["CallLinks"] = "call_links";
@@ -69,6 +69,8 @@ tableIdMap["whisperrflow"]["eventGuests"] = "eventGuests";
 tableIdMap["whisperrflow"]["events"] = "events";
 tableIdMap["whisperrflow"]["calendars"] = "calendars";
 tableIdMap["whisperrflow"]["tasks"] = "tasks";
+
+const tablesWithRelationships = new Set<string>();
 
 const roleBuilder: RoleBuilder = {
   any: () => Role.any() as RoleString,
