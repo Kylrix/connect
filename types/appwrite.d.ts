@@ -100,13 +100,23 @@ export enum MomentsType {
     VIDEO = "video"
 }
 
-export type AccountUsers = Models.Row & {
-    id: string | null;
-    email: string | null;
-    name: string | null;
-    walletAddress: string | null;
-    createdAt: string | null;
-    updatedAt: string | null;
+export enum FormsStatus {
+    DRAFT = "draft",
+    PUBLISHED = "published",
+    CLOSED = "closed"
+}
+
+export enum FormsVisibility {
+    PRIVATE = "private",
+    PUBLIC = "public",
+    WORKSPACE = "workspace"
+}
+
+export enum FormSubmissionsStatus {
+    UNREAD = "unread",
+    READ = "read",
+    ARCHIVED = "archived",
+    FLAGGED = "flagged"
 }
 
 export type Notes = Models.Row & {
@@ -398,6 +408,8 @@ export type Conversations = Models.Row & {
     participants: string[] | null;
     admins: string[] | null;
     description: string | null;
+    avatarUrl: string | null;
+    avatarFileId: string | null;
     avatar: string | null;
     participantCount: number;
     maxParticipants: number;
@@ -437,12 +449,12 @@ export type Contacts = Models.Row & {
 export type Users = Models.Row & {
     username: string;
     displayName: string | null;
-    avatar: string | null;
     bio: string | null;
     walletAddress: string | null;
     createdAt: string | null;
     updatedAt: string | null;
     publicKey: string | null;
+    avatar: string | null;
 }
 
 export type Follows = Models.Row & {
@@ -549,4 +561,22 @@ export type Tasks = Models.Row & {
     eventId: string | null;
     userId: string;
     parentId: string | null;
+}
+
+export type Forms = Models.Row & {
+    userId: string;
+    title: string;
+    description: string | null;
+    schema: string;
+    settings: string | null;
+    status: FormsStatus;
+    visibility: FormsVisibility;
+}
+
+export type FormSubmissions = Models.Row & {
+    formId: string;
+    submitterId: string | null;
+    payload: string;
+    status: FormSubmissionsStatus;
+    metadata: string | null;
 }
