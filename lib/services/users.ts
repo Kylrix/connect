@@ -3,7 +3,7 @@ import { tablesDB } from '../appwrite/client';
 import { APPWRITE_CONFIG } from '../appwrite/config';
 
 const DB_ID = APPWRITE_CONFIG.DATABASES.CHAT;
-const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.USERS;
+const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.PROFILES;
 
 const normalizeUsername = (input: string | null | undefined): string | null => {
     if (!input) return null;

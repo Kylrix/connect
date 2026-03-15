@@ -11,12 +11,18 @@ import {
     Paper,
     Button,
     CircularProgress,
-    Stack
+    Stack,
+    alpha
 } from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
-import SettingsIcon from '@mui/icons-material/Settings';
-import PersonAddIcon from '@mui/icons-material/PersonAdd';
-import ChatIcon from '@mui/icons-material/Chat';
+import { 
+    Edit3 as EditIcon, 
+    Settings as SettingsIcon, 
+    UserPlus as PersonAddIcon, 
+    MessageSquare as ChatIcon,
+    Layers,
+    Users,
+    Activity
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { EditProfileModal } from './EditProfileModal';
 
@@ -104,41 +110,108 @@ export const Profile = ({ username }: ProfileProps) => {
     );
 
     return (
-        <Box sx={{ maxWidth: 800, mx: 'auto', p: 2 }}>
-            <Paper sx={{ p: 4, borderRadius: 4, mb: 4 }} elevation={0} variant="outlined">
-                <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: 'center', gap: 4 }}>
+        <Box sx={{ maxWidth: 800, mx: 'auto', p: 2, pt: 4 }}>
+            <Paper sx={{ 
+                p: 4, 
+                borderRadius: '32px', 
+                mb: 4,
+                background: 'rgba(255, 255, 255, 0.02)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.05)',
+                position: 'relative',
+                overflow: 'hidden'
+            }} elevation={0}>
+                {/* Brand Accent Blur */}
+                <Box sx={{
+                    position: 'absolute',
+                    top: -100,
+                    right: -100,
+                    width: 200,
+                    height: 200,
+                    background: 'radial-gradient(circle, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0) 70%)',
+                    filter: 'blur(40px)',
+                    zIndex: 0
+                }} />
+
+                <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: 'center', gap: 4, position: 'relative', zIndex: 1 }}>
                     <Avatar
                         src={profile.avatar}
-                        sx={{ width: 120, height: 120, fontSize: 48, bgcolor: 'primary.main' }}
+                        sx={{ 
+                            width: 140, 
+                            height: 140, 
+                            fontSize: 48, 
+                            bgcolor: 'var(--color-electric)',
+                            color: 'black',
+                            fontWeight: 900,
+                            border: '4px solid rgba(255, 255, 255, 0.05)',
+                            boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
+                            fontFamily: 'var(--font-clash)'
+                        }}
                     >
                         {profile.username?.charAt(0).toUpperCase()}
                     </Avatar>
                     <Box sx={{ flex: 1, textAlign: { xs: 'center', sm: 'left' } }}>
-                        <Typography variant="h4" fontWeight="bold" gutterBottom>
+                        <Typography variant="h3" sx={{ 
+                            fontWeight: 900, 
+                            mb: 0.5,
+                            fontFamily: 'var(--font-clash)',
+                            letterSpacing: '-0.04em'
+                        }}>
                             {profile.displayName || profile.username || 'Anonymous'}
                         </Typography>
-                        <Typography variant="body1" color="text.secondary" gutterBottom>
+                        <Typography variant="body1" sx={{ 
+                            opacity: 0.5, 
+                            mb: 2,
+                            fontWeight: 600,
+                            fontFamily: 'var(--font-mono)',
+                            fontSize: '0.9rem'
+                        }}>
                             @{profile.username}
                         </Typography>
-                        <Typography variant="body2" sx={{ mt: 2 }}>
-                            {profile.bio || 'No bio yet.'}
+                        <Typography variant="body1" sx={{ 
+                            mt: 2, 
+                            lineHeight: 1.6,
+                            color: 'var(--color-gunmetal)',
+                            maxWidth: '500px'
+                        }}>
+                            {profile.bio || 'No bio yet. This user prefers to stay mysterious.'}
                         </Typography>
 
-                        <Box sx={{ display: 'flex', gap: 2, mt: 3, justifyContent: { xs: 'center', sm: 'flex-start' } }}>
+                        <Box sx={{ display: 'flex', gap: 1.5, mt: 4, justifyContent: { xs: 'center', sm: 'flex-start' }, flexWrap: 'wrap' }}>
                             {isOwnProfile ? (
                                 <>
                                     <Button
-                                        variant="outlined"
-                                        startIcon={<EditIcon />}
-                                        sx={{ borderRadius: 5 }}
+                                        variant="contained"
+                                        startIcon={<EditIcon size={18} />}
+                                        sx={{ 
+                                            borderRadius: '14px',
+                                            px: 3,
+                                            py: 1,
+                                            fontWeight: 700,
+                                            bgcolor: 'var(--color-electric)',
+                                            color: 'black',
+                                            '&:hover': { bgcolor: alpha('#F59E0B', 0.8) }
+                                        }}
                                         onClick={() => setIsEditModalOpen(true)}
                                     >
                                         Edit Profile
                                     </Button>
                                     <Button
                                         variant="outlined"
-                                        startIcon={<SettingsIcon />}
-                                        sx={{ borderRadius: 5 }}
+                                        startIcon={<SettingsIcon size={18} />}
+                                        sx={{ 
+                                            borderRadius: '14px',
+                                            px: 3,
+                                            py: 1,
+                                            fontWeight: 700,
+                                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                                            color: 'var(--color-titanium)',
+                                            bgcolor: 'rgba(255, 255, 255, 0.03)',
+                                            '&:hover': { 
+                                                borderColor: 'var(--color-primary)',
+                                                bgcolor: alpha('#6366F1', 0.05)
+                                            }
+                                        }}
                                         onClick={() => {
                                             const domain = process.env.NEXT_PUBLIC_DOMAIN || 'kylrix.space';
                                             const idSubdomain = process.env.NEXT_PUBLIC_AUTH_SUBDOMAIN || 'accounts';
@@ -152,8 +225,19 @@ export const Profile = ({ username }: ProfileProps) => {
                                 <>
                                     <Button
                                         variant={isFollowing ? "outlined" : "contained"}
-                                        startIcon={<PersonAddIcon />}
-                                        sx={{ borderRadius: 5 }}
+                                        startIcon={<PersonAddIcon size={18} />}
+                                        sx={{ 
+                                            borderRadius: '14px',
+                                            px: 3,
+                                            py: 1,
+                                            fontWeight: 700,
+                                            bgcolor: isFollowing ? 'transparent' : 'var(--color-electric)',
+                                            color: isFollowing ? 'var(--color-electric)' : 'black',
+                                            borderColor: isFollowing ? 'var(--color-electric)' : 'none',
+                                            '&:hover': { 
+                                                bgcolor: isFollowing ? alpha('#F59E0B', 0.05) : alpha('#F59E0B', 0.8) 
+                                            }
+                                        }}
                                         onClick={handleFollow}
                                         disabled={followLoading || !currentUser}
                                     >
@@ -161,8 +245,20 @@ export const Profile = ({ username }: ProfileProps) => {
                                     </Button>
                                     <Button
                                         variant="outlined"
-                                        startIcon={<ChatIcon />}
-                                        sx={{ borderRadius: 5 }}
+                                        startIcon={<ChatIcon size={18} />}
+                                        sx={{ 
+                                            borderRadius: '14px',
+                                            px: 3,
+                                            py: 1,
+                                            fontWeight: 700,
+                                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                                            color: 'var(--color-titanium)',
+                                            bgcolor: 'rgba(255, 255, 255, 0.03)',
+                                            '&:hover': { 
+                                                borderColor: 'var(--color-primary)',
+                                                bgcolor: alpha('#6366F1', 0.05)
+                                            }
+                                        }}
                                         onClick={handleMessage}
                                     >
                                         Message
@@ -174,19 +270,50 @@ export const Profile = ({ username }: ProfileProps) => {
                 </Box>
             </Paper>
 
-            <Typography variant="h6" fontWeight="bold" mb={2}>Stats</Typography>
+            <Typography variant="h6" sx={{ 
+                fontWeight: 800, 
+                mb: 3, 
+                fontFamily: 'var(--font-clash)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                opacity: 0.8
+            }}>
+                <Activity size={20} color="var(--color-electric)" /> Activity Stats
+            </Typography>
             <Stack direction="row" spacing={2}>
-                <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 3, flex: 1 }} variant="outlined">
-                    <Typography variant="h4" fontWeight="bold" color="primary">0</Typography>
-                    <Typography variant="body2" color="text.secondary">Posts</Typography>
+                <Paper sx={{ 
+                    p: 3, 
+                    textAlign: 'center', 
+                    borderRadius: '24px', 
+                    flex: 1,
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    border: '1px solid rgba(255, 255, 255, 0.05)'
+                }} elevation={0}>
+                    <Typography variant="h4" sx={{ fontWeight: 900, color: 'var(--color-electric)', fontFamily: 'var(--font-clash)' }}>0</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700, opacity: 0.4, textTransform: 'uppercase', letterSpacing: '0.1em', mt: 1 }}>Posts</Typography>
                 </Paper>
-                <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 3, flex: 1 }} variant="outlined">
-                    <Typography variant="h4" fontWeight="bold" color="primary">0</Typography>
-                    <Typography variant="body2" color="text.secondary">Followers</Typography>
+                <Paper sx={{ 
+                    p: 3, 
+                    textAlign: 'center', 
+                    borderRadius: '24px', 
+                    flex: 1,
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    border: '1px solid rgba(255, 255, 255, 0.05)'
+                }} elevation={0}>
+                    <Typography variant="h4" sx={{ fontWeight: 900, color: 'var(--color-primary)', fontFamily: 'var(--font-clash)' }}>0</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700, opacity: 0.4, textTransform: 'uppercase', letterSpacing: '0.1em', mt: 1 }}>Followers</Typography>
                 </Paper>
-                <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 3, flex: 1 }} variant="outlined">
-                    <Typography variant="h4" fontWeight="bold" color="primary">0</Typography>
-                    <Typography variant="body2" color="text.secondary">Following</Typography>
+                <Paper sx={{ 
+                    p: 3, 
+                    textAlign: 'center', 
+                    borderRadius: '24px', 
+                    flex: 1,
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    border: '1px solid rgba(255, 255, 255, 0.05)'
+                }} elevation={0}>
+                    <Typography variant="h4" sx={{ fontWeight: 900, color: 'var(--color-titanium)', fontFamily: 'var(--font-clash)' }}>0</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700, opacity: 0.4, textTransform: 'uppercase', letterSpacing: '0.1em', mt: 1 }}>Following</Typography>
                 </Paper>
             </Stack>
 

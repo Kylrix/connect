@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { Toaster } from 'react-hot-toast';
 
 const mono = JetBrains_Mono({
   subsets: ["latin"],
@@ -81,20 +82,6 @@ export default function RootLayout({
             </IslandProvider>
           </ThemeProvider>
         </SubscriptionProvider>
-      </body>
-    </html>
-  );
-}
-                    }}
-                  />
-                  <Suspense fallback={null}>
-                    {children}
-                  </Suspense>
-                </PresenceProvider>
-              </SudoProvider>
-            </NotificationProvider>
-          </IslandProvider>
-        </ThemeProvider>
       </body>
     </html>
   );

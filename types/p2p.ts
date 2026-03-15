@@ -1,21 +1,21 @@
-export type SignalData = {
-  type: 'offer' | 'answer' | 'candidate';
-  sdp?: string;
-  candidate?: RTCIceCandidateInit;
-  target: string; // User ID to send to
-  sender: string; // User ID sending
-};
+export type AttachmentEntityType = 'vault' | 'note' | 'flow' | 'form';
+export type AttachmentSubType = 'totp' | 'password' | 'task' | 'ghost_note' | 'form_template';
 
-export type PeerState = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'failed';
-
-export interface CallConfig {
-  video: boolean;
-  audio: boolean;
-}
-
-export interface PeerConnectionEvents {
-  onTrack: (stream: MediaStream) => void;
-  onData: (data: any) => void;
-  onStateChange: (state: PeerState) => void;
-  onSignal: (signal: SignalData) => void;
+export interface AttachmentMetadata {
+    type: 'attachment';
+    entity: AttachmentEntityType;
+    subType: AttachmentSubType;
+    referenceId: string;
+    payload: {
+        label: string;
+        preview?: string;
+        expiry?: string;
+        // For TOTP Double-Pulse
+        currentCode?: string;
+        nextCode?: string;
+        // For Tasks
+        isCompleted?: boolean;
+        // For Forms
+        formTitle?: string;
+    };
 }

@@ -15,7 +15,7 @@ export const ChatService = {
      */
     async _wrapConversationKey(convKey: CryptoKey, participants: string[]) {
         const CHAT_DB = APPWRITE_CONFIG.DATABASES.CHAT;
-        const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.USERS;
+        const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.PROFILES;
 
         const wrappedKeys: Record<string, string> = {};
 
@@ -57,7 +57,7 @@ export const ChatService = {
 
             // We need the creator's public key (the one who wrapped it) to do ECDH
             const CHAT_DB = APPWRITE_CONFIG.DATABASES.CHAT;
-            const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.USERS;
+            const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.PROFILES;
 
             try {
                 const creatorDoc = await tablesDB.getRow(CHAT_DB, USERS_TABLE, conv.creatorId);
@@ -97,7 +97,7 @@ export const ChatService = {
 
         // Fetch all current public keys
         const CHAT_DB = APPWRITE_CONFIG.DATABASES.CHAT;
-        const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.USERS;
+        const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.PROFILES;
 
         const res = await tablesDB.listRows(CHAT_DB, USERS_TABLE, [
             Query.equal('$id', participants),
@@ -242,19 +242,37 @@ export const ChatService = {
         return newConv;
     },
 
-    async sendMessage(conversationId: string, senderId: string, content: string, type: 'text' | 'image' | 'video' | 'audio' | 'file' | 'call_signal' | 'system' = 'text', attachments: string[] = [], replyTo?: string) {
+    async sendMessage(
+        conversationId: string, 
+        senderId: string, 
+        content: string, 
+        type: 'text' | 'image' | 'video' | 'audio' | 'file' | 'call_signal' | 'system' | 'attachment' = 'text', 
+        attachments: string[] = [], 
+        replyTo?: string,
+        metadata?: any
+    ) {
         const now = new Date().toISOString();
 
         // E2E Layer: Universal Handshake Protocol
         // Messages are encrypted using the unique Group/Session Key!
         let finalContent = content;
-        if (type === 'text' && ecosystemSecurity.status.isUnlocked) {
+        let finalMetadata = metadata;
+
+        if ((type === 'text' || type === 'attachment') && ecosystemSecurity.status.isUnlocked) {
             const convKey = ecosystemSecurity.getConversationKey(conversationId);
             if (convKey) {
                 finalContent = await ecosystemSecurity.encryptWithKey(content, convKey);
+                if (metadata) {
+                    const metaStr = typeof metadata === 'string' ? metadata : JSON.stringify(metadata);
+                    finalMetadata = await ecosystemSecurity.encryptWithKey(metaStr, convKey);
+                }
             } else {
                 // Warning fallback if keys failed to sync in session
                 finalContent = await ecosystemSecurity.encrypt(content);
+                if (metadata) {
+                    const metaStr = typeof metadata === 'string' ? metadata : JSON.stringify(metadata);
+                    finalMetadata = await ecosystemSecurity.encrypt(metaStr);
+                }
             }
         }
 
@@ -267,6 +285,7 @@ export const ChatService = {
             attachments,
             replyTo,
             readBy: [senderId],
+            metadata: finalMetadata,
             createdAt: now,
             updatedAt: now
         });
@@ -304,19 +323,46 @@ export const ChatService = {
 
         // Decrypt messages in parallel
         res.rows = await Promise.all(res.rows.map(async (msg: any) => {
-            if (msg.type === 'text' && msg.content && msg.content.length > 40 && ecosystemSecurity.status.isUnlocked) {
+            const isEncrypted = ecosystemSecurity.status.isUnlocked && (
+                (msg.type === 'text' && msg.content && msg.content.length > 40) ||
+                (msg.metadata && msg.metadata.length > 40)
+            );
+
+            if (isEncrypted) {
                 try {
-                    if (convKey) {
-                        msg.content = await ecosystemSecurity.decryptWithKey(msg.content, convKey);
-                    } else {
-                        msg.content = await ecosystemSecurity.decrypt(msg.content);
+                    const decrypt = async (val: string) => {
+                        if (convKey) return await ecosystemSecurity.decryptWithKey(val, convKey);
+                        return await ecosystemSecurity.decrypt(val);
+                    };
+
+                    if (msg.type === 'text' && msg.content && msg.content.length > 40) {
+                        msg.content = await decrypt(msg.content);
+                    }
+                    if (msg.metadata && msg.metadata.length > 40) {
+                        const decryptedMeta = await decrypt(msg.metadata);
+                        try {
+                            msg.metadata = JSON.parse(decryptedMeta);
+                        } catch {
+                            msg.metadata = decryptedMeta;
+                        }
                     }
                 } catch (_e: unknown) {
                     try {
                         // Fallback attempt for legacy MasterPass encrypted messages in older DMs
-                        msg.content = await ecosystemSecurity.decrypt(msg.content);
+                        if (msg.type === 'text' && msg.content && msg.content.length > 40) {
+                            msg.content = await ecosystemSecurity.decrypt(msg.content);
+                        }
+                        if (msg.metadata && msg.metadata.length > 40) {
+                            const decryptedMeta = await ecosystemSecurity.decrypt(msg.metadata);
+                            try {
+                                msg.metadata = JSON.parse(decryptedMeta);
+                            } catch {
+                                msg.metadata = decryptedMeta;
+                            }
+                        }
                     } catch (_fallbackE) {
-                        msg.content = "[Encrypted Message]";
+                        if (msg.type === 'text') msg.content = "[Encrypted Message]";
+                        if (msg.metadata) msg.metadata = null;
                     }
                 }
             }

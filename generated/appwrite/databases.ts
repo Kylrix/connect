@@ -29,7 +29,7 @@ const createQueryBuilder = <T>(): QueryBuilder<T> => ({
 
 const tableIdMap: Record<string, Record<string, string>> = Object.create(null);
 tableIdMap["67ff05a9000296822396"] = Object.create(null);
-tableIdMap["67ff05a9000296822396"]["users"] = "67ff05c900247b5673d3";
+tableIdMap["67ff05a9000296822396"]["accounts"] = "67ff05c900247b5673d3";
 tableIdMap["67ff05a9000296822396"]["notes"] = "67ff05f3002502ef239e";
 tableIdMap["67ff05a9000296822396"]["tags"] = "67ff06280034908cf08a";
 tableIdMap["67ff05a9000296822396"]["apiKeys"] = "67ff064400263631ffe4";
@@ -48,7 +48,7 @@ tableIdMap["passwordManagerDb"] = Object.create(null);
 tableIdMap["passwordManagerDb"]["Security Logs"] = "securityLogs";
 tableIdMap["passwordManagerDb"]["Credentials"] = "credentials";
 tableIdMap["passwordManagerDb"]["Identities"] = "identities";
-tableIdMap["passwordManagerDb"]["user"] = "user";
+tableIdMap["passwordManagerDb"]["password_user"] = "user";
 tableIdMap["passwordManagerDb"]["Folders"] = "folders";
 tableIdMap["passwordManagerDb"]["TOTP Secrets"] = "totpSecrets";
 tableIdMap["passwordManagerDb"]["Keychain"] = "keychain";
@@ -56,7 +56,7 @@ tableIdMap["chat"] = Object.create(null);
 tableIdMap["chat"]["Messages"] = "messages";
 tableIdMap["chat"]["Conversations"] = "conversations";
 tableIdMap["chat"]["Contacts"] = "contacts";
-tableIdMap["chat"]["users"] = "users";
+tableIdMap["chat"]["profiles"] = "users";
 tableIdMap["chat"]["Follows"] = "follows";
 tableIdMap["chat"]["AppActivity"] = "app_activity";
 tableIdMap["chat"]["CallLinks"] = "call_links";

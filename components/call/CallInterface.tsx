@@ -28,14 +28,14 @@ export const CallInterface = ({ conversationId, isCaller, callType = 'video' }: 
         if (!user) return;
 
         rtcManager.current = new WebRTCManager({
-            onTrack: (stream) => {
+            onTrack: (stream: MediaStream) => {
                 if (remoteVideoRef.current) {
                     remoteVideoRef.current.srcObject = stream;
                 }
             },
-            onData: (data) => console.log('Data received:', data),
-            onStateChange: (state) => setStatus(state),
-            onSignal: async (signal) => {
+            onData: (data: any) => console.log('Data received:', data),
+            onStateChange: (state: string) => setStatus(state),
+            onSignal: async (signal: any) => {
                 await ChatService.sendMessage(
                     conversationId,
                     user.$id,

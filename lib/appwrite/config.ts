@@ -19,7 +19,7 @@ export const APPWRITE_CONFIG = {
             FOLLOWS: 'follows',
             MOMENTS: 'moments',
             INTERACTIONS: 'interactions',
-            USERS: 'users',
+            PROFILES: 'users',
             CONTACTS: 'contacts'
         },
         KYLRIXNOTE: {

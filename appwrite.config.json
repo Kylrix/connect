@@ -68,7 +68,7 @@
                 "create(\"users\")"
             ],
             "databaseId": "67ff05a9000296822396",
-            "name": "users",
+            "name": "accounts",
             "enabled": true,
             "rowSecurity": true,
             "columns": [
@@ -2300,7 +2300,7 @@
                 "create(\"users\")"
             ],
             "databaseId": "passwordManagerDb",
-            "name": "user",
+            "name": "password_user",
             "enabled": true,
             "rowSecurity": true,
             "columns": [
@@ -2921,7 +2921,8 @@
                         "audio",
                         "file",
                         "call_signal",
-                        "system"
+                        "system",
+                        "attachment"
                     ]
                 },
                 {
@@ -2959,6 +2960,15 @@
                     "size": 256,
                     "default": null,
                     "encrypt": false
+                },
+                {
+                    "key": "metadata",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 65535,
+                    "default": null,
+                    "encrypt": true
                 }
             ],
             "indexes": [
@@ -3436,7 +3446,7 @@
                 "create(\"users\")"
             ],
             "databaseId": "chat",
-            "name": "users",
+            "name": "profiles",
             "enabled": true,
             "rowSecurity": true,
             "columns": [

@@ -220,7 +220,7 @@ export class EcosystemSecurity {
   async setMasterpassFlag(userId: string, _email: string) {
     try {
       const CHAT_DB = APPWRITE_CONFIG.DATABASES.CHAT;
-      const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.USERS;
+      const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.PROFILES;
 
       try {
         await tablesDB.updateRow(CHAT_DB, USERS_TABLE, userId, {
@@ -342,16 +342,20 @@ export class EcosystemSecurity {
     const PW_DB_ID = APPWRITE_CONFIG.DATABASES.PASSWORD_MANAGER || 'passwordManagerDb';
     const IDENTITIES_TABLE_ID = APPWRITE_CONFIG.TABLES.PASSWORD_MANAGER?.IDENTITIES || 'identities';
     const CHAT_DB = APPWRITE_CONFIG.DATABASES.CHAT || 'chat';
-    const CHAT_USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT?.USERS || 'users';
+    const CHAT_USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT?.PROFILES || 'users';
 
     // Helper: Publish publicKey to chat.users using tablesDB
     const publishPublicKey = async (publicKey: string) => {
       try {
-        // Try to update existing document (doc ID = userId)
-        await tablesDB.updateRow(CHAT_DB, CHAT_USERS_TABLE, userId, {
-          publicKey,
+        // Explicitly define the update payload to avoid any 'Unknown attribute' errors (like avatarFileId)
+        // that might be injected by the SDK or present in local models.
+        const updatePayload = {
+          publicKey: publicKey,
           updatedAt: new Date().toISOString()
-        });
+        };
+
+        // Try to update existing document (doc ID = userId)
+        await tablesDB.updateRow(CHAT_DB, CHAT_USERS_TABLE, userId, updatePayload);
         console.log('[Security] Published publicKey to chat.users via update');
       } catch (updateErr: any) {
         console.error('[Security] Failed to update publicKey in chat.users:', updateErr?.message || updateErr);
