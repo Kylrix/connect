@@ -63,83 +63,6 @@
     ],
     "tables": [
         {
-            "$id": "67ff05c900247b5673d3",
-            "$permissions": [
-                "create(\"users\")"
-            ],
-            "databaseId": "67ff05a9000296822396",
-            "name": "accounts",
-            "enabled": true,
-            "rowSecurity": true,
-            "columns": [
-                {
-                    "key": "id",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 256,
-                    "default": null,
-                    "encrypt": false
-                },
-                {
-                    "key": "email",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 256,
-                    "default": null,
-                    "encrypt": false
-                },
-                {
-                    "key": "name",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 256,
-                    "default": null,
-                    "encrypt": false
-                },
-                {
-                    "key": "walletAddress",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 256,
-                    "default": null,
-                    "encrypt": false
-                },
-                {
-                    "key": "createdAt",
-                    "type": "datetime",
-                    "required": false,
-                    "array": false,
-                    "default": null,
-                    "format": ""
-                },
-                {
-                    "key": "updatedAt",
-                    "type": "datetime",
-                    "required": false,
-                    "array": false,
-                    "default": null,
-                    "format": ""
-                }
-            ],
-            "indexes": [
-                {
-                    "key": "index_name",
-                    "type": "fulltext",
-                    "status": "available",
-                    "columns": [
-                        "name"
-                    ],
-                    "orders": [
-                        "ASC"
-                    ]
-                }
-            ]
-        },
-        {
             "$id": "67ff05f3002502ef239e",
             "$permissions": [
                 "create(\"users\")",
@@ -2300,7 +2223,7 @@
                 "create(\"users\")"
             ],
             "databaseId": "passwordManagerDb",
-            "name": "password_user",
+            "name": "user",
             "enabled": true,
             "rowSecurity": true,
             "columns": [
@@ -2921,8 +2844,7 @@
                         "audio",
                         "file",
                         "call_signal",
-                        "system",
-                        "attachment"
+                        "system"
                     ]
                 },
                 {
@@ -2960,15 +2882,6 @@
                     "size": 256,
                     "default": null,
                     "encrypt": false
-                },
-                {
-                    "key": "metadata",
-                    "type": "string",
-                    "required": false,
-                    "array": false,
-                    "size": 65535,
-                    "default": null,
-                    "encrypt": true
                 }
             ],
             "indexes": [
@@ -3446,7 +3359,7 @@
                 "create(\"users\")"
             ],
             "databaseId": "chat",
-            "name": "profiles",
+            "name": "users",
             "enabled": true,
             "rowSecurity": true,
             "columns": [

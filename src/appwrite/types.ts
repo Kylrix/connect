@@ -41,6 +41,7 @@ export enum MessagesType {
     VIDEO = "video",
     AUDIO = "audio",
     FILE = "file",
+    ATTACHMENT = "attachment",
     CALL_SIGNAL = "call_signal",
     SYSTEM = "system"
 }
@@ -115,6 +116,24 @@ export enum FormSubmissionsStatus {
     ARCHIVED = "archived",
     FLAGGED = "flagged"
 }
+export type ProfilesCreate = {
+    "id"?: string | null;
+    "email"?: string | null;
+    "name"?: string | null;
+    "walletAddress"?: string | null;
+    "createdAt"?: string | null;
+    "updatedAt"?: string | null;
+}
+
+export type Profiles = Models.Row & {
+    "id"?: string | null;
+    "email"?: string | null;
+    "name"?: string | null;
+    "walletAddress"?: string | null;
+    "createdAt"?: string | null;
+    "updatedAt"?: string | null;
+}
+
 export type NotesCreate = {
     "id"?: string | null;
     "createdAt"?: string | null;
@@ -657,6 +676,7 @@ export type MessagesCreate = {
     "attachments"?: string[] | null;
     "replyTo"?: string | null;
     "readBy"?: string[] | null;
+    "metadata"?: string | null;
 }
 
 export type Messages = Models.Row & {
@@ -669,6 +689,7 @@ export type Messages = Models.Row & {
     "attachments"?: string[] | null;
     "replyTo"?: string | null;
     "readBy"?: string[] | null;
+    "metadata"?: string | null;
 }
 
 export type ConversationsCreate = {
@@ -683,7 +704,6 @@ export type ConversationsCreate = {
     "admins"?: string[] | null;
     "description"?: string | null;
     "avatarUrl"?: string | null;
-    "avatarFileId"?: string | null;
     "avatar"?: string | null;
     "participantCount"?: number;
     "maxParticipants"?: number;
@@ -718,7 +738,6 @@ export type Conversations = Models.Row & {
     "admins"?: string[] | null;
     "description"?: string | null;
     "avatarUrl"?: string | null;
-    "avatarFileId"?: string | null;
     "avatar"?: string | null;
     "participantCount"?: number;
     "maxParticipants"?: number;
@@ -1069,7 +1088,9 @@ export type ExtractQueryValue<T> = T extends (infer U)[]
   : T extends QueryValue | null ? NonNullable<T> : never;
 
 export type QueryableKeys<T> = {
-  [K in keyof T]: ExtractQueryValue<T[K]> extends never ? never : K;
+  [K in keyof T]: T[K] extends (infer U)[]
+    ? U extends QueryValue ? K : never
+    : T[K] extends QueryValue | null ? K : never;
 }[keyof T];
 
 export type QueryBuilder<T> = {
@@ -1101,6 +1122,27 @@ export type DatabaseId = "67ff05a9000296822396" | "passwordManagerDb" | "chat" |
 
 export type DatabaseTableMap = {
   "67ff05a9000296822396": {
+    "profiles": {
+      create: (data: {
+        "id"?: string | null;
+        "email"?: string | null;
+        "name"?: string | null;
+        "walletAddress"?: string | null;
+        "createdAt"?: string | null;
+        "updatedAt"?: string | null;
+      }, options?: { rowId?: string; permissions?: (permission: { read: (role: RoleString) => string; write: (role: RoleString) => string; create: (role: RoleString) => string; update: (role: RoleString) => string; delete: (role: RoleString) => string }, role: { any: () => RoleString; user: (userId: string, status?: string) => RoleString; users: (status?: string) => RoleString; guests: () => RoleString; team: (teamId: string, role?: string) => RoleString; member: (memberId: string) => RoleString; label: (label: string) => RoleString }) => string[]; transactionId?: string }) => Promise<Profiles>;
+      get: (id: string) => Promise<Profiles>;
+      update: (id: string, data: Partial<{
+        "id"?: string | null;
+        "email"?: string | null;
+        "name"?: string | null;
+        "walletAddress"?: string | null;
+        "createdAt"?: string | null;
+        "updatedAt"?: string | null;
+      }>, options?: { permissions?: (permission: { read: (role: RoleString) => string; write: (role: RoleString) => string; create: (role: RoleString) => string; update: (role: RoleString) => string; delete: (role: RoleString) => string }, role: { any: () => RoleString; user: (userId: string, status?: string) => RoleString; users: (status?: string) => RoleString; guests: () => RoleString; team: (teamId: string, role?: string) => RoleString; member: (memberId: string) => RoleString; label: (label: string) => RoleString }) => string[]; transactionId?: string }) => Promise<Profiles>;
+      delete: (id: string, options?: { transactionId?: string }) => Promise<void>;
+      list: (options?: { queries?: (q: { equal: <K extends QueryableKeys<Profiles>>(field: K, value: ExtractQueryValue<Profiles[K]>) => string; notEqual: <K extends QueryableKeys<Profiles>>(field: K, value: ExtractQueryValue<Profiles[K]>) => string; lessThan: <K extends QueryableKeys<Profiles>>(field: K, value: ExtractQueryValue<Profiles[K]>) => string; lessThanEqual: <K extends QueryableKeys<Profiles>>(field: K, value: ExtractQueryValue<Profiles[K]>) => string; greaterThan: <K extends QueryableKeys<Profiles>>(field: K, value: ExtractQueryValue<Profiles[K]>) => string; greaterThanEqual: <K extends QueryableKeys<Profiles>>(field: K, value: ExtractQueryValue<Profiles[K]>) => string; contains: <K extends QueryableKeys<Profiles>>(field: K, value: ExtractQueryValue<Profiles[K]>) => string; search: <K extends QueryableKeys<Profiles>>(field: K, value: string) => string; isNull: <K extends QueryableKeys<Profiles>>(field: K) => string; isNotNull: <K extends QueryableKeys<Profiles>>(field: K) => string; startsWith: <K extends QueryableKeys<Profiles>>(field: K, value: string) => string; endsWith: <K extends QueryableKeys<Profiles>>(field: K, value: string) => string; between: <K extends QueryableKeys<Profiles>>(field: K, start: ExtractQueryValue<Profiles[K]>, end: ExtractQueryValue<Profiles[K]>) => string; select: <K extends keyof Profiles>(fields: K[]) => string; orderAsc: <K extends keyof Profiles>(field: K) => string; orderDesc: <K extends keyof Profiles>(field: K) => string; limit: (value: number) => string; offset: (value: number) => string; cursorAfter: (documentId: string) => string; cursorBefore: (documentId: string) => string; or: (...queries: string[]) => string; and: (...queries: string[]) => string }) => string[] }) => Promise<{ total: number; rows: Profiles[] }>;
+    };
     "notes": {
       create: (data: {
         "id"?: string | null;
@@ -1711,6 +1753,7 @@ export type DatabaseTableMap = {
         "attachments"?: string[] | null;
         "replyTo"?: string | null;
         "readBy"?: string[] | null;
+        "metadata"?: string | null;
       }, options?: { rowId?: string; permissions?: (permission: { read: (role: RoleString) => string; write: (role: RoleString) => string; create: (role: RoleString) => string; update: (role: RoleString) => string; delete: (role: RoleString) => string }, role: { any: () => RoleString; user: (userId: string, status?: string) => RoleString; users: (status?: string) => RoleString; guests: () => RoleString; team: (teamId: string, role?: string) => RoleString; member: (memberId: string) => RoleString; label: (label: string) => RoleString }) => string[]; transactionId?: string }) => Promise<Messages>;
       get: (id: string) => Promise<Messages>;
       update: (id: string, data: Partial<{
@@ -1723,6 +1766,7 @@ export type DatabaseTableMap = {
         "attachments"?: string[] | null;
         "replyTo"?: string | null;
         "readBy"?: string[] | null;
+        "metadata"?: string | null;
       }>, options?: { permissions?: (permission: { read: (role: RoleString) => string; write: (role: RoleString) => string; create: (role: RoleString) => string; update: (role: RoleString) => string; delete: (role: RoleString) => string }, role: { any: () => RoleString; user: (userId: string, status?: string) => RoleString; users: (status?: string) => RoleString; guests: () => RoleString; team: (teamId: string, role?: string) => RoleString; member: (memberId: string) => RoleString; label: (label: string) => RoleString }) => string[]; transactionId?: string }) => Promise<Messages>;
       delete: (id: string, options?: { transactionId?: string }) => Promise<void>;
       list: (options?: { queries?: (q: { equal: <K extends QueryableKeys<Messages>>(field: K, value: ExtractQueryValue<Messages[K]>) => string; notEqual: <K extends QueryableKeys<Messages>>(field: K, value: ExtractQueryValue<Messages[K]>) => string; lessThan: <K extends QueryableKeys<Messages>>(field: K, value: ExtractQueryValue<Messages[K]>) => string; lessThanEqual: <K extends QueryableKeys<Messages>>(field: K, value: ExtractQueryValue<Messages[K]>) => string; greaterThan: <K extends QueryableKeys<Messages>>(field: K, value: ExtractQueryValue<Messages[K]>) => string; greaterThanEqual: <K extends QueryableKeys<Messages>>(field: K, value: ExtractQueryValue<Messages[K]>) => string; contains: <K extends QueryableKeys<Messages>>(field: K, value: ExtractQueryValue<Messages[K]>) => string; search: <K extends QueryableKeys<Messages>>(field: K, value: string) => string; isNull: <K extends QueryableKeys<Messages>>(field: K) => string; isNotNull: <K extends QueryableKeys<Messages>>(field: K) => string; startsWith: <K extends QueryableKeys<Messages>>(field: K, value: string) => string; endsWith: <K extends QueryableKeys<Messages>>(field: K, value: string) => string; between: <K extends QueryableKeys<Messages>>(field: K, start: ExtractQueryValue<Messages[K]>, end: ExtractQueryValue<Messages[K]>) => string; select: <K extends keyof Messages>(fields: K[]) => string; orderAsc: <K extends keyof Messages>(field: K) => string; orderDesc: <K extends keyof Messages>(field: K) => string; limit: (value: number) => string; offset: (value: number) => string; cursorAfter: (documentId: string) => string; cursorBefore: (documentId: string) => string; or: (...queries: string[]) => string; and: (...queries: string[]) => string }) => string[] }) => Promise<{ total: number; rows: Messages[] }>;
@@ -1740,7 +1784,6 @@ export type DatabaseTableMap = {
         "admins"?: string[] | null;
         "description"?: string | null;
         "avatarUrl"?: string | null;
-        "avatarFileId"?: string | null;
         "avatar"?: string | null;
         "participantCount"?: number;
         "maxParticipants"?: number;
@@ -1775,7 +1818,6 @@ export type DatabaseTableMap = {
         "admins"?: string[] | null;
         "description"?: string | null;
         "avatarUrl"?: string | null;
-        "avatarFileId"?: string | null;
         "avatar"?: string | null;
         "participantCount"?: number;
         "maxParticipants"?: number;

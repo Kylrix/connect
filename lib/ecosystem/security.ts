@@ -214,119 +214,14 @@ export class EcosystemSecurity {
     }
   }
 
-  /**
-   * Set Masterpass Flag on User Document
-   * Note: chat.users has no hasMasterpass column; we just ensure the doc exists and is fresh.
-   */
-  async setMasterpassFlag(userId: string, _email: string) {
+  async unlock(password: string, passwordEntry: any): Promise<boolean> {
     try {
-      const CHAT_DB = APPWRITE_CONFIG.DATABASES.CHAT;
-      const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.PROFILES;
-
-      try {
-        await genDB.use('chat').use('profiles').update(userId, {
-          updatedAt: new Date().toISOString()
-        });
-      } catch (updateErr: any) {
-        console.warn('[Security] setMasterpassFlag update failed (doc may not exist yet):', updateErr?.message);
-      }
-    } catch (_e: unknown) {
-      console.error('[Security] Failed to set masterpass flag:', _e);
-    }
-  }
-
-  getMasterKey(): CryptoKey | null {
-    return this.masterKey;
-  }
-
-  async setupPin(pin: string): Promise<boolean> {
-    if (!this.masterKey || typeof window === "undefined") return false;
-
-    try {
-      // 1. Create PIN Verifier (for future login verification)
-      const salt = crypto.getRandomValues(new Uint8Array(EcosystemSecurity.PIN_SALT_SIZE));
-      const hash = await this.derivePinHash(pin, salt);
-
-      const verifier = {
-        salt: btoa(String.fromCharCode(...salt)),
-        hash: btoa(String.fromCharCode(...new Uint8Array(hash)))
-      };
-      localStorage.setItem("kylrix_pin_verifier", JSON.stringify(verifier));
-
-      // 2. Create Ephemeral Session (wrap MEK with PIN)
-      const sessionSalt = crypto.getRandomValues(new Uint8Array(EcosystemSecurity.SESSION_SALT_SIZE));
-      const ephemeralKey = await this.deriveEphemeralKey(pin, sessionSalt);
-
-      const rawMek = await crypto.subtle.exportKey("raw", this.masterKey);
-      const iv = crypto.getRandomValues(new Uint8Array(EcosystemSecurity.IV_SIZE));
-      const wrappedMek = await crypto.subtle.encrypt(
-        { name: "AES-GCM", iv: iv },
-        ephemeralKey,
-        rawMek
-      );
-
-      const combined = new Uint8Array(iv.length + wrappedMek.byteLength);
-      combined.set(iv);
-      combined.set(new Uint8Array(wrappedMek), iv.length);
-
-      const ephemeral = {
-        sessionSalt: btoa(String.fromCharCode(...sessionSalt)),
-        wrappedMek: btoa(String.fromCharCode(...combined))
-      };
-      sessionStorage.setItem("kylrix_ephemeral_session", JSON.stringify(ephemeral));
-      sessionStorage.setItem("kylrix_vault_unlocked", "true");
-
-      return true;
-    } catch (_e: unknown) {
-      console.error("[Security] PIN setup failed", _e);
-      return false;
-    }
-  }
-
-  async verifyPin(pin: string): Promise<boolean> {
-    if (typeof window === "undefined") return false;
-    const verifierStr = localStorage.getItem("kylrix_pin_verifier");
-    if (!verifierStr) return false;
-
-    try {
-      const verifier = JSON.parse(verifierStr);
-      const salt = new Uint8Array(atob(verifier.salt).split("").map(c => c.charCodeAt(0)));
-      const expectedHash = verifier.hash;
-      const actualHash = btoa(String.fromCharCode(...new Uint8Array(await this.derivePinHash(pin, salt))));
-      return actualHash === expectedHash;
-    } catch (__e) {
-      return false;
-    }
-  }
-
-  wipePin() {
-    if (typeof window === "undefined") return;
-    localStorage.removeItem("kylrix_pin_verifier");
-    sessionStorage.removeItem("kylrix_ephemeral_session");
-  }
-
-  async unlock(password: string, keyChainEntry?: any): Promise<boolean> {
-    try {
-      if (!keyChainEntry) return false;
-
-      const salt = new Uint8Array(atob(keyChainEntry.salt).split("").map(c => c.charCodeAt(0)));
-      const authKey = await this.deriveKey(password, salt);
-      const wrappedKeyBytes = new Uint8Array(atob(keyChainEntry.wrappedKey).split("").map(c => c.charCodeAt(0)));
-
-      const iv = wrappedKeyBytes.slice(0, EcosystemSecurity.IV_SIZE);
-      const ciphertext = wrappedKeyBytes.slice(EcosystemSecurity.IV_SIZE);
-
-      const mekBytes = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, authKey, ciphertext);
-
-      this.masterKey = await crypto.subtle.importKey(
-        "raw",
-        mekBytes,
-        { name: "AES-GCM", length: 256 },
-        true,
-        ["encrypt", "decrypt", "wrapKey", "unwrapKey"]
-      );
-
+      const mek = await this.unwrapMEK(passwordEntry.wrappedKey, password, passwordEntry.salt);
+      this.masterKey = mek;
       this.isUnlocked = true;
+      if (typeof sessionStorage !== "undefined") {
+        sessionStorage.setItem("kylrix_vault_unlocked", "true");
+      }
       return true;
     } catch (_e: unknown) {
       console.error("[Security] Unlock failed", _e);
@@ -335,37 +230,36 @@ export class EcosystemSecurity {
   }
 
   /**
-   * Generates or retrieves the user's E2E Identity (X25519)
+   * Set Masterpass Flag on User Document
+   * Note: chat.users has no hasMasterpass column; we just ensure the doc exists and is fresh.
    */
-  async ensureE2EIdentity(userId: string): Promise<string | null> {
-    if (!this.masterKey) throw new Error("Unlock required for E2E Identity");
+  async setMasterpassFlag(userId: string, _email: string) {
+    try {
+      const CHAT_DB = APPWRITE_CONFIG.DATABASES.CHAT;
+      const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.USERS;
 
-    const PW_DB_ID = APPWRITE_CONFIG.DATABASES.PASSWORD_MANAGER || 'passwordManagerDb';
-    const IDENTITIES_TABLE_ID = APPWRITE_CONFIG.TABLES.PASSWORD_MANAGER?.IDENTITIES || 'identities';
-    const CHAT_DB = APPWRITE_CONFIG.DATABASES.CHAT || 'chat';
-    const CHAT_USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT?.PROFILES || 'users';
-
-    // Helper: Publish publicKey to chat.users using tablesDB
-    const publishPublicKey = async (publicKey: string) => {
       try {
-        // Explicitly define the update payload to avoid any 'Unknown attribute' errors (like avatarFileId)
-        // that might be injected by the SDK or present in local models.
-        const updatePayload = {
-          publicKey: publicKey,
-          updatedAt: new Date().toISOString()
-        };
-
-        // Try to update existing document (doc ID = userId)
-        await genDB.use('chat').use('profiles').update(userId, updatePayload);
-        console.log('[Security] Published publicKey to chat.users via update');
+        await genDB.use('chat').use('users').update(userId, {
+          publicKey,
+          wrappedKey: wrappedKey || null,
+          isLocked: true,
+          isGhost: userId === 'ghost'
+        });
       } catch (updateErr: any) {
         console.error('[Security] Failed to update publicKey in chat.users:', updateErr?.message || updateErr);
-        // If document doesn't exist, we can't create it here because we don't know the username.
-        // The sync-user-profile function is responsible for creating chat.users docs.
-        // We'll just log the error so it's visible.
       }
-    };
+    } catch (e: any) {
+      console.error('[Security] setMasterpassFlag failed:', e);
+    }
+  }
 
+  async updateWrappedKey(userId: string, wrappedKey: string) {
+    const updatePayload: any = { wrappedKey };
+    await genDB.use('chat').use('users').update(userId, updatePayload);
+    console.log('[Security] Published publicKey to chat.users via update');
+  }
+
+  async syncIdentity(userId: string) {
     try {
       const res = await tablesDB.listRows(PW_DB_ID, IDENTITIES_TABLE_ID, [
         Query.equal('userId', userId),
@@ -419,6 +313,11 @@ export class EcosystemSecurity {
       console.error('[Security] Identity sync failed:', _e);
       return null;
     }
+  }
+
+  async ensureE2EIdentity(userId: string) {
+    if (this.identityKeyPair) return;
+    return await this.syncIdentity(userId);
   }
 
   /**
@@ -594,9 +493,74 @@ export class EcosystemSecurity {
     }
   }
 
+  async verifyPin(pin: string): Promise<boolean> {
+    if (typeof window === "undefined") return false;
+    const verifierStr = localStorage.getItem("kylrix_pin_verifier");
+    if (!verifierStr) return false;
+
+    try {
+      const verifier = JSON.parse(verifierStr);
+      const salt = new Uint8Array(atob(verifier.salt).split("").map(c => c.charCodeAt(0)));
+      const expectedHash = verifier.hash;
+      const actualHash = btoa(String.fromCharCode(...new Uint8Array(await this.derivePinHash(pin, salt))));
+      return actualHash === expectedHash;
+    } catch (_e: unknown) {
+      return false;
+    }
+  }
+
   isPinSet(): boolean {
     if (typeof window === "undefined") return false;
     return !!localStorage.getItem("kylrix_pin_verifier");
+  }
+
+  wipePin() {
+    if (typeof window === "undefined") return;
+    localStorage.removeItem("kylrix_pin_verifier");
+    sessionStorage.removeItem("kylrix_ephemeral_session");
+  }
+
+  async setupPin(pin: string): Promise<boolean> {
+    if (typeof window === "undefined" || !this.masterKey) return false;
+
+    try {
+      // 1. Create a persistent verifier (hash of PIN)
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      const hash = await this.derivePinHash(pin, salt);
+
+      const verifier = {
+        salt: btoa(String.fromCharCode(...salt)),
+        hash: btoa(String.fromCharCode(...new Uint8Array(hash)))
+      };
+      localStorage.setItem("kylrix_pin_verifier", JSON.stringify(verifier));
+
+      // 2. Wrap MEK with an ephemeral key derived from PIN + Session Secret
+      const sessionSalt = crypto.getRandomValues(new Uint8Array(16));
+      const ephemeralKey = await this.deriveEphemeralKey(pin, sessionSalt);
+
+      const rawMek = await crypto.subtle.exportKey("raw", this.masterKey);
+      const iv = crypto.getRandomValues(new Uint8Array(EcosystemSecurity.IV_SIZE));
+      const encryptedMek = await crypto.subtle.encrypt(
+        { name: "AES-GCM", iv: iv },
+        ephemeralKey,
+        rawMek
+      );
+
+      const combined = new Uint8Array(iv.length + encryptedMek.byteLength);
+      combined.set(iv);
+      combined.set(new Uint8Array(encryptedMek), iv.length);
+
+      const ephemeral = {
+        sessionSalt: btoa(String.fromCharCode(...sessionSalt)),
+        wrappedMek: btoa(String.fromCharCode(...combined))
+      };
+      sessionStorage.setItem("kylrix_ephemeral_session", JSON.stringify(ephemeral));
+
+      return true;
+    } catch (_e: unknown) {
+      console.error("[Security] PIN setup failed", _e);
+      return false;
+    }
   }
 
   private async derivePinHash(pin: string, salt: Uint8Array): Promise<ArrayBuffer> {
@@ -670,6 +634,10 @@ export class EcosystemSecurity {
       hasKey: !!this.masterKey,
       hasIdentity: !!this.identityKeyPair
     };
+  }
+
+  getMasterKey(): CryptoKey | null {
+    return this.masterKey;
   }
 
   getVault() {

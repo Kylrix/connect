@@ -60,7 +60,7 @@ export function PasskeySetup({
   useEffect(() => {
     const fetchUsername = async () => {
       try {
-        const { rows } = await databases.use('chat').use('profiles').list({
+        const { rows } = await databases.use('chat').use('users').list({
           queries: (q) => [q.equal('username' as any, userId), q.limit(1)]
         });
         if (rows.length > 0 && (rows[0] as any).username) {

@@ -4,7 +4,7 @@ import { databases as genDB } from '../../generated/appwrite';
 import { APPWRITE_CONFIG } from '../appwrite/config';
 
 const DB_ID = APPWRITE_CONFIG.DATABASES.CHAT;
-const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.PROFILES;
+const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.USERS;
 
 const normalizeUsername = (input: string | null | undefined): string | null => {
     if (!input) return null;
@@ -95,7 +95,7 @@ export const UsersService = {
 
             console.log('[UsersService] Updating profile for', userId, 'with payload:', JSON.stringify(updatePayload));
             try {
-                const result = await genDB.use('chat').use('profiles').update(currentProfile.$id, updatePayload);
+                const result = await genDB.use('chat').use('users').update(currentProfile.$id, updatePayload);
                 console.log('[UsersService] Update result:', result);
                 return result;
             } catch (err: any) {

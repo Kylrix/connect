@@ -15,7 +15,7 @@ export const ChatService = {
      */
     async _wrapConversationKey(convKey: CryptoKey, participants: string[]) {
         const CHAT_DB = APPWRITE_CONFIG.DATABASES.CHAT;
-        const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.PROFILES;
+        const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.USERS;
 
         const wrappedKeys: Record<string, string> = {};
 

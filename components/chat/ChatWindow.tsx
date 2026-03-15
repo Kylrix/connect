@@ -858,7 +858,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
             return val.length > 40 && !val.includes(' ');
         };
 
-        if (msg.type === MessagesType.TEXT && !isUnlocked && isLikelyEncrypted(msg.content)) {
+        if (msg.type === MessagesType.TEXT && !isUnlocked && isLikelyEncrypted(msg.content as string)) {
             return (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5, opacity: 0.8 }}>
                     <Lock size={14} strokeWidth={2.5} />
