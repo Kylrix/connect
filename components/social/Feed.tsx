@@ -5,16 +5,16 @@ import { SocialService } from '@/lib/services/social';
 import { UsersService } from '@/lib/services/users';
 import { ChatService } from '@/lib/services/chat';
 import { useAuth } from '@/lib/auth';
-import { 
-    Box, 
-    Card, 
-    CardHeader, 
-    CardContent, 
-    CardActions, 
-    Avatar, 
-    Typography, 
-    IconButton, 
-    TextField, 
+import {
+    Box,
+    Card,
+    CardHeader,
+    CardContent,
+    CardActions,
+    Avatar,
+    Typography,
+    IconButton,
+    TextField,
     Button,
     CircularProgress,
     Divider,
@@ -23,13 +23,13 @@ import {
     Paper,
     alpha
 } from '@mui/material';
-import { 
-    Heart, 
-    MessageSquare, 
-    Share2, 
-    Bookmark, 
-    X, 
-    FileText, 
+import {
+    Heart,
+    MessageSquare,
+    Share2,
+    Bookmark,
+    X,
+    FileText,
     Calendar,
     Send,
     MapPin,
@@ -51,7 +51,7 @@ export const Feed = () => {
     const [newMoment, setNewMoment] = useState('');
     const [posting, setPosting] = useState(false);
     const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
-    
+
     const [shareAnchorEl, setShareAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedMoment, setSelectedMoment] = useState<any>(null);
 
@@ -88,14 +88,14 @@ export const Feed = () => {
                 const creatorId = moment.userId || moment.creatorId;
                 try {
                     const creator = await UsersService.getProfileById(creatorId);
-                    
+
                     let avatarUrl = null;
-                    const picId = creator?.profilePicId || creator?.avatarFileId || creator?.avatarUrl || creator?.avatar;
+                    const picId = creator?.profilePicId || creator?.avatar;
                     if (picId && typeof picId === 'string' && picId.length > 5) {
                         try {
                             const url = await fetchProfilePreview(picId, 64, 64);
                             avatarUrl = url as unknown as string;
-                        } catch (_e: unknown) {}
+                        } catch (_e: unknown) { }
                     }
 
                     if (creator) {
@@ -103,13 +103,13 @@ export const Feed = () => {
                     }
                     throw new Error('Creator not found');
                 } catch (_e: unknown) {
-                    return { 
-                        ...moment, 
-                        creator: { 
-                            username: `user_${creatorId.slice(0, 5)}`, 
+                    return {
+                        ...moment,
+                        creator: {
+                            username: `user_${creatorId.slice(0, 5)}`,
                             displayName: 'Kylrix User',
-                            $id: creatorId 
-                        } 
+                            $id: creatorId
+                        }
                     };
                 }
             }));
@@ -130,24 +130,24 @@ export const Feed = () => {
             const unsub = SocialService.subscribeToFeed(async (event) => {
                 if (event.type === 'create') {
                     const moment = event.payload;
-                    
+
                     // Don't add if already in feed or if it's our own (already handled by handlePost loadFeed)
                     // Actually, better to just enrich and add it to provide that "instant" feel for everyone
                     const creatorId = moment.userId || moment.creatorId;
                     try {
                         const creator = await UsersService.getProfileById(creatorId);
-                        
+
                         let avatarUrl = null;
-                        const picId = creator?.profilePicId || creator?.avatarFileId || creator?.avatarUrl || creator?.avatar;
+                        const picId = creator?.profilePicId || creator?.avatar;
                         if (picId && typeof picId === 'string' && picId.length > 5) {
                             try {
                                 const url = await fetchProfilePreview(picId, 64, 64);
                                 avatarUrl = url as unknown as string;
-                            } catch (_e: unknown) {}
+                            } catch (_e: unknown) { }
                         }
 
-                        const enrichedMoment = { 
-                            ...moment, 
+                        const enrichedMoment = {
+                            ...moment,
                             creator: creator ? { ...creator, avatarUrl } : {
                                 username: `user_${creatorId.slice(0, 5)}`,
                                 displayName: 'Kylrix User',
@@ -155,7 +155,7 @@ export const Feed = () => {
                                 $id: creatorId
                             }
                         };
-                        
+
                         setMoments(prev => {
                             if (prev.some(m => m.$id === enrichedMoment.$id)) return prev;
                             return [enrichedMoment, ...prev];
@@ -206,14 +206,14 @@ export const Feed = () => {
         try {
             // Find saved messages conversation
             const convs = await ChatService.getConversations(user.$id);
-            const savedChat = convs.rows.find((c: any) => 
+            const savedChat = convs.rows.find((c: any) =>
                 c.type === 'direct' && c.participants.length === 1 && c.participants[0] === user.$id
             );
 
             if (savedChat) {
                 await ChatService.sendMessage(
-                    savedChat.$id, 
-                    user.$id, 
+                    savedChat.$id,
+                    user.$id,
                     `Forwarded Moment from @${moment.creator?.username}:\n\n${moment.caption}`,
                     'text'
                 );
@@ -241,7 +241,7 @@ export const Feed = () => {
                 <Card sx={{ mb: 4, borderRadius: '24px', bgcolor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)' }} elevation={0}>
                     <CardContent sx={{ p: 3 }}>
                         <Box sx={{ display: 'flex', gap: 2 }}>
-                            <Avatar 
+                            <Avatar
                                 src={userAvatarUrl || undefined}
                                 sx={{ bgcolor: 'rgba(0, 240, 255, 0.1)', color: 'primary.main', fontWeight: 800 }}
                             >
@@ -253,7 +253,7 @@ export const Feed = () => {
                                 multiline
                                 rows={2}
                                 variant="standard"
-                                InputProps={{ 
+                                InputProps={{
                                     disableUnderline: true,
                                     sx: { fontSize: '1.1rem', fontWeight: 500 }
                                 }}
@@ -263,13 +263,13 @@ export const Feed = () => {
                         </Box>
 
                         {selectedNote && (
-                            <Paper 
-                                variant="outlined" 
-                                sx={{ 
-                                    mt: 2, 
-                                    p: 2, 
-                                    borderRadius: 3, 
-                                    display: 'flex', 
+                            <Paper
+                                variant="outlined"
+                                sx={{
+                                    mt: 2,
+                                    p: 2,
+                                    borderRadius: 3,
+                                    display: 'flex',
                                     alignItems: 'center',
                                     bgcolor: 'rgba(0, 240, 255, 0.03)',
                                     borderColor: 'rgba(0, 240, 255, 0.2)',
@@ -285,8 +285,8 @@ export const Feed = () => {
                                         {selectedNote.content?.substring(0, 60).replace(/[#*`]/g, '')}...
                                     </Typography>
                                 </Box>
-                                <IconButton 
-                                    size="small" 
+                                <IconButton
+                                    size="small"
                                     onClick={() => setSelectedNote(null)}
                                     sx={{ ml: 1 }}
                                 >
@@ -296,13 +296,13 @@ export const Feed = () => {
                         )}
 
                         {selectedEvent && (
-                            <Paper 
-                                variant="outlined" 
-                                sx={{ 
-                                    mt: 2, 
-                                    p: 2, 
-                                    borderRadius: 3, 
-                                    display: 'flex', 
+                            <Paper
+                                variant="outlined"
+                                sx={{
+                                    mt: 2,
+                                    p: 2,
+                                    borderRadius: 3,
+                                    display: 'flex',
                                     alignItems: 'center',
                                     bgcolor: 'rgba(0, 163, 255, 0.03)',
                                     borderColor: 'rgba(0, 163, 255, 0.2)',
@@ -318,8 +318,8 @@ export const Feed = () => {
                                         {new Date(selectedEvent.startTime).toLocaleString()}
                                     </Typography>
                                 </Box>
-                                <IconButton 
-                                    size="small" 
+                                <IconButton
+                                    size="small"
                                     onClick={() => setSelectedEvent(null)}
                                     sx={{ ml: 1 }}
                                 >
@@ -334,9 +334,9 @@ export const Feed = () => {
                             <Button
                                 startIcon={<FileText size={18} strokeWidth={1.5} />}
                                 onClick={() => setIsNoteSelectorOpen(true)}
-                                sx={{ 
-                                    borderRadius: '10px', 
-                                    textTransform: 'none', 
+                                sx={{
+                                    borderRadius: '10px',
+                                    textTransform: 'none',
                                     fontWeight: 700,
                                     color: 'text.secondary',
                                     '&:hover': { color: 'primary.main', bgcolor: 'rgba(0, 240, 255, 0.05)' }
@@ -347,9 +347,9 @@ export const Feed = () => {
                             <Button
                                 startIcon={<Calendar size={18} strokeWidth={1.5} />}
                                 onClick={() => setIsEventSelectorOpen(true)}
-                                sx={{ 
-                                    borderRadius: '10px', 
-                                    textTransform: 'none', 
+                                sx={{
+                                    borderRadius: '10px',
+                                    textTransform: 'none',
                                     fontWeight: 700,
                                     color: 'text.secondary',
                                     '&:hover': { color: 'primary.main', bgcolor: 'rgba(99, 102, 241, 0.05)' }
@@ -358,13 +358,13 @@ export const Feed = () => {
                                 Event
                             </Button>
                         </Box>
-                        <Button 
-                            variant="contained" 
+                        <Button
+                            variant="contained"
                             disabled={(!newMoment.trim() && !selectedNote && !selectedEvent) || posting}
                             onClick={handlePost}
-                            sx={{ 
-                                borderRadius: '12px', 
-                                px: 4, 
+                            sx={{
+                                borderRadius: '12px',
+                                px: 4,
                                 fontWeight: 800,
                                 textTransform: 'none',
                                 bgcolor: 'primary.main',
@@ -383,7 +383,7 @@ export const Feed = () => {
                 <Card key={moment.$id} sx={{ mb: 3, borderRadius: '24px', bgcolor: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', transition: 'all 0.2s ease', '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.03)' } }} elevation={0}>
                     <CardHeader
                         avatar={
-                            <Avatar 
+                            <Avatar
                                 src={moment.creator?.avatarUrl || undefined}
                                 sx={{ bgcolor: 'rgba(255, 255, 255, 0.05)', color: 'text.secondary', border: '1px solid rgba(255, 255, 255, 0.1)' }}
                             >
@@ -427,20 +427,20 @@ export const Feed = () => {
                                     }
                                 }}
                             >
-                                <Box sx={{ 
-                                    p: 3, 
+                                <Box sx={{
+                                    p: 3,
                                     background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(0, 163, 255, 0.02) 100%)',
                                     borderBottom: '1px solid rgba(255, 255, 255, 0.05)'
                                 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                                        <Box 
-                                            sx={{ 
-                                                width: 40, 
-                                                height: 40, 
-                                                borderRadius: 1.5, 
-                                                bgcolor: 'rgba(99, 102, 241, 0.1)', 
-                                                display: 'flex', 
-                                                alignItems: 'center', 
+                                        <Box
+                                            sx={{
+                                                width: 40,
+                                                height: 40,
+                                                borderRadius: 1.5,
+                                                bgcolor: 'rgba(99, 102, 241, 0.1)',
+                                                display: 'flex',
+                                                alignItems: 'center',
                                                 justifyContent: 'center',
                                                 mr: 2,
                                                 boxShadow: '0 4px 12px rgba(99, 102, 241, 0.15)'
@@ -449,10 +449,10 @@ export const Feed = () => {
                                             <FileText size={20} color="#6366F1" strokeWidth={1.5} />
                                         </Box>
                                         <Box sx={{ flex: 1, minWidth: 0 }}>
-                                            <Typography 
-                                                variant="subtitle1" 
-                                                fontWeight={900} 
-                                                sx={{ 
+                                            <Typography
+                                                variant="subtitle1"
+                                                fontWeight={900}
+                                                sx={{
                                                     color: 'white',
                                                     fontFamily: 'var(--font-space-grotesk)',
                                                     letterSpacing: '-0.01em',
@@ -467,10 +467,10 @@ export const Feed = () => {
                                         </Box>
                                     </Box>
 
-                                    <Typography 
-                                        variant="body2" 
-                                        sx={{ 
-                                            color: 'rgba(255, 255, 255, 0.7)', 
+                                    <Typography
+                                        variant="body2"
+                                        sx={{
+                                            color: 'rgba(255, 255, 255, 0.7)',
                                             lineHeight: 1.7,
                                             fontSize: '0.925rem',
                                             display: '-webkit-box',
@@ -483,9 +483,9 @@ export const Feed = () => {
                                         {moment.attachedNote.content?.replace(/[#*`]/g, '')}
                                     </Typography>
                                 </Box>
-                                <Box sx={{ 
-                                    px: 3, 
-                                    py: 1.5, 
+                                <Box sx={{
+                                    px: 3,
+                                    py: 1.5,
                                     bgcolor: 'rgba(0, 0, 0, 0.2)',
                                     display: 'flex',
                                     alignItems: 'center',
@@ -496,9 +496,9 @@ export const Feed = () => {
                                     </Typography>
                                     <Box sx={{ display: 'flex', gap: 1 }}>
                                         {moment.attachedNote.tags?.slice(0, 2).map((_tag: string, i: number) => (
-                                <Box key={i} sx={{ px: 1, py: 0.25, borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.05)', fontSize: '0.65rem', color: 'rgba(255, 255, 255, 0.5)', fontWeight: 700 }}>
-                                    #{_tag}
-                                </Box>
+                                            <Box key={i} sx={{ px: 1, py: 0.25, borderRadius: 1, bgcolor: 'rgba(255, 255, 255, 0.05)', fontSize: '0.65rem', color: 'rgba(255, 255, 255, 0.5)', fontWeight: 700 }}>
+                                                #{_tag}
+                                            </Box>
                                         ))}
                                     </Box>
                                 </Box>
@@ -524,20 +524,20 @@ export const Feed = () => {
                                     }
                                 }}
                             >
-                                <Box sx={{ 
-                                    p: 3, 
+                                <Box sx={{
+                                    p: 3,
                                     background: 'linear-gradient(135deg, rgba(0, 163, 255, 0.05) 0%, rgba(0, 120, 255, 0.02) 100%)',
                                     borderBottom: '1px solid rgba(255, 255, 255, 0.05)'
                                 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                                        <Box 
-                                            sx={{ 
-                                                width: 40, 
-                                                height: 40, 
-                                                borderRadius: 1.5, 
-                                                bgcolor: 'rgba(0, 163, 255, 0.1)', 
-                                                display: 'flex', 
-                                                alignItems: 'center', 
+                                        <Box
+                                            sx={{
+                                                width: 40,
+                                                height: 40,
+                                                borderRadius: 1.5,
+                                                bgcolor: 'rgba(0, 163, 255, 0.1)',
+                                                display: 'flex',
+                                                alignItems: 'center',
                                                 justifyContent: 'center',
                                                 mr: 2,
                                                 boxShadow: '0 4px 12px rgba(0, 163, 255, 0.15)'
@@ -546,10 +546,10 @@ export const Feed = () => {
                                             <Calendar size={20} color="#00A3FF" strokeWidth={1.5} />
                                         </Box>
                                         <Box sx={{ flex: 1, minWidth: 0 }}>
-                                            <Typography 
-                                                variant="subtitle1" 
-                                                fontWeight={900} 
-                                                sx={{ 
+                                            <Typography
+                                                variant="subtitle1"
+                                                fontWeight={900}
+                                                sx={{
                                                     color: 'white',
                                                     fontFamily: 'var(--font-space-grotesk)',
                                                     letterSpacing: '-0.01em',
@@ -581,9 +581,9 @@ export const Feed = () => {
                                         )}
                                     </Box>
                                 </Box>
-                                <Box sx={{ 
-                                    px: 3, 
-                                    py: 1.5, 
+                                <Box sx={{
+                                    px: 3,
+                                    py: 1.5,
                                     bgcolor: 'rgba(0, 0, 0, 0.2)',
                                     display: 'flex',
                                     alignItems: 'center',
@@ -600,28 +600,28 @@ export const Feed = () => {
                         )}
                     </CardContent>
                     <CardActions sx={{ px: 2, pb: 2, gap: 1 }}>
-                    <Button 
-                        startIcon={<Heart size={18} strokeWidth={1.5} />} 
-                        sx={{ color: 'text.secondary', textTransform: 'none', fontWeight: 700, borderRadius: '10px', '&:hover': { color: '#ff4d4d', bgcolor: alpha('#ff4d4d', 0.1) } }}
-                    >
-                        Like
-                    </Button>
-                    <Button 
-                        startIcon={<MessageSquare size={18} strokeWidth={1.5} />} 
-                        sx={{ color: 'text.secondary', textTransform: 'none', fontWeight: 700, borderRadius: '10px' }}
-                    >
-                        Reply
-                    </Button>
-                    <IconButton 
-                        onClick={(e) => { setShareAnchorEl(e.currentTarget); setSelectedMoment(moment); }}
-                        sx={{ ml: 'auto', color: 'text.secondary' }}
-                    >
-                        <Share2 size={20} strokeWidth={1.5} />
-                    </IconButton>
+                        <Button
+                            startIcon={<Heart size={18} strokeWidth={1.5} />}
+                            sx={{ color: 'text.secondary', textTransform: 'none', fontWeight: 700, borderRadius: '10px', '&:hover': { color: '#ff4d4d', bgcolor: alpha('#ff4d4d', 0.1) } }}
+                        >
+                            Like
+                        </Button>
+                        <Button
+                            startIcon={<MessageSquare size={18} strokeWidth={1.5} />}
+                            sx={{ color: 'text.secondary', textTransform: 'none', fontWeight: 700, borderRadius: '10px' }}
+                        >
+                            Reply
+                        </Button>
+                        <IconButton
+                            onClick={(e) => { setShareAnchorEl(e.currentTarget); setSelectedMoment(moment); }}
+                            sx={{ ml: 'auto', color: 'text.secondary' }}
+                        >
+                            <Share2 size={20} strokeWidth={1.5} />
+                        </IconButton>
                     </CardActions>
                 </Card>
             ))}
-            
+
             <Menu
                 anchorEl={shareAnchorEl}
                 open={Boolean(shareAnchorEl)}
@@ -652,13 +652,13 @@ export const Feed = () => {
                 </Box>
             )}
 
-            <NoteSelectorModal 
+            <NoteSelectorModal
                 open={isNoteModalOpen}
                 onClose={() => setIsNoteSelectorOpen(false)}
                 onSelect={(note) => setSelectedNote(note)}
             />
 
-            <NoteViewDrawer 
+            <NoteViewDrawer
                 open={isNoteDrawerOpen}
                 onClose={() => setIsNoteDrawerOpen(false)}
                 note={viewingNote}

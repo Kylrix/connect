@@ -64,7 +64,7 @@ export const UsersService = {
     /**
      * Updates the global Chat directory profile.
      */
-    async updateProfile(userId: string, data: { username?: string; displayName?: string; bio?: string; avatarUrl?: string; publicKey?: string }) {
+    async updateProfile(userId: string, data: { username?: string; displayName?: string; bio?: string; avatar?: string; publicKey?: string }) {
         const currentProfile = await this.getProfileById(userId);
 
         if (data.username) {
@@ -94,7 +94,7 @@ export const UsersService = {
     async createProfile(
         userId: string,
         username: string,
-        data: { displayName?: string; bio?: string; avatarUrl?: string; publicKey?: string } = {}
+        data: { displayName?: string; bio?: string; avatar?: string; publicKey?: string } = {}
     ) {
         const normalized = normalizeUsername(username);
         if (!normalized) throw new Error('Invalid username');
@@ -107,7 +107,7 @@ export const UsersService = {
                 username: normalized,
                 displayName: data.displayName || username,
                 bio: data.bio || '',
-                avatarUrl: data.avatarUrl || null,
+                avatar: data.avatar || null,
                 publicKey: data.publicKey || null,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()

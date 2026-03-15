@@ -3,16 +3,16 @@
 import React, { useEffect, useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { UsersService } from '@/lib/services/users';
-import { 
-    Box, 
-    Typography, 
-    Container, 
-    TextField, 
-    InputAdornment, 
-    Grid, 
-    Card, 
-    CardContent, 
-    Avatar, 
+import {
+    Box,
+    Typography,
+    Container,
+    TextField,
+    InputAdornment,
+    Grid,
+    Card,
+    CardContent,
+    Avatar,
     Button,
     CircularProgress,
 } from '@mui/material';
@@ -67,8 +67,8 @@ export default function DiscoverPage() {
                         Find and connect with awesome people across Kylrix
                     </Typography>
 
-                    <Box 
-                        component="form" 
+                    <Box
+                        component="form"
                         onSubmit={handleSearch}
                         sx={{ maxWidth: 600, mx: 'auto' }}
                     >
@@ -99,9 +99,9 @@ export default function DiscoverPage() {
                     <Grid container spacing={3}>
                         {users.map((user) => (
                             <Grid size={{ xs: 12, sm: 6, md: 4 }} key={user.$id}>
-                                <Card 
-                                    sx={{ 
-                                        borderRadius: 4, 
+                                <Card
+                                    sx={{
+                                        borderRadius: 4,
                                         transition: 'transform 0.2s',
                                         '&:hover': { transform: 'translateY(-4px)', cursor: 'pointer' }
                                     }}
@@ -109,8 +109,8 @@ export default function DiscoverPage() {
                                     onClick={() => router.push(`/u/${user.username}`)}
                                 >
                                     <CardContent sx={{ textAlign: 'center', p: 4 }}>
-                                        <Avatar 
-                                            src={user.avatarUrl}
+                                        <Avatar
+                                            src={user.avatar}
                                             sx={{ width: 80, height: 80, mx: 'auto', mb: 2, bgcolor: 'primary.main' }}
                                         >
                                             {user.username?.charAt(0).toUpperCase()}
@@ -121,19 +121,19 @@ export default function DiscoverPage() {
                                         <Typography color="primary" sx={{ fontWeight: 600, mb: 2 }}>
                                             @{user.username}
                                         </Typography>
-                                        <Typography variant="body2" color="text.secondary" sx={{ 
-                                            mb: 3, 
-                                            display: '-webkit-box', 
-                                            WebkitLineClamp: 2, 
+                                        <Typography variant="body2" color="text.secondary" sx={{
+                                            mb: 3,
+                                            display: '-webkit-box',
+                                            WebkitLineClamp: 2,
                                             WebkitBoxOrient: 'vertical',
                                             overflow: 'hidden',
                                             height: '3em'
                                         }}>
                                             {user.bio || 'Sharing notes and connecting on Kylrix.'}
                                         </Typography>
-                                        <Button 
-                                            fullWidth 
-                                            variant="outlined" 
+                                        <Button
+                                            fullWidth
+                                            variant="outlined"
                                             startIcon={<PersonAddIcon />}
                                             sx={{ borderRadius: 5 }}
                                             onClick={(e) => {

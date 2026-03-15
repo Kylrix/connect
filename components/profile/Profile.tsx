@@ -4,12 +4,12 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { UsersService } from '@/lib/services/users';
 import { SocialService } from '@/lib/services/social';
 import { useAuth } from '@/lib/auth';
-import { 
-    Box, 
-    Typography, 
-    Avatar, 
-    Paper, 
-    Button, 
+import {
+    Box,
+    Typography,
+    Avatar,
+    Paper,
+    Button,
     CircularProgress,
     Stack
 } from '@mui/material';
@@ -41,7 +41,7 @@ export const Profile = ({ username }: ProfileProps) => {
     const normalizedUsername = normalizeUsername(username);
 
     const isOwnProfile = currentUser && !profile?.__external && (
-        normalizedUsername === profile?.username || 
+        normalizedUsername === profile?.username ||
         (!normalizedUsername && profile?.$id === currentUser.$id)
     );
 
@@ -107,8 +107,8 @@ export const Profile = ({ username }: ProfileProps) => {
         <Box sx={{ maxWidth: 800, mx: 'auto', p: 2 }}>
             <Paper sx={{ p: 4, borderRadius: 4, mb: 4 }} elevation={0} variant="outlined">
                 <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: 'center', gap: 4 }}>
-                    <Avatar 
-                        src={profile.avatarUrl}
+                    <Avatar
+                        src={profile.avatar}
                         sx={{ width: 120, height: 120, fontSize: 48, bgcolor: 'primary.main' }}
                     >
                         {profile.username?.charAt(0).toUpperCase()}
@@ -123,21 +123,21 @@ export const Profile = ({ username }: ProfileProps) => {
                         <Typography variant="body2" sx={{ mt: 2 }}>
                             {profile.bio || 'No bio yet.'}
                         </Typography>
-                        
+
                         <Box sx={{ display: 'flex', gap: 2, mt: 3, justifyContent: { xs: 'center', sm: 'flex-start' } }}>
                             {isOwnProfile ? (
                                 <>
-                                    <Button 
-                                        variant="outlined" 
-                                        startIcon={<EditIcon />} 
+                                    <Button
+                                        variant="outlined"
+                                        startIcon={<EditIcon />}
                                         sx={{ borderRadius: 5 }}
                                         onClick={() => setIsEditModalOpen(true)}
                                     >
                                         Edit Profile
                                     </Button>
-                                    <Button 
-                                        variant="outlined" 
-                                        startIcon={<SettingsIcon />} 
+                                    <Button
+                                        variant="outlined"
+                                        startIcon={<SettingsIcon />}
                                         sx={{ borderRadius: 5 }}
                                         onClick={() => {
                                             const domain = process.env.NEXT_PUBLIC_DOMAIN || 'kylrix.space';
@@ -150,18 +150,18 @@ export const Profile = ({ username }: ProfileProps) => {
                                 </>
                             ) : (
                                 <>
-                                    <Button 
-                                        variant={isFollowing ? "outlined" : "contained"} 
-                                        startIcon={<PersonAddIcon />} 
+                                    <Button
+                                        variant={isFollowing ? "outlined" : "contained"}
+                                        startIcon={<PersonAddIcon />}
                                         sx={{ borderRadius: 5 }}
                                         onClick={handleFollow}
                                         disabled={followLoading || !currentUser}
                                     >
                                         {isFollowing ? 'Following' : 'Follow'}
                                     </Button>
-                                    <Button 
-                                        variant="outlined" 
-                                        startIcon={<ChatIcon />} 
+                                    <Button
+                                        variant="outlined"
+                                        startIcon={<ChatIcon />}
                                         sx={{ borderRadius: 5 }}
                                         onClick={handleMessage}
                                     >
@@ -190,7 +190,7 @@ export const Profile = ({ username }: ProfileProps) => {
                 </Paper>
             </Stack>
 
-            <EditProfileModal 
+            <EditProfileModal
                 open={isEditModalOpen}
                 onClose={() => setIsEditModalOpen(false)}
                 profile={profile}

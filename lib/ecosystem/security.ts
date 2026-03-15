@@ -5,9 +5,9 @@
  */
 
 import { MeshProtocol } from './mesh';
-import { tablesDB, databases } from '../appwrite/client';
+import { tablesDB } from '../appwrite/client';
 import { APPWRITE_CONFIG } from '../appwrite/config';
-import { Query, ID, Permission, Role } from 'appwrite';
+import { Query, ID } from 'appwrite';
 
 const PW_DB = APPWRITE_CONFIG.DATABASES.PASSWORD_MANAGER;
 const KEYCHAIN_TABLE = APPWRITE_CONFIG.TABLES.PASSWORD_MANAGER.KEYCHAIN;
@@ -215,6 +215,7 @@ export class EcosystemSecurity {
 
   /**
    * Set Masterpass Flag on User Document
+   * Note: chat.users has no hasMasterpass column; we just ensure the doc exists and is fresh.
    */
   async setMasterpassFlag(userId: string, _email: string) {
     try {
@@ -222,37 +223,11 @@ export class EcosystemSecurity {
       const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.USERS;
 
       try {
-        await databases.updateDocument(CHAT_DB, USERS_TABLE, userId, {
-          hasMasterpass: true
+        await tablesDB.updateRow(CHAT_DB, USERS_TABLE, userId, {
+          updatedAt: new Date().toISOString()
         });
       } catch (updateErr: any) {
-        // Document doesn't exist — create it
-        if (updateErr?.code === 404 || updateErr?.type === 'document_not_found') {
-          try {
-            await databases.createDocument(CHAT_DB, USERS_TABLE, userId, {
-              hasMasterpass: true,
-              username: '',
-              displayName: '',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-            }, [
-              Permission.read(Role.any()),
-              Permission.update(Role.user(userId)),
-              Permission.delete(Role.user(userId))
-            ]);
-          } catch (createErr: any) {
-            if (createErr?.code === 409) {
-              // Already exists (race condition), retry update
-              await databases.updateDocument(CHAT_DB, USERS_TABLE, userId, {
-                hasMasterpass: true
-              }).catch(() => { });
-            } else {
-              console.error('[Security] Failed to create chat.users doc for masterpass flag:', createErr);
-            }
-          }
-        } else {
-          console.error('[Security] Failed to update masterpass flag:', updateErr);
-        }
+        console.warn('[Security] setMasterpassFlag update failed (doc may not exist yet):', updateErr?.message);
       }
     } catch (_e: unknown) {
       console.error('[Security] Failed to set masterpass flag:', _e);
@@ -369,47 +344,20 @@ export class EcosystemSecurity {
     const CHAT_DB = APPWRITE_CONFIG.DATABASES.CHAT || 'chat';
     const CHAT_USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT?.USERS || 'users';
 
-    // Helper: Publish publicKey to chat.users using the standard Databases API
+    // Helper: Publish publicKey to chat.users using tablesDB
     const publishPublicKey = async (publicKey: string) => {
       try {
-        // Try to update existing document
-        await databases.updateDocument(CHAT_DB, CHAT_USERS_TABLE, userId, {
-          publicKey
+        // Try to update existing document (doc ID = userId)
+        await tablesDB.updateRow(CHAT_DB, CHAT_USERS_TABLE, userId, {
+          publicKey,
+          updatedAt: new Date().toISOString()
         });
         console.log('[Security] Published publicKey to chat.users via update');
       } catch (updateErr: any) {
-        // Document doesn't exist — create it
-        if (updateErr?.code === 404 || updateErr?.type === 'document_not_found') {
-          try {
-            await databases.createDocument(CHAT_DB, CHAT_USERS_TABLE, userId, {
-              publicKey,
-              hasMasterpass: true,
-              username: '',
-              displayName: '',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-            }, [
-              Permission.read(Role.any()),
-              Permission.update(Role.user(userId)),
-              Permission.delete(Role.user(userId))
-            ]);
-            console.log('[Security] Created chat.users doc with publicKey');
-          } catch (createErr: any) {
-            // 409 = already exists (race condition), try update again
-            if (createErr?.code === 409) {
-              try {
-                await databases.updateDocument(CHAT_DB, CHAT_USERS_TABLE, userId, { publicKey });
-                console.log('[Security] Published publicKey via retry update after 409');
-              } catch (retryErr) {
-                console.error('[Security] Final retry to publish publicKey failed:', retryErr);
-              }
-            } else {
-              console.error('[Security] Failed to create chat.users doc:', createErr);
-            }
-          }
-        } else {
-          console.error('[Security] Failed to update publicKey in chat.users:', updateErr);
-        }
+        console.error('[Security] Failed to update publicKey in chat.users:', updateErr?.message || updateErr);
+        // If document doesn't exist, we can't create it here because we don't know the username.
+        // The sync-user-profile function is responsible for creating chat.users docs.
+        // We'll just log the error so it's visible.
       }
     };
 

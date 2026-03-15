@@ -27,7 +27,7 @@ import { useSudo } from '@/context/SudoContext';
 const SearchResultAvatar = ({ u }: { u: any }) => {
     return (
         <Avatar
-            src={u.avatarUrl}
+            src={u.avatar}
             sx={{
                 bgcolor: 'rgba(255, 255, 255, 0.05)',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -35,7 +35,7 @@ const SearchResultAvatar = ({ u }: { u: any }) => {
                 height: 44
             }}
         >
-            {!u.avatarUrl && <PersonIcon sx={{ color: 'rgba(255, 255, 255, 0.3)' }} />}
+            {!u.avatar && <PersonIcon sx={{ color: 'rgba(255, 255, 255, 0.3)' }} />}
         </Avatar>
     );
 };

@@ -398,8 +398,6 @@ export type Conversations = Models.Row & {
     participants: string[] | null;
     admins: string[] | null;
     description: string | null;
-    avatarUrl: string | null;
-    avatarFileId: string | null;
     avatar: string | null;
     participantCount: number;
     maxParticipants: number;
@@ -439,12 +437,12 @@ export type Contacts = Models.Row & {
 export type Users = Models.Row & {
     username: string;
     displayName: string | null;
-    avatarUrl: string | null;
-    avatarFileId: string | null;
+    avatar: string | null;
     bio: string | null;
     walletAddress: string | null;
     createdAt: string | null;
     updatedAt: string | null;
+    publicKey: string | null;
 }
 
 export type Follows = Models.Row & {
