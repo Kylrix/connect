@@ -86,7 +86,11 @@ export const UsersService = {
 
             allowedFields.forEach(field => {
                 if (Object.prototype.hasOwnProperty.call(data, field)) {
-                    updatePayload[field] = (data as any)[field];
+                    const value = (data as any)[field];
+                    // Skip undefined and null (unless schema allows nulls, but here we be safe)
+                    if (value !== undefined) {
+                        updatePayload[field] = value;
+                    }
                 }
             });
 
@@ -120,19 +124,23 @@ export const UsersService = {
         const normalized = normalizeUsername(username);
         if (!normalized) throw new Error('Invalid username');
 
+        const createData: any = {
+            username: normalized,
+            displayName: data.displayName || username,
+            bio: data.bio || '',
+            avatar: data.avatar || null,
+            publicKey: data.publicKey || null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+
+        console.log('[UsersService] Creating profile for', userId, 'with data:', JSON.stringify(createData));
+
         return await tablesDB.createRow(
             DB_ID,
             USERS_TABLE,
             userId,
-            {
-                username: normalized,
-                displayName: data.displayName || username,
-                bio: data.bio || '',
-                avatar: data.avatar || null,
-                publicKey: data.publicKey || null,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            }
+            createData
         );
     },
 

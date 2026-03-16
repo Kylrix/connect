@@ -169,30 +169,6 @@ export class EcosystemSecurity {
     );
   }
 
-  private async deriveKey_old(password: string, salt: Uint8Array): Promise<CryptoKey> {
-    const encoder = new TextEncoder();
-    const keyMaterial = await crypto.subtle.importKey(
-      "raw",
-      encoder.encode(password),
-      { name: "PBKDF2" },
-      false,
-      ["deriveBits", "deriveKey"],
-    );
-
-    return crypto.subtle.deriveKey(
-      {
-        name: "PBKDF2",
-        salt: salt as any,
-        iterations: EcosystemSecurity.PBKDF2_ITERATIONS,
-        hash: "SHA-256",
-      },
-      keyMaterial,
-      { name: "AES-GCM", length: EcosystemSecurity.KEY_SIZE },
-      true,
-      ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-    );
-  }
-
   // Import a raw key and set it as the master key
   async importMasterKey(keyBytes: ArrayBuffer): Promise<boolean> {
     try {
@@ -238,7 +214,7 @@ export class EcosystemSecurity {
       // In connect, we don't have masterpass column in chat.users
       // We just ensure the profile is initialized if it's not
       const { UsersService } = await import('../services/users');
-      await UsersService.getProfileById(userId);
+      await UsersService.ensureProfileForUser({ $id: userId, email: _email });
     } catch (e: any) {
       console.error('[Security] setMasterpassFlag failed:', e);
     }
@@ -273,8 +249,12 @@ export class EcosystemSecurity {
         this.identityKeyPair = { publicKey: pubKey, privateKey: privKey };
 
         // Publish publicKey to chat.users
-        const { UsersService } = await import('../services/users');
-        await UsersService.updateProfile(userId, { publicKey: doc.publicKey });
+        try {
+            const { UsersService } = await import('../services/users');
+            await UsersService.updateProfile(userId, { publicKey: doc.publicKey });
+        } catch (updateErr: any) {
+            console.error('[Security] Failed to update publicKey in chat.users:', updateErr?.message || updateErr);
+        }
 
         return doc.publicKey;
       }
@@ -300,8 +280,12 @@ export class EcosystemSecurity {
       this.identityKeyPair = pair;
 
       // Publish publicKey to chat.users
-      const { UsersService } = await import('../services/users');
-      await UsersService.updateProfile(userId, { publicKey: pubBase64 });
+      try {
+          const { UsersService } = await import('../services/users');
+          await UsersService.updateProfile(userId, { publicKey: pubBase64 });
+      } catch (updateErr: any) {
+          console.error('[Security] Failed to publish new publicKey to chat.users:', updateErr?.message || updateErr);
+      }
 
       return pubBase64;
     } catch (_e: unknown) {

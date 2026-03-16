@@ -201,8 +201,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
 
                             // Decrypt message before adding to state
                             const isEncrypted = ecosystemSecurity.status.isUnlocked && (
-                                (payload.type === MessagesType.TEXT && payload.content && payload.content.length > 40) ||
-                                (payload.metadata && payload.metadata.length > 40)
+                                (payload.type === MessagesType.TEXT && payload.content && payload.content.length > 40)
                             );
 
                             if (isEncrypted) {
@@ -213,16 +212,8 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                                         return await ecosystemSecurity.decrypt(val);
                                     };
 
-                                    if ((payload.type === MessagesType.TEXT || payload.type === MessagesType.ATTACHMENT) && payload.content && payload.content.length > 40) {
+                                    if (payload.type === MessagesType.TEXT && payload.content && payload.content.length > 40) {
                                         payload.content = await decrypt(payload.content);
-                                    }
-                                    if (payload.metadata && payload.metadata.length > 40) {
-                                        const decryptedMeta = await decrypt(payload.metadata);
-                                        try {
-                                            payload.metadata = JSON.parse(decryptedMeta);
-                                        } catch {
-                                            payload.metadata = decryptedMeta;
-                                        }
                                     }
                                 } catch (_e: unknown) { }
                             }
@@ -362,7 +353,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
 
         // 3. Encrypt name and metadata if it's a group
         let finalContent = text;
-        if ((type === MessagesType.TEXT || type === MessagesType.ATTACHMENT) && ecosystemSecurity.status.isUnlocked) {
+        if (type === MessagesType.TEXT && ecosystemSecurity.status.isUnlocked) {
             const convKey = ecosystemSecurity.getConversationKey(conversationId);
             if (convKey) {
                 finalContent = await ecosystemSecurity.encryptWithKey(text, convKey);
@@ -865,17 +856,6 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                     <Typography variant="body2" sx={{ fontStyle: 'italic', fontWeight: 500 }}>
                         Encrypted message
                     </Typography>
-                </Box>
-            );
-        }
-
-        const metadata: AttachmentMetadata | null = msg.metadata ? (typeof msg.metadata === 'string' ? JSON.parse(msg.metadata) : msg.metadata) : null;
-
-        if (metadata && metadata.type === 'attachment') {
-            return (
-                <Box>
-                    {msg.content && <Typography variant="body1">{msg.content}</Typography>}
-                    <AttachmentCard metadata={metadata} />
                 </Box>
             );
         }
