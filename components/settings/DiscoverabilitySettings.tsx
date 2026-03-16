@@ -19,9 +19,10 @@ import {
     TextField,
     Tooltip
 } from '@mui/material';
-import { Search, Edit2, Check, X, ShieldAlert } from 'lucide-react';
+import { Search, Edit2, Check, X, ShieldAlert, User, Image, Globe } from 'lucide-react';
 import { UsersService } from '@/lib/services/users';
 import { useAuth } from '@/lib/auth';
+import { getUserProfilePicId } from '@/lib/user-utils';
 import { ecosystemSecurity } from '@/lib/ecosystem/security';
 import toast from 'react-hot-toast';
 
@@ -29,6 +30,8 @@ export const DiscoverabilitySettings = () => {
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [savingAvatar, setSavingAvatar] = useState(false);
+    const [savingDiscoverable, setSavingDiscoverable] = useState(false);
     const [profile, setProfile] = useState<any>(null);
     const [username, setUsername] = useState('');
     const [isEditing, setIsEditing] = useState(false);
@@ -86,38 +89,65 @@ export const DiscoverabilitySettings = () => {
     const handleToggleDiscoverability = async (checked: boolean) => {
         if (!user?.$id) return;
 
-        if (!profile) {
-            setIsEditing(true);
-            toast.error("Set a handle first to enable discovery");
+        setSavingDiscoverable(true);
+        try {
+            await UsersService.setProfileDiscoverable(user.$id, checked);
+            const p = await UsersService.getProfileById(user.$id);
+            setProfile(p);
+            toast.success(checked ? "Profile is now discoverable to everyone" : "Profile is now private");
+        } catch (e: any) {
+            toast.error(e.message || "Failed to toggle profile discoverability");
+        } finally {
+            setSavingDiscoverable(false);
+        }
+    };
+
+    const handleToggleAvatarVisibility = async (checked: boolean) => {
+        if (!user?.$id) return;
+
+        const fileId = getUserProfilePicId(user);
+        if (!fileId) {
+            toast.error("Set a profile picture first to enable visibility");
             return;
         }
 
-        if (checked && !profile.publicKey) {
-            // Need to set up public key
-            if (!ecosystemSecurity.status.isUnlocked) {
-                toast.error("Unlock your vault to enable secure discoverability");
-                return;
-            }
+        setSavingAvatar(true);
+        try {
+            await UsersService.setAvatarVisible(user.$id, fileId, checked);
+            const p = await UsersService.getProfileById(user.$id);
+            setProfile(p);
+            toast.success(checked ? "Profile image is now public" : "Profile image visibility disabled");
+        } catch (e: any) {
+            toast.error(e.message || "Failed to toggle avatar visibility");
+        } finally {
+            setSavingAvatar(false);
+        }
+    };
 
-            setSaving(true);
-            setSyncError(null);
-            try {
-                const pub = await ecosystemSecurity.ensureE2EIdentity(user.$id);
-                if (pub) {
-                    setProfile({ ...profile, publicKey: pub });
-                    toast.success("E2E Identity initialized and discovery enabled");
-                } else {
-                    setSyncError("Identity exists locally but could not be published to the global chat directory. Check console for details.");
-                }
-            } catch (e: any) {
-                console.error("Sync error:", e);
-                setSyncError(e.message || "Failed to sync identity keys");
-                toast.error("Failed to initialize identity");
-            } finally {
-                setSaving(false);
+    const handleSyncE2E = async () => {
+        if (!user?.$id || !profile) return;
+
+        if (!ecosystemSecurity.status.isUnlocked) {
+            toast.error("Unlock your vault to enable secure discoverability");
+            return;
+        }
+
+        setSaving(true);
+        setSyncError(null);
+        try {
+            const pub = await ecosystemSecurity.ensureE2EIdentity(user.$id);
+            if (pub) {
+                setProfile({ ...profile, publicKey: pub });
+                toast.success("E2E Identity initialized");
+            } else {
+                setSyncError("Identity exists locally but could not be published.");
             }
-        } else {
-            toast.success(checked ? "Discovery enabled" : "Discovery disabled (Identity remains secure)");
+        } catch (e: any) {
+            console.error("Sync error:", e);
+            setSyncError(e.message || "Failed to sync identity keys");
+            toast.error("Failed to initialize identity");
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -169,7 +199,8 @@ export const DiscoverabilitySettings = () => {
 
     if (loading) return <CircularProgress size={24} />;
 
-    const isDiscoverable = !!profile?.publicKey;
+    const isDiscoverable = profile?.$permissions?.some((p: string) => p.includes('read("any")'));
+    const isAvatarVisible = !!profile?.avatar;
 
     return (
         <Box>
@@ -183,21 +214,52 @@ export const DiscoverabilitySettings = () => {
                 border: '1px solid rgba(255, 255, 255, 0.05)'
             }}>
                 <Stack spacing={3}>
+                    {/* Discoverability Section */}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Box>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Public Profile</Typography>
-                            <Typography variant="body2" sx={{ opacity: 0.6 }}>Allow others to find you by username</Typography>
+                        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                            <Box sx={{ p: 1, borderRadius: '12px', bgcolor: alpha('#00F0FF', 0.1), color: '#00F0FF' }}>
+                                <Globe size={18} />
+                            </Box>
+                            <Box>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Global Discoverability</Typography>
+                                <Typography variant="body2" sx={{ opacity: 0.5, fontSize: '0.8rem' }}>Allow anyone in Kylrix to find your profile</Typography>
+                            </Box>
                         </Box>
                         <Switch
                             checked={!!isDiscoverable}
                             onChange={(e) => handleToggleDiscoverability(e.target.checked)}
-                            disabled={saving}
+                            disabled={savingDiscoverable}
                             color="primary"
                         />
                     </Box>
 
                     <Divider sx={{ opacity: 0.05 }} />
 
+                    {/* Avatar Visibility Section */}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                            <Box sx={{ p: 1, borderRadius: '12px', bgcolor: alpha('#F43F5E', 0.1), color: '#F43F5E' }}>
+                                <Image size={18} />
+                            </Box>
+                            <Box>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Profile Image Visibility</Typography>
+                                <Typography variant="body2" sx={{ opacity: 0.5, fontSize: '0.8rem' }}>Show your universal avatar to others</Typography>
+                            </Box>
+                        </Box>
+                        <Switch
+                            checked={!!isAvatarVisible}
+                            onChange={(e) => handleToggleAvatarVisibility(e.target.checked)}
+                            disabled={savingAvatar}
+                            sx={{
+                                '& .MuiSwitch-switchBase.Mui-checked': { color: '#F43F5E' },
+                                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#F43F5E' }
+                            }}
+                        />
+                    </Box>
+
+                    <Divider sx={{ opacity: 0.05 }} />
+
+                    {/* Communication Sync Notification */}
                     {profile && !profile.publicKey && (
                         <Box sx={{
                             mt: 1,
@@ -235,7 +297,7 @@ export const DiscoverabilitySettings = () => {
                                 <Button
                                     size="small"
                                     variant="contained"
-                                    onClick={() => handleToggleDiscoverability(true)}
+                                    onClick={handleSyncE2E}
                                     disabled={saving}
                                     sx={{
                                         bgcolor: '#E2B714',
@@ -267,20 +329,29 @@ export const DiscoverabilitySettings = () => {
                         </Box>
                     )}
 
+                    {/* Universal Handle Section */}
                     <Box>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: 'rgba(255, 255, 255, 0.7)' }}>
-                            Your Universal Handle
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <User size={14} color="rgba(255, 255, 255, 0.4)" />
+                            <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'rgba(255, 255, 255, 0.5)', textTransform: 'uppercase', fontSize: '0.65rem', letterSpacing: '0.05em' }}>
+                                Universal Identity Handle
+                            </Typography>
+                        </Box>
                         <Box sx={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 1.5,
-                            p: 2,
-                            borderRadius: '16px',
+                            gap: 2,
+                            p: '2px 2px 2px 16px',
+                            borderRadius: '20px',
                             bgcolor: 'rgba(255, 255, 255, 0.03)',
-                            border: '1px solid rgba(255, 255, 255, 0.05)'
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            transition: 'all 0.2s ease-in-out',
+                            '&:focus-within': {
+                                borderColor: alpha('#00F0FF', 0.3),
+                                bgcolor: alpha('#00F0FF', 0.02),
+                            }
                         }}>
-                            <Box sx={{ flex: 1 }}>
+                            <Box sx={{ flex: 1, py: 1.5 }}>
                                 {isEditing ? (
                                     <Box>
                                         <TextField
@@ -293,24 +364,26 @@ export const DiscoverabilitySettings = () => {
                                             autoFocus
                                             InputProps={{
                                                 disableUnderline: true,
-                                                startAdornment: <Typography sx={{ color: '#00F0FF', fontWeight: 700, mr: 0.5 }}>@</Typography>,
+                                                startAdornment: <Typography sx={{ color: '#00F0FF', fontWeight: 900, mr: 0.5, fontSize: '1.1rem' }}>@</Typography>,
                                                 endAdornment: (
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pr: 1 }}>
                                                         {checkingAvailability && <CircularProgress size={14} sx={{ color: '#00F0FF' }} />}
-                                                        {!checkingAvailability && isAvailable === true && <Check size={14} color="#00F0FF" />}
-                                                        {!checkingAvailability && isAvailable === false && <X size={14} color="#FF5252" />}
+                                                        {!checkingAvailability && isAvailable === true && <Check size={16} color="#00F0FF" strokeWidth={3} />}
+                                                        {!checkingAvailability && isAvailable === false && <X size={16} color="#FF5252" strokeWidth={3} />}
                                                     </Box>
                                                 ),
                                                 sx: {
                                                     fontFamily: 'var(--font-jetbrains-mono)',
-                                                    fontWeight: 700,
-                                                    color: 'white'
+                                                    fontWeight: 800,
+                                                    fontSize: '1rem',
+                                                    color: 'white',
+                                                    letterSpacing: '-0.02em'
                                                 }
                                             }}
                                         />
                                         {isAvailable === false && (
-                                            <Typography variant="caption" sx={{ color: '#FF5252', fontWeight: 600, mt: 0.5, display: 'block' }}>
-                                                already taken
+                                            <Typography variant="caption" sx={{ color: '#FF5252', fontWeight: 700, mt: 0.5, display: 'block', textTransform: 'uppercase', fontSize: '0.65rem', letterSpacing: '0.05em' }}>
+                                                Handle unavailable
                                             </Typography>
                                         )}
                                     </Box>
@@ -318,71 +391,77 @@ export const DiscoverabilitySettings = () => {
                                     <>
                                         <Typography sx={{
                                             fontFamily: 'var(--font-jetbrains-mono)',
-                                            fontWeight: 700,
+                                            fontWeight: 800,
+                                            fontSize: '1.1rem',
+                                            letterSpacing: '-0.03em',
                                             opacity: (isDiscoverable || !profile) ? 1 : 0.4,
                                             color: !profile ? '#E2B714' : 'inherit'
                                         }}>
                                             @{username || 'not_set'}
                                         </Typography>
-                                        <Typography variant="caption" sx={{ opacity: 0.4, display: 'block', mt: 0.5 }}>
-                                            {!profile ? 'Identity not set' : 'Universal Identity • Shared handle'}
+                                        <Typography variant="caption" sx={{ opacity: 0.3, display: 'block', mt: 0.2, fontWeight: 600, textTransform: 'uppercase', fontSize: '0.6rem', letterSpacing: '0.05em' }}>
+                                            {!profile ? 'Identity Required' : 'Verified Ecosystem Handle'}
                                         </Typography>
                                     </>
                                 )}
                             </Box>
 
-                            <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Box sx={{ display: 'flex', gap: 0.5, pr: 0.5 }}>
                                 {isEditing ? (
                                     <>
-                                        <Tooltip title="Cancel">
-                                            <IconButton size="small" onClick={() => { setIsEditing(false); setNewUsername(username); setIsAvailable(null); }} sx={{ color: 'error.main' }}>
-                                                <X size={18} />
-                                            </IconButton>
-                                        </Tooltip>
-                                        <Tooltip title="Save">
-                                            <IconButton
-                                                size="small"
-                                                onClick={() => setShowConfirm(true)}
-                                                sx={{ color: 'success.main' }}
-                                                disabled={saving || !newUsername || isAvailable === false || checkingAvailability || (newUsername === username && !!profile)}
-                                            >
-                                                <Check size={18} />
-                                            </IconButton>
-                                        </Tooltip>
-                                    </>
-                                ) : (
-                                    <Tooltip title={profile ? "Change Handle" : "Setup Identity"}>
-                                        <IconButton
-                                            size="small"
-                                            onClick={() => setIsEditing(true)}
-                                            sx={{
-                                                color: '#00F0FF',
-                                                p: 1,
-                                                bgcolor: !profile ? alpha('#00F0FF', 0.1) : 'transparent',
-                                                '&:hover': { bgcolor: alpha('#00F0FF', 0.15) }
+                                        <IconButton 
+                                            size="small" 
+                                            onClick={() => { setIsEditing(false); setNewUsername(username); setIsAvailable(null); }}
+                                            sx={{ 
+                                                color: 'rgba(255, 255, 255, 0.3)',
+                                                bgcolor: 'rgba(255, 255, 255, 0.05)',
+                                                borderRadius: '14px',
+                                                p: 1.5,
+                                                '&:hover': { bgcolor: alpha('#FF5252', 0.1), color: '#FF5252' }
                                             }}
                                         >
-                                            <Edit2 size={16} />
+                                            <X size={18} strokeWidth={2.5} />
                                         </IconButton>
-                                    </Tooltip>
-                                )}
-
-                                {isDiscoverable && !isEditing && (
-                                    <Box sx={{
-                                        ml: 'auto',
-                                        px: 1,
-                                        py: 0.5,
-                                        borderRadius: '6px',
-                                        bgcolor: alpha('#00F0FF', 0.1),
-                                        border: '1px solid',
-                                        borderColor: alpha('#00F0FF', 0.2),
-                                        display: 'flex',
-                                        alignItems: 'center'
-                                    }}>
-                                        <Typography sx={{ fontSize: '0.65rem', fontWeight: 900, color: '#00F0FF', textTransform: 'uppercase' }}>
-                                            Live
-                                        </Typography>
-                                    </Box>
+                                        <IconButton
+                                            size="small"
+                                            onClick={() => setShowConfirm(true)}
+                                            disabled={saving || !newUsername || isAvailable === false || checkingAvailability || (newUsername === username && !!profile)}
+                                            sx={{ 
+                                                color: '#000',
+                                                bgcolor: '#00F0FF',
+                                                borderRadius: '14px',
+                                                p: 1.5,
+                                                '&:hover': { bgcolor: alpha('#00F0FF', 0.8) },
+                                                '&.Mui-disabled': { bgcolor: 'rgba(255, 255, 255, 0.05)', color: 'rgba(255, 255, 255, 0.1)' }
+                                            }}
+                                        >
+                                            <Check size={18} strokeWidth={3} />
+                                        </IconButton>
+                                    </>
+                                ) : (
+                                    <Button
+                                        size="small"
+                                        onClick={() => setIsEditing(true)}
+                                        startIcon={<Edit2 size={14} strokeWidth={2.5} />}
+                                        sx={{
+                                            color: !profile ? '#000' : '#00F0FF',
+                                            bgcolor: !profile ? '#E2B714' : alpha('#00F0FF', 0.05),
+                                            borderRadius: '16px',
+                                            px: 2,
+                                            py: 1,
+                                            fontWeight: 800,
+                                            textTransform: 'none',
+                                            fontSize: '0.8rem',
+                                            border: '1px solid',
+                                            borderColor: !profile ? '#E2B714' : alpha('#00F0FF', 0.1),
+                                            '&:hover': { 
+                                                bgcolor: !profile ? alpha('#E2B714', 0.8) : alpha('#00F0FF', 0.1),
+                                                borderColor: !profile ? '#E2B714' : alpha('#00F0FF', 0.2)
+                                            }
+                                        }}
+                                    >
+                                        {profile ? "Modify" : "Setup Identity"}
+                                    </Button>
                                 )}
                             </Box>
                         </Box>

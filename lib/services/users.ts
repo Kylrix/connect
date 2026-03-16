@@ -1,5 +1,5 @@
-import { Query } from 'appwrite';
-import { tablesDB } from '../appwrite/client';
+import { Query, Permission, Role } from 'appwrite';
+import { tablesDB, storage } from '../appwrite/client';
 import { databases as genDB } from '../../generated/appwrite';
 import { APPWRITE_CONFIG } from '../appwrite/config';
 
@@ -187,5 +187,50 @@ export const UsersService = {
 
     async searchUsersWithQueries(queries: any[]) {
         return await tablesDB.listRows(DB_ID, USERS_TABLE, queries);
+    },
+
+    /**
+     * Toggles global discoverability for a user's profile.
+     * When enabled, anyone can find and view the profile metadata.
+     */
+    async setProfileDiscoverable(userId: string, isDiscoverable: boolean) {
+        const permissions = [
+            Permission.read(Role.user(userId)),
+            Permission.update(Role.user(userId)),
+            Permission.delete(Role.user(userId))
+        ];
+
+        if (isDiscoverable) {
+            permissions.push(Permission.read(Role.any()));
+        }
+
+        return await genDB.use('chat').use('users').update(userId, {
+            updatedAt: new Date().toISOString()
+        }, permissions);
+    },
+
+    /**
+     * Toggles public visibility for the user's profile picture file.
+     * When enabled, the file becomes accessible to Role.any() in Appwrite Storage.
+     */
+    async setAvatarVisible(userId: string, fileId: string, isVisible: boolean) {
+        const bucketId = APPWRITE_CONFIG.BUCKETS.CHAT.PROFILES || 'profile_pictures';
+        
+        // Construct standard permissions
+        const permissions = [
+            Permission.read(Role.user(userId)),
+            Permission.update(Role.user(userId)),
+            Permission.delete(Role.user(userId))
+        ];
+
+        if (isVisible) {
+            permissions.push(Permission.read(Role.any()));
+        }
+
+        // 1. Update the file permissions in Storage
+        await storage.updateFile(bucketId, fileId, undefined, permissions);
+
+        // 2. Ensure the avatar ID is saved in the user profile document
+        return await this.updateProfile(userId, { avatar: fileId });
     }
 };

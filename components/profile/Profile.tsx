@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { EditProfileModal } from './EditProfileModal';
+import { getUserProfilePicId } from '@/lib/user-utils';
+import { fetchProfilePreview, getCachedProfilePreview } from '@/lib/profile-preview';
 
 interface ProfileProps {
     username?: string;
@@ -34,10 +36,36 @@ export const Profile = ({ username }: ProfileProps) => {
     const { user: currentUser } = useAuth();
     const router = useRouter();
     const [profile, setProfile] = useState<any>(null);
+    const [profileUrl, setProfileUrl] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [isFollowing, setIsFollowing] = useState(false);
     const [followLoading, setFollowLoading] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+    useEffect(() => {
+        let mounted = true;
+        if (!currentUser) return;
+
+        const profilePicId = getUserProfilePicId(currentUser);
+        const cached = getCachedProfilePreview(profilePicId || undefined);
+        if (cached !== undefined && mounted) {
+            setProfileUrl(cached ?? null);
+        }
+
+        const fetchPreview = async () => {
+            try {
+                if (profilePicId) {
+                    const url = await fetchProfilePreview(profilePicId, 140, 140);
+                    if (mounted) setProfileUrl(url as unknown as string);
+                } else if (mounted) setProfileUrl(null);
+            } catch (_err: unknown) {
+                if (mounted) setProfileUrl(null);
+            }
+        };
+
+        fetchPreview();
+        return () => { mounted = false; };
+    }, [currentUser]);
 
     const normalizeUsername = (value?: string | null) => {
         if (!value) return null;
@@ -63,10 +91,33 @@ export const Profile = ({ username }: ProfileProps) => {
 
             if (data) {
                 setProfile(data);
-                // Check if following if it's someone else's profile
-                if (currentUser && data.$id !== currentUser.$id) {
-                    // Logic to check follow status could go here
+            } else if (currentUser && !username) {
+                // Fallback for current user if profile not found in chat directory
+                // We use the same preview logic as AppHeader
+                const profilePicId = getUserProfilePicId(currentUser);
+                let avatarUrl = null;
+                
+                if (profilePicId) {
+                    const cached = getCachedProfilePreview(profilePicId);
+                    if (cached) {
+                        avatarUrl = cached;
+                    } else {
+                        try {
+                            avatarUrl = await fetchProfilePreview(profilePicId, 140, 140);
+                        } catch (e) {
+                            console.warn("Could not fetch fallback avatar", e);
+                        }
+                    }
                 }
+
+                setProfile({
+                    $id: currentUser.$id,
+                    username: currentUser.name || 'user',
+                    displayName: currentUser.name,
+                    avatar: avatarUrl,
+                    bio: 'Kylrix Ecosystem Resident',
+                    __isFallback: true
+                });
             } else {
                 setProfile(null);
             }
@@ -135,7 +186,7 @@ export const Profile = ({ username }: ProfileProps) => {
 
                 <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: 'center', gap: 4, position: 'relative', zIndex: 1 }}>
                     <Avatar
-                        src={profile.avatar}
+                        src={profileUrl || profile.avatar}
                         sx={{ 
                             width: 140, 
                             height: 140, 
@@ -148,7 +199,7 @@ export const Profile = ({ username }: ProfileProps) => {
                             fontFamily: 'var(--font-clash)'
                         }}
                     >
-                        {profile.username?.charAt(0).toUpperCase()}
+                        {(profile.displayName || profile.username || currentUser?.name || 'U').charAt(0).toUpperCase()}
                     </Avatar>
                     <Box sx={{ flex: 1, textAlign: { xs: 'center', sm: 'left' } }}>
                         <Typography variant="h3" sx={{ 
@@ -172,9 +223,10 @@ export const Profile = ({ username }: ProfileProps) => {
                             mt: 2, 
                             lineHeight: 1.6,
                             color: 'var(--color-gunmetal)',
-                            maxWidth: '500px'
+                            maxWidth: '500px',
+                            opacity: profile?.__isFallback ? 0.4 : 1
                         }}>
-                            {profile.bio || 'No bio yet. This user prefers to stay mysterious.'}
+                            {profile.bio || (profile?.__isFallback ? 'This identity is private within Connect.' : 'No bio yet. This user prefers to stay mysterious.')}
                         </Typography>
 
                         <Box sx={{ display: 'flex', gap: 1.5, mt: 4, justifyContent: { xs: 'center', sm: 'flex-start' }, flexWrap: 'wrap' }}>

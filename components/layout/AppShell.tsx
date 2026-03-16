@@ -71,7 +71,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
     }, [user]);
 
     const isEmbedded = useMemo(() => searchParams?.get('is_embedded') === 'true', [searchParams]);
-    const isProfilePage = pathname === '/profile' || pathname?.startsWith('/u/');
+    const isExternalProfile = pathname?.startsWith('/u/');
 
     const navItems = [
         { label: 'Home', href: '/', icon: <Home size={20} strokeWidth={1.5} /> },
@@ -107,7 +107,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
             <AppHeader />
 
             {/* Desktop Sidebar */}
-            {!isMobile && !isProfilePage && (
+            {!isMobile && !isExternalProfile && (
                 <Drawer
                     variant="permanent"
                     sx={{
@@ -181,8 +181,8 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
                     height: '100%', 
                     p: { xs: 2, md: 3 },
                     overflowY: 'auto',
-                    maxWidth: isProfilePage ? '1200px' : 'auto',
-                    mx: isProfilePage ? 'auto' : 'unset'
+                    maxWidth: isExternalProfile ? '1200px' : 'auto',
+                    mx: isExternalProfile ? 'auto' : 'unset'
                 }}>
 
                     <Paper
