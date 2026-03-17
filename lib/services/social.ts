@@ -169,17 +169,17 @@ export const SocialService = {
                     enriched.attachments.push(att);
                 }
             } catch (_e) {
-                console.warn(`Failed to resolve attachment ${att.type}:${att.id}`, e);
+                console.warn(`Failed to resolve attachment ${att.type}:${att.id}`, _e);
             }
         }));
 
         // Resolve Source Moment (for Pulse/Quote/Reply)
         if (metadata?.sourceId) {
             try {
-                const source = await tablesDB.getRow(DB_ID, MOMENTS_TABLE, metadata.sourceId);
-                enriched.sourceMoment = await this.enrichMoment(source);
+                const source = await this.getMomentById(metadata.sourceId);
+                enriched.sourceMoment = source;
             } catch (_e) {
-                console.warn(`Failed to resolve source moment ${metadata.sourceId}`, e);
+                console.warn(`Failed to resolve source moment ${metadata.sourceId}`, _e);
             }
         }
 
@@ -296,8 +296,8 @@ export const SocialService = {
             );
             return uploaded.$id;
         } catch (_e) {
-            console.error('Failed to upload media', e);
-            throw e;
+            console.error('Failed to upload media', _e);
+            throw _e;
         }
     },
 

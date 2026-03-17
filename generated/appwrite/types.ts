@@ -669,6 +669,7 @@ export type Messages = Models.Row & {
     "attachments"?: string[] | null;
     "replyTo"?: string | null;
     "readBy"?: string[] | null;
+    "metadata"?: string | any | null;
 }
 
 export type ConversationsCreate = {

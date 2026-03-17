@@ -112,6 +112,40 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
         }
     }, [user]);
 
+    const handleToggleLike = async (e: React.MouseEvent, moment: any) => {
+        e.stopPropagation();
+        if (!user) {
+            toast.error('Please login to like this post');
+            return;
+        }
+        try {
+            const creatorId = moment.userId || moment.creatorId;
+            const contentSnippet = moment.caption?.substring(0, 30);
+            const { liked } = await SocialService.toggleLike(user.$id, moment.$id, creatorId, contentSnippet);
+            
+            // Update local state
+            setMoments((prev: any[]) => prev.map((m: any) => m.$id === moment.$id ? {
+                ...m,
+                isLiked: liked,
+                stats: { ...m.stats, likes: (m.stats?.likes || 0) + (liked ? 1 : -1) }
+            } : m));
+        } catch (_e) {
+            toast.error('Failed to update like');
+        }
+    };
+
+    const handleDeletePost = async (momentId: string) => {
+        if (!confirm('Are you sure you want to delete this moment?')) return;
+        try {
+            await SocialService.deleteMoment(momentId);
+            setMoments(prev => prev.filter(m => m.$id !== momentId));
+            toast.success('Moment deleted');
+            setPostMenuAnchorEl(null);
+        } catch (_e) {
+            toast.error('Failed to delete moment');
+        }
+    };
+
     const loadFeed = useCallback(async () => {
         setLoading(true);
         try {
@@ -316,6 +350,15 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
         } catch (_e) {
             toast.error('Failed to update like');
         }
+    };
+
+    const handleForwardToChat = (moment: any) => {
+        if (!moment) return;
+        setShareAnchorEl(null);
+        // This is a placeholder for a more complex "Share to Chat" flow
+        // For now, we'll just redirect to the chat list and the user can forward there
+        router.push('/messages');
+        toast.success("Select a conversation to share this moment");
     };
 
     const handleSearch = useCallback(async (query: string) => {
