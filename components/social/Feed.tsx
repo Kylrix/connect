@@ -23,7 +23,10 @@ import {
     Paper,
     alpha,
     Tooltip,
-    Stack
+    Stack,
+    Fab,
+    useMediaQuery,
+    useTheme
 } from '@mui/material';
 import {
     Heart,
@@ -39,7 +42,10 @@ import {
     Clock,
     MoreHorizontal,
     Trash2,
-    Edit
+    Edit,
+    Image as ImageIcon,
+    Plus,
+    Search
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { fetchProfilePreview } from '@/lib/profile-preview';
@@ -52,7 +58,11 @@ import { EventViewDrawer } from './EventViewDrawer';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
-export const Feed = () => {
+interface FeedProps {
+    view?: 'personal' | 'trending' | 'search';
+}
+
+export const Feed = ({ view = 'personal' }: FeedProps) => {
     const { user } = useAuth();
     const router = useRouter();
     const [moments, setMoments] = useState<any[]>([]);
@@ -60,6 +70,13 @@ export const Feed = () => {
     const [newMoment, setNewMoment] = useState('');
     const [posting, setPosting] = useState(false);
     const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
+
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [searching, setSearching] = useState(false);
+
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const [uploadingMedia, setUploadingMedia] = useState(false);
 
     const [postMenuAnchorEl, setPostMenuAnchorEl] = useState<null | HTMLElement>(null);
     const [menuMoment, setMenuMoment] = useState<any>(null);
@@ -82,6 +99,9 @@ export const Feed = () => {
     const [viewingEvent, setViewingEvent] = useState<any>(null);
     const [isEventDrawerOpen, setIsEventDrawerOpen] = useState(false);
 
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
     const fetchUserAvatar = useCallback(async () => {
         const picId = getUserProfilePicId(user);
         if (picId) {
@@ -95,11 +115,15 @@ export const Feed = () => {
     }, [user]);
 
     const loadFeed = useCallback(async () => {
-        if (!user?.$id) return;
+        setLoading(true);
         try {
-            const response = await SocialService.getFeed(user.$id);
+            const response = view === 'trending' ? 
+                await SocialService.getTrendingFeed(user?.$id) : 
+                await SocialService.getFeed(user?.$id);
+                
             // Enrich with creator details and avatars
-            const enriched = await Promise.all(response.rows.map(async (moment: any) => {
+            const rows = response?.rows || [];
+            const enriched = await Promise.all(rows.map(async (moment: any) => {
                 const creatorId = moment.userId || moment.creatorId;
                 try {
                     const creator = await UsersService.getProfileById(creatorId);
@@ -131,92 +155,118 @@ export const Feed = () => {
             setMoments(enriched);
         } catch (error: unknown) {
             console.error('Failed to load feed:', error);
+            setMoments([]);
         } finally {
             setLoading(false);
         }
-    }, [user]);
+    }, [user, view]);
+
 
     useEffect(() => {
-        if (user) {
-            loadFeed();
-            fetchUserAvatar();
+        loadFeed();
+        fetchUserAvatar();
+    }, [loadFeed, fetchUserAvatar]);
 
-            // Real-time subscription for new posts
-            const unsub = SocialService.subscribeToFeed(async (event) => {
-                if (event.type === 'create') {
-                    const moment = event.payload;
+    useEffect(() => {
+        // Real-time subscription for new posts
+        const unsubFunc = SocialService.subscribeToFeed(async (event) => {
+            if (event.type === 'create') {
+                const moment = event.payload;
 
-                    // Don't add if already in feed or if it's our own (already handled by handlePost loadFeed)
-                    // Actually, better to just enrich and add it to provide that "instant" feel for everyone
-                    const creatorId = moment.userId || moment.creatorId;
-                    try {
-                        const creator = await UsersService.getProfileById(creatorId);
+                // For trending view, we only care about new posts if they might be trending, 
+                // but for live feel we add them to 'personal' immediately.
+                if (view === 'trending') return;
 
-                        let avatar = null;
-                        const picId = creator?.avatar;
-                        if (picId && typeof picId === 'string' && picId.length > 5) {
-                            try {
-                                const url = await fetchProfilePreview(picId, 64, 64);
-                                avatar = url as unknown as string;
-                            } catch (_e: unknown) { }
+                const creatorId = moment.userId || moment.creatorId;
+                try {
+                    const creator = await UsersService.getProfileById(creatorId);
+
+                    let avatar = null;
+                    const picId = creator?.avatar;
+                    if (picId && typeof picId === 'string' && picId.length > 5) {
+                        try {
+                            const url = await fetchProfilePreview(picId, 64, 64);
+                            avatar = url as unknown as string;
+                        } catch (_e: unknown) { }
+                    }
+
+                    const enrichedMoment = await SocialService.enrichMoment({
+                        ...moment,
+                        creator: creator ? { ...creator, avatar } : {
+                            username: `user_${creatorId.slice(0, 5)}`,
+                            displayName: 'Kylrix User',
+                            avatar: null,
+                            $id: creatorId
                         }
+                    }, user?.$id);
 
-                        const enrichedMoment = await SocialService.enrichMoment({
-                            ...moment,
-                            creator: creator ? { ...creator, avatar } : {
-                                username: `user_${creatorId.slice(0, 5)}`,
-                                displayName: 'Kylrix User',
-                                avatar: null,
-                                $id: creatorId
-                            }
-                        }, user.$id);
-
-                        setMoments(prev => {
-                            if (prev.some(m => m.$id === enrichedMoment.$id)) return prev;
-                            return [enrichedMoment, ...prev];
-                        });
-                    } catch (_e: unknown) {
-                        console.warn('Failed to enrich real-time moment', _e);
-                    }
-                } else if (event.type === 'delete') {
-                    setMoments(prev => prev.filter(m => m.$id !== event.payload.$id));
-                } else if (event.type === 'update') {
-                    const payload = event.payload as any;
-                    // If it's just an interaction update, re-fetch the specific moment stats
-                    if (payload._interactionUpdate) {
-                        const updatedStats = await SocialService.getInteractionCounts(payload.$id);
-                        const isLiked = await SocialService.isLiked(user.$id, payload.$id);
-                        setMoments(prev => prev.map(m => m.$id === payload.$id ? { ...m, stats: updatedStats, isLiked } : m));
-                    } else {
-                        // Standard update (e.g. caption changed)
-                        const enriched = await SocialService.enrichMoment(payload, user.$id);
-                        setMoments(prev => prev.map(m => m.$id === enriched.$id ? { ...m, ...enriched } : m));
-                    }
+                    setMoments(prev => {
+                        if (prev.some(m => m.$id === enrichedMoment.$id)) return prev;
+                        return [enrichedMoment, ...prev];
+                    });
+                } catch (_e: unknown) {
+                    console.warn('Failed to enrich real-time moment', _e);
                 }
-            });
+            } else if (event.type === 'delete') {
+                setMoments(prev => prev.filter(m => m.$id !== event.payload.$id));
+            } else if (event.type === 'update') {
+                const payload = event.payload as any;
+                // If it's just an interaction update, re-fetch the specific moment stats
+                if (payload._interactionUpdate) {
+                    const updatedStats = await SocialService.getInteractionCounts(payload.$id);
+                    const isLiked = user?.$id ? await SocialService.isLiked(user.$id, payload.$id) : false;
+                    setMoments(prev => prev.map(m => m.$id === payload.$id ? { ...m, stats: updatedStats, isLiked } : m));
+                } else {
+                    // Standard update (e.g. caption changed)
+                    const enriched = await SocialService.enrichMoment(payload, user?.$id);
+                    setMoments(prev => prev.map(m => m.$id === enriched.$id ? { ...m, ...enriched } : m));
+                }
+            }
+        });
 
-            return () => {
-                if (typeof unsub === 'function') (unsub as any)();
-                else (unsub as any).unsubscribe?.();
-            };
-        }
-    }, [user, loadFeed, fetchUserAvatar]);
+        return () => {
+            if (typeof unsubFunc === 'function') {
+                const result = unsubFunc();
+                if (result instanceof Promise) result.catch(e => console.error('Cleanup failed', e));
+            }
+        };
+    }, [user, view, loadFeed]);
 
     const handlePost = async () => {
-        if (!newMoment.trim() && !selectedNote && !selectedEvent && !pulseTarget) return;
+        if (!newMoment.trim() && !selectedNote && !selectedEvent && !pulseTarget && selectedFiles.length === 0) return;
         setPosting(true);
         try {
+            // Upload files first
+            const mediaIds: string[] = [];
+            if (selectedFiles.length > 0) {
+                setUploadingMedia(true);
+                for (const file of selectedFiles) {
+                    const id = await SocialService.uploadMedia(file);
+                    mediaIds.push(id);
+                }
+            }
+
             const type = pulseTarget ? 'quote' : 'post';
-            await SocialService.createMoment(user!.$id, newMoment, type, [], 'public', selectedNote?.$id, selectedEvent?.$id, pulseTarget?.$id);
+            await SocialService.createMoment(user!.$id, newMoment, type, mediaIds, 'public', selectedNote?.$id, selectedEvent?.$id, pulseTarget?.$id);
             setNewMoment('');
             setSelectedNote(null);
             setSelectedEvent(null);
             setPulseTarget(null);
+            setSelectedFiles([]);
             loadFeed();
         } catch (error: unknown) {
             console.error('Failed to post:', error);
+            toast.error('Failed to post moment');
         } finally {
             setPosting(false);
+            setUploadingMedia(false);
+        }
+    };
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            const files = Array.from(e.target.files);
+            setSelectedFiles(prev => [...prev, ...files]);
         }
     };
 
@@ -308,7 +358,114 @@ export const Feed = () => {
         }
     };
 
-    if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress sx={{ color: '#F59E0B' }} /></Box>;
+    const handleSearch = useCallback(async (query: string) => {
+        if (!query.trim()) {
+            setSearchResults([]);
+            return;
+        }
+        setSearching(true);
+        try {
+            const results = await UsersService.searchUsers(query);
+            const enriched = await Promise.all(results.map(async (u: any) => {
+                let avatar = null;
+                if (u.avatar) {
+                    try {
+                        const url = await fetchProfilePreview(u.avatar, 64, 64);
+                        avatar = url as unknown as string;
+                    } catch (e) {}
+                }
+                return { ...u, avatar };
+            }));
+            setSearchResults(enriched);
+        } catch (e) {
+            console.error('Search failed', e);
+        } finally {
+            setSearching(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (view === 'search') {
+            const timer = setTimeout(() => {
+                handleSearch(searchQuery);
+            }, 300);
+            return () => clearTimeout(timer);
+        }
+    }, [searchQuery, handleSearch, view]);
+
+    if (loading && view !== 'search') return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress sx={{ color: '#F59E0B' }} /></Box>;
+
+    if (view === 'search') {
+        return (
+            <Box>
+                <Paper sx={{ 
+                    p: 1.5, 
+                    mb: 4, 
+                    borderRadius: '20px', 
+                    bgcolor: '#161412', 
+                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.5
+                }}>
+                    <Search size={20} color="#F59E0B" style={{ marginLeft: '12px', opacity: 0.6 }} />
+                    <TextField 
+                        fullWidth
+                        placeholder="Search for people by name or @username..."
+                        variant="standard"
+                        InputProps={{ disableUnderline: true, sx: { fontSize: '1rem', fontWeight: 600 } }}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        autoFocus
+                    />
+                </Paper>
+
+                {searching && <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={24} sx={{ color: '#F59E0B' }} /></Box>}
+                
+                <Stack spacing={1}>
+                    {searchResults.map((u) => (
+                        <Paper 
+                            key={u.$id}
+                            onClick={() => router.push(`/@${u.username}`)}
+                            sx={{ 
+                                p: 2, 
+                                borderRadius: '16px', 
+                                bgcolor: '#161412', 
+                                border: '1px solid rgba(255, 255, 255, 0.05)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 2,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                '&:hover': { bgcolor: '#1C1A18', transform: 'translateX(4px)', borderColor: 'rgba(245, 158, 11, 0.3)' }
+                            }}
+                        >
+                            <Avatar src={u.avatar} sx={{ width: 48, height: 48, bgcolor: alpha('#F59E0B', 0.1), color: '#F59E0B', fontWeight: 800 }}>
+                                {u.username?.charAt(0).toUpperCase()}
+                            </Avatar>
+                            <Box sx={{ flex: 1 }}>
+                                <Typography sx={{ fontWeight: 800 }}>{u.displayName || u.username}</Typography>
+                                <Typography variant="caption" sx={{ opacity: 0.5, fontWeight: 700 }}>@{u.username}</Typography>
+                            </Box>
+                            <IconButton size="small" sx={{ color: '#F59E0B' }}>
+                                <Plus size={20} />
+                            </IconButton>
+                        </Paper>
+                    ))}
+                    {!searching && searchQuery && searchResults.length === 0 && (
+                        <Typography sx={{ textAlign: 'center', py: 8, opacity: 0.4, fontWeight: 600 }}>No users found for &quot;{searchQuery}&quot;</Typography>
+                    )}
+                    {!searchQuery && (
+                        <Box sx={{ textAlign: 'center', py: 8, opacity: 0.4 }}>
+                            <Search size={48} style={{ marginBottom: '16px' }} />
+                            <Typography sx={{ fontWeight: 700 }}>Search the Kylrix Ecosystem</Typography>
+                            <Typography variant="body2">Find friends, creators, and colleagues.</Typography>
+                        </Box>
+                    )}
+                </Stack>
+            </Box>
+        );
+    }
 
     return (
         <Box sx={{ maxWidth: 600, mx: 'auto', p: { xs: 1, sm: 2 } }}>
@@ -434,10 +591,51 @@ export const Feed = () => {
                                 </IconButton>
                             </Paper>
                         )}
+
+                        {selectedFiles.length > 0 && (
+                            <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
+                                {selectedFiles.map((file, idx) => (
+                                    <Box key={idx} sx={{ position: 'relative', width: 80, height: 80 }}>
+                                        <Box 
+                                            component="img" 
+                                            src={URL.createObjectURL(file)} 
+                                            sx={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 2, border: '1px solid rgba(255,255,255,0.1)' }} 
+                                        />
+                                        <IconButton 
+                                            size="small" 
+                                            sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'rgba(0,0,0,0.6)', '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' } }}
+                                            onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== idx))}
+                                        >
+                                            <X size={12} color="white" />
+                                        </IconButton>
+                                    </Box>
+                                ))}
+                            </Box>
+                        )}
                     </CardContent>
                     <Divider sx={{ opacity: 0.05 }} />
                     <CardActions sx={{ justifyContent: 'space-between', px: 2, py: 1.5, bgcolor: 'rgba(255, 255, 255, 0.01)' }}>
-                        <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                id="media-upload"
+                                style={{ display: 'none' }}
+                                onChange={handleFileSelect}
+                            />
+                            <label htmlFor="media-upload">
+                                <IconButton 
+                                    component="span" 
+                                    sx={{ 
+                                        borderRadius: '10px', 
+                                        color: '#F59E0B', 
+                                        '&:hover': { bgcolor: alpha('#F59E0B', 0.1) } 
+                                    }}
+                                >
+                                    <ImageIcon size={20} strokeWidth={1.5} />
+                                </IconButton>
+                            </label>
                             <Button
                                 startIcon={<FileText size={18} strokeWidth={1.5} />}
                                 onClick={() => setIsNoteSelectorOpen(true)}
@@ -446,6 +644,8 @@ export const Feed = () => {
                                     textTransform: 'none',
                                     fontWeight: 700,
                                     color: 'text.secondary',
+                                    minWidth: 0,
+                                    px: 1.5,
                                     '&:hover': { color: 'primary.main', bgcolor: 'rgba(0, 240, 255, 0.05)' }
                                 }}
                             >
@@ -459,6 +659,8 @@ export const Feed = () => {
                                     textTransform: 'none',
                                     fontWeight: 700,
                                     color: 'text.secondary',
+                                    minWidth: 0,
+                                    px: 1.5,
                                     '&:hover': { color: 'primary.main', bgcolor: 'rgba(99, 102, 241, 0.05)' }
                                 }}
                             >
@@ -467,7 +669,7 @@ export const Feed = () => {
                         </Box>
                         <Button
                             variant="contained"
-                            disabled={(!newMoment.trim() && !selectedNote && !selectedEvent) || posting}
+                            disabled={(!newMoment.trim() && !selectedNote && !selectedEvent && selectedFiles.length === 0) || posting}
                             onClick={handlePost}
                             sx={{
                                 borderRadius: '12px',
@@ -490,18 +692,26 @@ export const Feed = () => {
                 const isOwnPost = user?.$id === (moment.userId || moment.creatorId);
                 const creatorName = isOwnPost ? (user?.name || 'You') : (moment.creator?.displayName || moment.creator?.username || 'Unknown');
                 const creatorAvatar = isOwnPost ? userAvatarUrl : (moment.creator?.avatar || undefined);
+                const isUnknown = !isOwnPost && creatorName === 'Unknown';
 
                 return (
-                    <Card key={moment.$id} sx={{ mb: 3, borderRadius: '24px', bgcolor: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', transition: 'all 0.2s ease', '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.03)' } }} elevation={0}>
+                    <Card key={moment.$id} sx={{ 
+                        mb: 3, 
+                        borderRadius: '24px', 
+                        bgcolor: '#161412', 
+                        border: '1px solid rgba(255, 255, 255, 0.05)', 
+                        transition: 'all 0.2s ease', 
+                        '&:hover': { bgcolor: '#1C1A18' } 
+                    }} elevation={0}>
                         <CardHeader
                             avatar={
                                 <Avatar
                                     src={creatorAvatar}
                                     sx={{ 
-                                        bgcolor: isOwnPost ? '#F59E0B' : 'rgba(255, 255, 255, 0.05)', 
-                                        color: isOwnPost ? '#000' : 'text.secondary', 
-                                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                                        fontWeight: isOwnPost ? 800 : 500,
+                                        bgcolor: isOwnPost ? '#F59E0B' : isUnknown ? '#1C1A18' : '#161412', 
+                                        color: isOwnPost ? '#000' : isUnknown ? '#F59E0B' : 'text.secondary', 
+                                        border: isUnknown ? '1px solid rgba(245, 158, 11, 0.2)' : '1px solid rgba(255, 255, 255, 0.05)',
+                                        fontWeight: (isOwnPost || isUnknown) ? 800 : 500,
                                         borderRadius: '10px'
                                     }}
                                 >
@@ -509,7 +719,7 @@ export const Feed = () => {
                                 </Avatar>
                             }
                             title={
-                                <Typography sx={{ fontWeight: 800, fontSize: '1rem', color: isOwnPost ? '#F59E0B' : 'text.primary' }}>
+                                <Typography sx={{ fontWeight: 800, fontSize: '1rem', color: isOwnPost ? '#F59E0B' : isUnknown ? alpha('#F59E0B', 0.8) : 'text.primary' }}>
                                     {creatorName}
                                     {isOwnPost && (
                                         <Typography component="span" variant="caption" sx={{ ml: 1, opacity: 0.5, fontWeight: 700, verticalAlign: 'middle' }}>
@@ -552,9 +762,40 @@ export const Feed = () => {
                         )}
 
                         {moment.caption && moment.caption.trim() !== "" && (
-                            <Typography variant="body1" sx={{ lineHeight: 1.6, fontSize: '1.05rem', mb: (moment.attachedNote || moment.sourceMoment) ? 2 : 0 }}>
+                            <Typography variant="body1" sx={{ lineHeight: 1.6, fontSize: '1.05rem', mb: (moment.attachedNote || moment.sourceMoment || moment.metadata?.attachments?.length) ? 2 : 0 }}>
                                 {moment.caption}
                             </Typography>
+                        )}
+
+                        {/* Media Grid */}
+                        {moment.metadata?.attachments?.length > 0 && (
+                            <Box sx={{ 
+                                display: 'grid', 
+                                gap: 1, 
+                                gridTemplateColumns: moment.metadata.attachments.length === 1 ? '1fr' : '1fr 1fr',
+                                mb: 2,
+                                borderRadius: 4,
+                                overflow: 'hidden',
+                                border: '1px solid rgba(255,255,255,0.05)'
+                            }}>
+                                {moment.metadata.attachments.map((att: any, i: number) => {
+                                    if (att.type === 'image') {
+                                        return (
+                                            <Box 
+                                                key={i} 
+                                                component="img" 
+                                                src={SocialService.getMediaPreview(att.id)} 
+                                                sx={{ 
+                                                    width: '100%', 
+                                                    height: moment.metadata.attachments.length <= 2 ? 300 : 150, 
+                                                    objectFit: 'cover' 
+                                                }} 
+                                            />
+                                        );
+                                    }
+                                    return null;
+                                })}
+                            </Box>
                         )}
 
                         {/* Pulsed/Reposted Content */}
@@ -933,6 +1174,24 @@ export const Feed = () => {
                 </MenuItem>
             </Menu>
 
+            {/* Mobile FAB */}
+            {isMobile && user && (
+                <Fab 
+                    color="primary" 
+                    sx={{ 
+                        position: 'fixed', 
+                        bottom: 80, 
+                        right: 20, 
+                        bgcolor: '#F59E0B', 
+                        color: 'black',
+                        '&:hover': { bgcolor: alpha('#F59E0B', 0.8) }
+                    }}
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                >
+                    <Plus size={24} />
+                </Fab>
+            )}
+
             {moments.length === 0 && (
                 <Box sx={{ textAlign: 'center', py: 10, bgcolor: 'rgba(255, 255, 255, 0.01)', borderRadius: '32px', border: '1px dashed rgba(255, 255, 255, 0.1)' }}>
                     <Typography sx={{ color: 'text.secondary', fontWeight: 700 }}>No moments in the feed yet.</Typography>
@@ -963,6 +1222,23 @@ export const Feed = () => {
                 onClose={() => setIsEventDrawerOpen(false)}
                 event={viewingEvent}
             />
+
+            {isMobile && user && (
+                <Fab 
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    sx={{ 
+                        position: 'fixed', 
+                        bottom: 100, 
+                        right: 24, 
+                        bgcolor: '#F59E0B', 
+                        color: '#000',
+                        '&:hover': { bgcolor: alpha('#F59E0B', 0.8) },
+                        zIndex: 1001
+                    }}
+                >
+                    <Plus />
+                </Fab>
+            )}
         </Box>
     );
 };

@@ -21,7 +21,10 @@ import {
     MessageSquare as ChatIcon,
     Layers,
     Users,
-    Activity
+    Activity,
+    Heart,
+    MessageCircle,
+    Repeat2
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { EditProfileModal } from './EditProfileModal';
@@ -41,6 +44,10 @@ export const Profile = ({ username }: ProfileProps) => {
     const [isFollowing, setIsFollowing] = useState(false);
     const [followLoading, setFollowLoading] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+    const [moments, setMoments] = useState<any[]>([]);
+    const [momentsLoading, setMomentsLoading] = useState(false);
+    const [stats, setStats] = useState({ posts: 0, followers: 0, following: 0 });
 
     useEffect(() => {
         let mounted = true;
@@ -73,6 +80,7 @@ export const Profile = ({ username }: ProfileProps) => {
     };
 
     const normalizedUsername = normalizeUsername(username);
+    const isGuest = !currentUser;
 
     const isOwnProfile = currentUser && !profile?.__external && (
         normalizedUsername === profile?.username ||
@@ -91,6 +99,23 @@ export const Profile = ({ username }: ProfileProps) => {
 
             if (data) {
                 setProfile(data);
+                
+                // Load Stats & Moments
+                setMomentsLoading(true);
+                const [feedRes, followStats, followingStatus] = await Promise.all([
+                    SocialService.getFeed(currentUser?.$id, data.$id),
+                    SocialService.getFollowStats(data.$id),
+                    currentUser ? SocialService.isFollowing(currentUser.$id, data.$id) : Promise.resolve(false)
+                ]);
+
+                setMoments(feedRes.rows);
+                setStats({
+                    posts: feedRes.total,
+                    followers: followStats.followers,
+                    following: followStats.following
+                });
+                setIsFollowing(followingStatus);
+                setMomentsLoading(false);
             } else if (currentUser && !username) {
                 // Fallback for current user if profile not found in chat directory
                 // We use the same preview logic as AppHeader
@@ -133,13 +158,20 @@ export const Profile = ({ username }: ProfileProps) => {
     }, [loadProfile]);
 
     const handleFollow = async () => {
-        if (!currentUser) return; // Prompt to login
+        if (!currentUser || !profile) return;
         setFollowLoading(true);
         try {
-            await SocialService.followUser(currentUser.$id, profile.$id);
-            setIsFollowing(true);
+            if (isFollowing) {
+                await SocialService.unfollowUser(currentUser.$id, profile.$id);
+                setIsFollowing(false);
+                setStats(prev => ({ ...prev, followers: prev.followers - 1 }));
+            } else {
+                await SocialService.followUser(currentUser.$id, profile.$id);
+                setIsFollowing(true);
+                setStats(prev => ({ ...prev, followers: prev.followers + 1 }));
+            }
         } catch (error: unknown) {
-            console.error('Follow failed:', error);
+            console.error('Follow operation failed:', error);
         } finally {
             setFollowLoading(false);
         }
@@ -365,7 +397,7 @@ export const Profile = ({ username }: ProfileProps) => {
                         borderRadius: '24px'
                     }
                 }} elevation={0}>
-                    <Typography variant="h4" sx={{ fontWeight: 900, color: '#F59E0B', fontFamily: 'var(--font-clash)' }}>0</Typography>
+                    <Typography variant="h4" sx={{ fontWeight: 900, color: '#F59E0B', fontFamily: 'var(--font-clash)' }}>{stats.posts}</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 700, opacity: 0.4, textTransform: 'uppercase', letterSpacing: '0.1em', mt: 1 }}>Posts</Typography>
                 </Paper>
                 <Paper sx={{ 
@@ -388,7 +420,7 @@ export const Profile = ({ username }: ProfileProps) => {
                         borderRadius: '24px'
                     }
                 }} elevation={0}>
-                    <Typography variant="h4" sx={{ fontWeight: 900, color: 'var(--color-primary)', fontFamily: 'var(--font-clash)' }}>0</Typography>
+                    <Typography variant="h4" sx={{ fontWeight: 900, color: 'var(--color-primary)', fontFamily: 'var(--font-clash)' }}>{stats.followers}</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 700, opacity: 0.4, textTransform: 'uppercase', letterSpacing: '0.1em', mt: 1 }}>Followers</Typography>
                 </Paper>
                 <Paper sx={{ 
@@ -411,10 +443,68 @@ export const Profile = ({ username }: ProfileProps) => {
                         borderRadius: '24px'
                     }
                 }} elevation={0}>
-                    <Typography variant="h4" sx={{ fontWeight: 900, color: '#F59E0B', fontFamily: 'var(--font-clash)' }}>0</Typography>
+                    <Typography variant="h4" sx={{ fontWeight: 900, color: '#F59E0B', fontFamily: 'var(--font-clash)' }}>{stats.following}</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 700, opacity: 0.4, textTransform: 'uppercase', letterSpacing: '0.1em', mt: 1 }}>Following</Typography>
                 </Paper>
             </Stack>
+
+            <Box sx={{ mt: 6 }}>
+                <Typography variant="h6" sx={{ 
+                    fontWeight: 800, 
+                    mb: 3, 
+                    fontFamily: 'var(--font-clash)',
+                    opacity: 0.8
+                }}>
+                    Moments
+                </Typography>
+
+                {momentsLoading ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={24} /></Box>
+                ) : (
+                    <Stack spacing={2}>
+                        {moments.map((moment) => (
+                            <Paper
+                                key={moment.$id}
+                                onClick={() => router.push(`/post/${moment.$id}`)}
+                                sx={{
+                                    p: 2.5,
+                                    borderRadius: 5,
+                                    bgcolor: 'rgba(255, 255, 255, 0.02)',
+                                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
+                                    '&:hover': {
+                                        bgcolor: 'rgba(255, 255, 255, 0.04)',
+                                        borderColor: 'rgba(245, 158, 11, 0.3)',
+                                        transform: 'translateY(-2px)'
+                                    }
+                                }}
+                            >
+                                <Typography variant="body2" sx={{ mb: 2, color: 'rgba(255, 255, 255, 0.9)', lineHeight: 1.6 }}>
+                                    {moment.caption}
+                                </Typography>
+                                <Stack direction="row" spacing={3} sx={{ color: 'text.disabled' }}>
+                                    <Stack direction="row" spacing={0.5} alignItems="center">
+                                        <Heart size={14} fill={moment.isLiked ? '#F59E0B' : 'none'} color={moment.isLiked ? '#F59E0B' : 'currentColor'} />
+                                        <Typography variant="caption" fontWeight={700}>{moment.stats?.likes || 0}</Typography>
+                                    </Stack>
+                                    <Stack direction="row" spacing={0.5} alignItems="center">
+                                        <MessageCircle size={14} />
+                                        <Typography variant="caption" fontWeight={700}>{moment.stats?.replies || 0}</Typography>
+                                    </Stack>
+                                    <Stack direction="row" spacing={0.5} alignItems="center">
+                                        <Repeat2 size={14} />
+                                        <Typography variant="caption" fontWeight={700}>{moment.stats?.pulses || 0}</Typography>
+                                    </Stack>
+                                </Stack>
+                            </Paper>
+                        ))}
+                        {moments.length === 0 && (
+                            <Typography sx={{ textAlign: 'center', py: 4, opacity: 0.4, fontWeight: 600 }}>No moments shared yet.</Typography>
+                        )}
+                    </Stack>
+                )}
+            </Box>
 
             <EditProfileModal
                 open={isEditModalOpen}

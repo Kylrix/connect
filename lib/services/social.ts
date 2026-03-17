@@ -1,5 +1,5 @@
-import { ID, Query } from 'appwrite';
-import { tablesDB, realtime } from '../appwrite/client';
+import { ID, Query, Storage } from 'appwrite';
+import { tablesDB, realtime, storage } from '../appwrite/client';
 import { APPWRITE_CONFIG } from '../appwrite/config';
 
 const DB_ID = APPWRITE_CONFIG.DATABASES.CHAT;
@@ -186,12 +186,18 @@ export const SocialService = {
         return enriched;
     },
 
-    async getFeed(userId?: string) {
+    async getFeed(userId?: string, targetUserId?: string) {
         // Fetch public moments or moments from followed users
-        const moments = await tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
+        const queries = [
             Query.orderDesc('createdAt'),
             Query.limit(100)
-        ]);
+        ];
+
+        if (targetUserId) {
+            queries.push(Query.equal('userId', targetUserId));
+        }
+
+        const moments = await tablesDB.listRows(DB_ID, MOMENTS_TABLE, queries);
 
         // Enrich moments
         const enrichedRows = await Promise.all(moments.rows.map(async (moment: any) => {
@@ -218,6 +224,9 @@ export const SocialService = {
         // Filter: Only show replies if they have significant engagement (score > 1.0)
         // This ensures "high value" comments show up tied to their threads in the feed
         const filteredRows = rankedRows.filter((m: any) => {
+            // If we are looking at a specific user's feed, show their replies too
+            if (targetUserId && m.userId === targetUserId) return true;
+
             if (m.metadata?.type === 'reply') {
                 return m._rankScore > 1.0; 
             }
@@ -233,6 +242,13 @@ export const SocialService = {
         });
 
         return { ...moments, rows: sortedRows.slice(0, 50), total: sortedRows.length };
+    },
+
+    async getTrendingFeed(userId?: string) {
+        const feed = await this.getFeed(userId);
+        // Simply sort by rank score exclusively for trending
+        const trendingRows = [...feed.rows].sort((a, b) => (b._rankScore || 0) - (a._rankScore || 0));
+        return { ...feed, rows: trendingRows };
     },
 
     subscribeToFeed(callback: (event: { type: 'create' | 'update' | 'delete', payload: any }) => void) {
@@ -269,6 +285,24 @@ export const SocialService = {
             if (typeof unsubInteractions === 'function') unsubInteractions();
             else if (unsubInteractions?.unsubscribe) unsubInteractions.unsubscribe();
         };
+    },
+
+    async uploadMedia(file: File) {
+        try {
+            const uploaded = await storage.createFile(
+                APPWRITE_CONFIG.BUCKETS.MESSAGES, // Using messages bucket as it exists and is likely generic
+                ID.unique(),
+                file
+            );
+            return uploaded.$id;
+        } catch (e) {
+            console.error('Failed to upload media', e);
+            throw e;
+        }
+    },
+
+    getMediaPreview(fileId: string, width: number = 800, height: number = 600) {
+        return storage.getFilePreview(APPWRITE_CONFIG.BUCKETS.MESSAGES, fileId, width, height).toString();
     },
 
     async createMoment(creatorId: string, content: string, type: 'post' | 'reply' | 'pulse' | 'quote' = 'post', mediaIds: string[] = [], visibility: 'public' | 'private' | 'followers' = 'public', noteId?: string, eventId?: string, sourceId?: string) {
@@ -357,6 +391,46 @@ export const SocialService = {
             status: 'accepted',
             createdAt: new Date().toISOString()
         });
+    },
+
+    async unfollowUser(followerId: string, followingId: string) {
+        const existing = await tablesDB.listRows(DB_ID, FOLLOWS_TABLE, [
+            Query.equal('followerId', followerId),
+            Query.equal('followingId', followingId)
+        ]);
+
+        if (existing.total > 0) {
+            await tablesDB.deleteRow(DB_ID, FOLLOWS_TABLE, existing.rows[0].$id);
+            return true;
+        }
+        return false;
+    },
+
+    async isFollowing(followerId: string, followingId: string) {
+        const existing = await tablesDB.listRows(DB_ID, FOLLOWS_TABLE, [
+            Query.equal('followerId', followerId),
+            Query.equal('followingId', followingId)
+        ]);
+        return existing.total > 0;
+    },
+
+    async getFollowStats(userId: string) {
+        try {
+            const followers = await tablesDB.listRows(DB_ID, FOLLOWS_TABLE, [
+                Query.equal('followingId', userId),
+                Query.limit(1)
+            ]);
+            const following = await tablesDB.listRows(DB_ID, FOLLOWS_TABLE, [
+                Query.equal('followerId', userId),
+                Query.limit(1)
+            ]);
+            return {
+                followers: followers.total,
+                following: following.total
+            };
+        } catch (e) {
+            return { followers: 0, following: 0 };
+        }
     },
 
     async getMomentById(momentId: string, currentUserId?: string) {

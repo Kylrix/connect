@@ -19,11 +19,13 @@ import {
 } from '@mui/material';
 
 import { 
-    MessageSquare, 
+    MessageCircle, 
     Home, 
     Phone, 
     User, 
-    Settings, 
+    Settings,
+    LayoutGrid,
+    Search
 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useMemo, useEffect, useState } from 'react';
@@ -74,12 +76,13 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
     const isExternalProfile = pathname?.startsWith('/u/');
 
     const navItems = [
-        { label: 'Home', href: '/', icon: <Home size={20} strokeWidth={1.5} /> },
-        { label: 'Chats', href: '/chats', icon: <MessageSquare size={20} strokeWidth={1.5} /> },
-        { label: 'Calls', href: '/calls', icon: <Phone size={20} strokeWidth={1.5} /> },
-        { label: 'Profile', href: '/profile', icon: <User size={20} strokeWidth={1.5} /> },
-        { label: 'Settings', href: '/settings', icon: <Settings size={20} strokeWidth={1.5} /> },
+        { label: 'Home', icon: <Home size={24} />, href: '/' },
+        { label: 'Chats', icon: <MessageCircle size={24} />, href: '/chats' },
+        { label: 'Calls', icon: <Phone size={24} />, href: '/calls' },
+        { label: 'Profile', icon: <User size={24} />, href: '/profile' },
+        { label: 'Settings', icon: <Settings size={24} />, href: '/settings' },
     ];
+
 
     if (isEmbedded) {
         return (
@@ -241,26 +244,22 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
                     }} 
                 >
                     <BottomNavigation
-                        showLabels
                         value={pathname}
                         sx={{ bgcolor: 'transparent', height: 72 }}
                     >
                         {navItems.map((item) => (
                             <BottomNavigationAction
                                 key={item.href}
-                                label={item.label}
                                 icon={item.icon}
                                 component={Link}
                                 href={item.href}
                                 value={item.href}
                                 sx={{ 
                                     color: 'text.secondary',
+                                    minWidth: 0,
+                                    padding: '12px 0',
                                     '&.Mui-selected': { 
-                                        color: '#6366F1',
-                                        '& .MuiBottomNavigationAction-label': {
-                                            fontWeight: 700,
-                                            fontSize: '0.75rem'
-                                        }
+                                        color: '#6366F1'
                                     }
                                 }}
                             />
