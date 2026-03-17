@@ -42,12 +42,13 @@ import { fetchProfilePreview } from '@/lib/profile-preview';
 import { getUserProfilePicId } from '@/lib/user-utils';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
-import { TextField, InputAdornment } from '@mui/material';
+import { TextField, InputAdornment, Alert } from '@mui/material';
+import { LogIn } from 'lucide-react';
 
 export function PostViewClient() {
     const params = useParams();
     const router = useRouter();
-    const { user } = useAuth();
+    const { user, login } = useAuth();
     const [moment, setMoment] = useState<any>(null);
     const [replies, setReplies] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -138,7 +139,10 @@ export function PostViewClient() {
     }, [loadMoment, user, fetchUserAvatar]);
 
     const handleToggleLike = async (targetMoment?: any) => {
-        if (!user) return;
+        if (!user) {
+            toast.error('Please login to like this post');
+            return;
+        }
         const target = targetMoment || moment;
         if (!target) return;
 
@@ -166,7 +170,11 @@ export function PostViewClient() {
     };
 
     const handlePulse = async () => {
-        if (!user || !moment) return;
+        if (!user) {
+            toast.error('Please login to pulse this post');
+            return;
+        }
+        if (!moment) return;
         try {
             await SocialService.createMoment(user.$id, '', 'pulse', [], 'public', undefined, undefined, moment.$id);
             toast.success('Pulsed to your feed');
@@ -230,6 +238,29 @@ export function PostViewClient() {
     return (
         <AppShell>
             <Container maxWidth="sm" sx={{ py: { xs: 0.5, sm: 1 } }}>
+                {/* Public Access Banner */}
+                {!user && (
+                    <Alert 
+                        severity="info" 
+                        icon={<LogIn size={20} />}
+                        action={
+                            <Button color="inherit" size="small" onClick={login} sx={{ fontWeight: 800 }}>
+                                LOGIN
+                            </Button>
+                        }
+                        sx={{ 
+                            mb: 2, 
+                            borderRadius: '16px', 
+                            bgcolor: 'rgba(99, 102, 241, 0.1)', 
+                            color: '#6366F1',
+                            border: '1px solid rgba(99, 102, 241, 0.2)',
+                            '& .MuiAlert-icon': { color: '#6366F1' }
+                        }}
+                    >
+                        You are viewing this post as a guest. Login to like or reply.
+                    </Alert>
+                )}
+
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                     <IconButton onClick={() => router.back()} size="small" sx={{ color: 'white', bgcolor: 'rgba(255,255,255,0.03)' }}>
                         <ArrowLeft size={18} />
@@ -506,7 +537,7 @@ export function PostViewClient() {
                 {user && (
                     <Box sx={{ mt: 3, p: 2, bgcolor: '#161412', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.05)' }}>
                         <Stack direction="row" spacing={2}>
-                            <Avatar src={userAvatarUrl} sx={{ width: 40, height: 40, borderRadius: '10px' }}>
+                            <Avatar src={userAvatarUrl || undefined} sx={{ width: 40, height: 40, borderRadius: '10px' }}>
                                 {user.name?.charAt(0)}
                             </Avatar>
                             <TextField

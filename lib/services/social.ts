@@ -260,14 +260,14 @@ export const SocialService = {
         });
 
         return async () => {
-            const unsubMoments = await unsubMomentsPromise;
-            const unsubInteractions = await unsubInteractionsPromise;
+            const unsubMoments = await unsubMomentsPromise as any;
+            const unsubInteractions = await unsubInteractionsPromise as any;
 
             if (typeof unsubMoments === 'function') unsubMoments();
-            else if ((unsubMoments as any)?.unsubscribe) (unsubMoments as any).unsubscribe();
+            else if (unsubMoments?.unsubscribe) unsubMoments.unsubscribe();
             
             if (typeof unsubInteractions === 'function') unsubInteractions();
-            else if ((unsubInteractions as any)?.unsubscribe) (unsubInteractions as any).unsubscribe();
+            else if (unsubInteractions?.unsubscribe) unsubInteractions.unsubscribe();
         };
     },
 
