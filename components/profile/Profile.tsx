@@ -202,7 +202,7 @@ export const Profile = ({ username }: ProfileProps) => {
                                 width: 140, 
                                 height: 140, 
                                 fontSize: 48, 
-                                bgcolor: '#EC4899',
+                                bgcolor: '#F59E0B',
                                 color: 'black',
                                 fontWeight: 900,
                                 border: '4px solid rgba(255, 255, 255, 0.05)',
@@ -251,9 +251,9 @@ export const Profile = ({ username }: ProfileProps) => {
                                             px: 3,
                                             py: 1,
                                             fontWeight: 700,
-                                            bgcolor: '#EC4899',
+                                            bgcolor: '#F59E0B',
                                             color: 'black',
-                                            '&:hover': { bgcolor: alpha('#EC4899', 0.8) }
+                                            '&:hover': { bgcolor: alpha('#F59E0B', 0.8) }
                                         }}
                                         onClick={() => setIsEditModalOpen(true)}
                                     >
@@ -294,11 +294,11 @@ export const Profile = ({ username }: ProfileProps) => {
                                             px: 3,
                                             py: 1,
                                             fontWeight: 700,
-                                            bgcolor: isFollowing ? 'transparent' : '#EC4899',
-                                            color: isFollowing ? '#EC4899' : 'black',
-                                            borderColor: isFollowing ? '#EC4899' : 'none',
+                                            bgcolor: isFollowing ? 'transparent' : '#F59E0B',
+                                            color: isFollowing ? '#F59E0B' : 'black',
+                                            borderColor: isFollowing ? '#F59E0B' : 'none',
                                             '&:hover': { 
-                                                bgcolor: isFollowing ? alpha('#EC4899', 0.05) : alpha('#EC4899', 0.8) 
+                                                bgcolor: isFollowing ? alpha('#F59E0B', 0.05) : alpha('#F59E0B', 0.8) 
                                             }
                                         }}
                                         onClick={handleFollow}
@@ -342,7 +342,7 @@ export const Profile = ({ username }: ProfileProps) => {
                 gap: 1.5,
                 opacity: 0.8
             }}>
-                <Activity size={20} color="#EC4899" /> Activity Stats
+                <Activity size={20} color="#F59E0B" /> Activity Stats
             </Typography>
             <Stack direction="row" spacing={2}>
                 <Paper sx={{ 
@@ -365,7 +365,7 @@ export const Profile = ({ username }: ProfileProps) => {
                         borderRadius: '24px'
                     }
                 }} elevation={0}>
-                    <Typography variant="h4" sx={{ fontWeight: 900, color: '#EC4899', fontFamily: 'var(--font-clash)' }}>0</Typography>
+                    <Typography variant="h4" sx={{ fontWeight: 900, color: '#F59E0B', fontFamily: 'var(--font-clash)' }}>0</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 700, opacity: 0.4, textTransform: 'uppercase', letterSpacing: '0.1em', mt: 1 }}>Posts</Typography>
                 </Paper>
                 <Paper sx={{ 
@@ -411,7 +411,7 @@ export const Profile = ({ username }: ProfileProps) => {
                         borderRadius: '24px'
                     }
                 }} elevation={0}>
-                    <Typography variant="h4" sx={{ fontWeight: 900, color: 'var(--color-titanium)', fontFamily: 'var(--font-clash)' }}>0</Typography>
+                    <Typography variant="h4" sx={{ fontWeight: 900, color: '#F59E0B', fontFamily: 'var(--font-clash)' }}>0</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 700, opacity: 0.4, textTransform: 'uppercase', letterSpacing: '0.1em', mt: 1 }}>Following</Typography>
                 </Paper>
             </Stack>

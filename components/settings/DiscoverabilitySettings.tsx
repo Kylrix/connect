@@ -290,7 +290,7 @@ export const DiscoverabilitySettings = () => {
                                         Communication Sync Incomplete
                                     </Typography>
                                     <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.5)', lineHeight: 1.4 }}>
-                                        Your handle is reserved, but your E2E encryption keys aren't published.
+                                        Your handle is reserved, but your E2E encryption keys aren&apos;t published.
                                         Others cannot send you encrypted messages yet.
                                     </Typography>
                                 </Box>

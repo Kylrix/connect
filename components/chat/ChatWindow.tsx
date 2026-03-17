@@ -1105,20 +1105,6 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                                     borderRadius: msg.senderId === user?.$id ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
                                 }
                             }}>
-                                border: '1px solid rgba(255, 255, 255, 0.05)',
-                                boxShadow: '0 1px 0 rgba(0,0,0,0.4)',
-                                position: 'relative',
-                                '&::before': {
-                                    content: '""',
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    right: 0,
-                                    height: '1px',
-                                    background: 'rgba(255,255,255,0.05)',
-                                    borderRadius: msg.senderId === user?.$id ? '20px 20px 4px 20px' : '20px 20px 20px 4px'
-                                }
-                            }}>
                                 {renderMessageContent(msg)}
                             </Paper>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, alignSelf: msg.senderId === user?.$id ? 'flex-end' : 'flex-start', px: 0.5 }}>

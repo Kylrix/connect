@@ -21,19 +21,25 @@ import {
     Menu,
     MenuItem,
     Paper,
-    alpha
+    alpha,
+    Tooltip,
+    Stack
 } from '@mui/material';
 import {
     Heart,
-    MessageSquare,
-    Share2,
+    MessageCircle,
+    Repeat2,
+    Share,
     Bookmark,
     X,
     FileText,
     Calendar,
     Send,
     MapPin,
-    Clock
+    Clock,
+    MoreHorizontal,
+    Trash2,
+    Edit
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { fetchProfilePreview } from '@/lib/profile-preview';
@@ -51,6 +57,9 @@ export const Feed = () => {
     const [newMoment, setNewMoment] = useState('');
     const [posting, setPosting] = useState(false);
     const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
+
+    const [postMenuAnchorEl, setPostMenuAnchorEl] = useState<null | HTMLElement>(null);
+    const [menuMoment, setMenuMoment] = useState<any>(null);
 
     const [shareAnchorEl, setShareAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedMoment, setSelectedMoment] = useState<any>(null);
@@ -232,6 +241,17 @@ export const Feed = () => {
         setShareAnchorEl(null);
     };
 
+    const handleDeletePost = async (momentId: string) => {
+        if (!window.confirm('Are you sure you want to delete this moment?')) return;
+        try {
+            await SocialService.deleteMoment(momentId);
+            setMoments(prev => prev.filter(m => m.$id !== momentId));
+            setPostMenuAnchorEl(null);
+        } catch (error) {
+            console.error('Failed to delete post:', error);
+        }
+    };
+
     if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress sx={{ color: 'primary.main' }} /></Box>;
 
     return (
@@ -243,7 +263,7 @@ export const Feed = () => {
                         <Box sx={{ display: 'flex', gap: 2 }}>
                             <Avatar
                                 src={userAvatarUrl || undefined}
-                                sx={{ bgcolor: 'rgba(0, 240, 255, 0.1)', color: 'primary.main', fontWeight: 800 }}
+                                sx={{ bgcolor: alpha('#F59E0B', 0.1), color: '#F59E0B', fontWeight: 800 }}
                             >
                                 {user.name?.charAt(0).toUpperCase() || 'U'}
                             </Avatar>
@@ -367,9 +387,9 @@ export const Feed = () => {
                                 px: 4,
                                 fontWeight: 800,
                                 textTransform: 'none',
-                                bgcolor: 'primary.main',
+                                bgcolor: '#F59E0B',
                                 color: 'black',
-                                '&:hover': { bgcolor: alpha('#00F0FF', 0.8) }
+                                '&:hover': { bgcolor: alpha('#F59E0B', 0.8) }
                             }}
                         >
                             {posting ? <CircularProgress size={20} color="inherit" /> : 'Post'}
@@ -379,29 +399,61 @@ export const Feed = () => {
             )}
 
             {/* Feed */}
-            {moments.map((moment) => (
-                <Card key={moment.$id} sx={{ mb: 3, borderRadius: '24px', bgcolor: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', transition: 'all 0.2s ease', '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.03)' } }} elevation={0}>
-                    <CardHeader
-                        avatar={
-                            <Avatar
-                                src={moment.creator?.avatar || undefined}
-                                sx={{ bgcolor: 'rgba(255, 255, 255, 0.05)', color: 'text.secondary', border: '1px solid rgba(255, 255, 255, 0.1)' }}
-                            >
-                                {moment.creator?.username?.charAt(0).toUpperCase() || '?'}
-                            </Avatar>
-                        }
-                        title={
-                            <Typography sx={{ fontWeight: 800, fontSize: '1rem' }}>
-                                {moment.creator?.displayName || moment.creator?.username || 'Unknown'}
-                            </Typography>
-                        }
-                        subheader={
-                            <Typography variant="caption" sx={{ opacity: 0.5, fontWeight: 600 }}>
-                                {new Date(moment.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                            </Typography>
-                        }
-                    />
-                    <CardContent sx={{ pt: 0, px: 3 }}>
+            {moments.map((moment) => {
+                const isOwnPost = user?.$id === (moment.userId || moment.creatorId);
+                const creatorName = isOwnPost ? (user?.name || 'You') : (moment.creator?.displayName || moment.creator?.username || 'Unknown');
+                const creatorAvatar = isOwnPost ? userAvatarUrl : (moment.creator?.avatar || undefined);
+
+                return (
+                    <Card key={moment.$id} sx={{ mb: 3, borderRadius: '24px', bgcolor: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', transition: 'all 0.2s ease', '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.03)' } }} elevation={0}>
+                        <CardHeader
+                            avatar={
+                                <Avatar
+                                    src={creatorAvatar}
+                                    sx={{ 
+                                        bgcolor: isOwnPost ? '#F59E0B' : 'rgba(255, 255, 255, 0.05)', 
+                                        color: isOwnPost ? '#000' : 'text.secondary', 
+                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                        fontWeight: isOwnPost ? 800 : 500,
+                                        borderRadius: '10px'
+                                    }}
+                                >
+                                    {creatorName.charAt(0).toUpperCase()}
+                                </Avatar>
+                            }
+                            title={
+                                <Typography sx={{ fontWeight: 800, fontSize: '1rem', color: isOwnPost ? '#F59E0B' : 'text.primary' }}>
+                                    {creatorName}
+                                    {isOwnPost && (
+                                        <Typography component="span" variant="caption" sx={{ ml: 1, opacity: 0.5, fontWeight: 700, verticalAlign: 'middle' }}>
+                                            (YOU)
+                                        </Typography>
+                                    )}
+                                </Typography>
+                            }
+                            subheader={
+                                <Typography variant="caption" sx={{ opacity: 0.5, fontWeight: 600 }}>
+                                    {new Date(moment.createdAt || moment.$createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                </Typography>
+                            }
+                            action={
+                                isOwnPost && (
+                                    <IconButton 
+                                        onClick={(e) => { 
+                                            setPostMenuAnchorEl(e.currentTarget); 
+                                            setMenuMoment(moment); 
+                                        }}
+                                        sx={{ color: 'rgba(255, 255, 255, 0.3)' }}
+                                    >
+                                        <MoreHorizontal size={20} />
+                                    </IconButton>
+                                )
+                            }
+                        />
+                        <CardContent 
+                            sx={{ pt: 0, px: 3, cursor: 'pointer' }}
+                            onClick={() => router.push(`/post/${moment.$id}`)}
+                        >
                         {moment.caption && moment.caption.trim() !== "" && (
                             <Typography variant="body1" sx={{ lineHeight: 1.6, fontSize: '1.05rem', mb: moment.attachedNote ? 2 : 0 }}>
                                 {moment.caption}
@@ -599,28 +651,111 @@ export const Feed = () => {
                             </Paper>
                         )}
                     </CardContent>
-                    <CardActions sx={{ px: 2, pb: 2, gap: 1 }}>
-                        <Button
-                            startIcon={<Heart size={18} strokeWidth={1.5} />}
-                            sx={{ color: 'text.secondary', textTransform: 'none', fontWeight: 700, borderRadius: '10px', '&:hover': { color: '#ff4d4d', bgcolor: alpha('#ff4d4d', 0.1) } }}
-                        >
-                            Like
-                        </Button>
-                        <Button
-                            startIcon={<MessageSquare size={18} strokeWidth={1.5} />}
-                            sx={{ color: 'text.secondary', textTransform: 'none', fontWeight: 700, borderRadius: '10px' }}
-                        >
-                            Reply
-                        </Button>
-                        <IconButton
-                            onClick={(e) => { setShareAnchorEl(e.currentTarget); setSelectedMoment(moment); }}
-                            sx={{ ml: 'auto', color: 'text.secondary' }}
-                        >
-                            <Share2 size={20} strokeWidth={1.5} />
-                        </IconButton>
+                    <CardActions sx={{ px: 2, pb: 1, pt: 0, justifyContent: 'space-around', color: 'rgba(255, 255, 255, 0.4)' }}>
+                        <Tooltip title="Reply">
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <IconButton 
+                                    size="small"
+                                    sx={{ 
+                                        p: 1,
+                                        '&:hover': { color: '#6366F1', bgcolor: alpha('#6366F1', 0.1) } 
+                                    }}
+                                >
+                                    <MessageCircle size={19} strokeWidth={1.5} />
+                                </IconButton>
+                                <Typography variant="caption" sx={{ fontWeight: 700, opacity: 0.5 }}>0</Typography>
+                            </Box>
+                        </Tooltip>
+
+                        <Tooltip title="Pulse">
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <IconButton 
+                                    size="small"
+                                    sx={{ 
+                                        p: 1,
+                                        '&:hover': { color: '#10B981', bgcolor: alpha('#10B981', 0.1) } 
+                                    }}
+                                >
+                                    <Repeat2 size={19} strokeWidth={1.5} />
+                                </IconButton>
+                                <Typography variant="caption" sx={{ fontWeight: 700, opacity: 0.5 }}>0</Typography>
+                            </Box>
+                        </Tooltip>
+
+                        <Tooltip title="Heart">
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <IconButton 
+                                    size="small"
+                                    sx={{ 
+                                        p: 1,
+                                        '&:hover': { color: '#F59E0B', bgcolor: alpha('#F59E0B', 0.1) } 
+                                    }}
+                                >
+                                    <Heart size={19} strokeWidth={1.5} />
+                                </IconButton>
+                                <Typography variant="caption" sx={{ fontWeight: 700, opacity: 0.5 }}>0</Typography>
+                            </Box>
+                        </Tooltip>
+
+                        <Tooltip title="Bookmark">
+                            <IconButton 
+                                size="small"
+                                sx={{ 
+                                    p: 1,
+                                    '&:hover': { color: '#EC4899', bgcolor: alpha('#EC4899', 0.1) } 
+                                }}
+                            >
+                                <Bookmark size={19} strokeWidth={1.5} />
+                            </IconButton>
+                        </Tooltip>
+
+                        <Tooltip title="Share">
+                            <IconButton
+                                size="small"
+                                onClick={(e) => { 
+                                    e.stopPropagation();
+                                    setShareAnchorEl(e.currentTarget); 
+                                    setSelectedMoment(moment); 
+                                }}
+                                sx={{ 
+                                    p: 1,
+                                    '&:hover': { color: '#6366F1', bgcolor: alpha('#6366F1', 0.1) } 
+                                }}
+                            >
+                                <Share size={19} strokeWidth={1.5} />
+                            </IconButton>
+                        </Tooltip>
                     </CardActions>
                 </Card>
-            ))}
+                );
+            })}
+
+            <Menu
+                anchorEl={postMenuAnchorEl}
+                open={Boolean(postMenuAnchorEl)}
+                onClose={() => setPostMenuAnchorEl(null)}
+                PaperProps={{
+                    sx: {
+                        mt: 1,
+                        borderRadius: '16px',
+                        bgcolor: 'rgba(15, 15, 15, 0.95)',
+                        backdropFilter: 'blur(20px)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        minWidth: 160
+                    }
+                }}
+            >
+                <MenuItem sx={{ gap: 1.5, py: 1.2, fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    <Edit size={16} strokeWidth={2} style={{ opacity: 0.7 }} /> Edit Moment
+                </MenuItem>
+                <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.05)' }} />
+                <MenuItem 
+                    onClick={() => menuMoment && handleDeletePost(menuMoment.$id)}
+                    sx={{ gap: 1.5, py: 1.2, fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#ff4d4d' }}
+                >
+                    <Trash2 size={16} strokeWidth={2} /> Delete Moment
+                </MenuItem>
+            </Menu>
 
             <Menu
                 anchorEl={shareAnchorEl}

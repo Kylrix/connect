@@ -142,5 +142,35 @@ export const SocialService = {
             status: 'accepted',
             createdAt: new Date().toISOString()
         });
+    },
+
+    async getMomentById(momentId: string) {
+        const moment = await tablesDB.getRow(DB_ID, MOMENTS_TABLE, momentId);
+        
+        // Enrich moment with attached data (notes or events) if present
+        if (moment.fileId) {
+            if (moment.fileId.startsWith('note:')) {
+                const noteId = moment.fileId.replace('note:', '');
+                try {
+                    const note = await tablesDB.getRow(
+                        APPWRITE_CONFIG.DATABASES.KYLRIXNOTE,
+                        '67ff05f3002502ef239e',
+                        noteId
+                    );
+                    return { ...moment, attachedNote: note };
+                } catch (_e: unknown) {}
+            } else if (moment.fileId.startsWith('event:')) {
+                const eventId = moment.fileId.replace('event:', '');
+                try {
+                    const event = await tablesDB.getRow(
+                        APPWRITE_CONFIG.DATABASES.KYLRIXFLOW,
+                        'events',
+                        eventId
+                    );
+                    return { ...moment, attachedEvent: event };
+                } catch (_e: unknown) {}
+            }
+        }
+        return moment;
     }
 };
