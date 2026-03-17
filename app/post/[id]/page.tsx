@@ -36,19 +36,24 @@ import {
     FileText,
     MapPin,
     Clock,
-    Link2
+    Link2,
+    Send
 } from 'lucide-react';
 import { fetchProfilePreview } from '@/lib/profile-preview';
 import { getUserProfilePicId } from '@/lib/user-utils';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { TextField, InputAdornment } from '@mui/material';
 
 export default function PostView() {
     const params = useParams();
     const router = useRouter();
     const { user } = useAuth();
     const [moment, setMoment] = useState<any>(null);
+    const [replies, setReplies] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [replying, setReplying] = useState(false);
+    const [replyContent, setReplyContent] = useState('');
     const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
 
     const fetchUserAvatar = useCallback(async () => {
@@ -67,7 +72,7 @@ export default function PostView() {
         if (!params.id) return;
         try {
             const id = Array.isArray(params.id) ? params.id[0] : params.id;
-            const data = await SocialService.getMomentById(id);
+            const data = await SocialService.getMomentById(id, user?.$id);
             
             // Enrich creator
             const creatorId = data.userId || data.creatorId;
@@ -82,18 +87,85 @@ export default function PostView() {
             }
 
             setMoment({ ...data, creator: { ...creator, avatar } });
+
+            // Fetch replies
+            const replyData = await SocialService.getReplies(id, user?.$id);
+            const enrichedReplies = await Promise.all(replyData.map(async (reply) => {
+                const rCreatorId = reply.userId || reply.creatorId;
+                const rCreator = await UsersService.getProfileById(rCreatorId);
+                let rAvatar = null;
+                if (rCreator?.avatar) {
+                    try {
+                        const url = await fetchProfilePreview(rCreator.avatar, 48, 48);
+                        rAvatar = url as unknown as string;
+                    } catch (_e) {}
+                }
+                return { ...reply, creator: { ...rCreator, avatar: rAvatar } };
+            }));
+            setReplies(enrichedReplies);
+
         } catch (error) {
             console.error('Failed to load moment:', error);
             toast.error('Moment not found');
         } finally {
             setLoading(false);
         }
-    }, [params.id]);
+    }, [params.id, user]);
 
     useEffect(() => {
         loadMoment();
         if (user) fetchUserAvatar();
     }, [loadMoment, user, fetchUserAvatar]);
+
+    const handleToggleLike = async () => {
+        if (!user || !moment) return;
+        try {
+            const { liked } = await SocialService.toggleLike(user.$id, moment.$id);
+            setMoment(prev => ({ 
+                ...prev, 
+                isLiked: liked,
+                stats: { ...prev.stats, likes: prev.stats.likes + (liked ? 1 : -1) }
+            }));
+        } catch (e) {
+            toast.error('Failed to update like');
+        }
+    };
+
+    const handlePulse = async () => {
+        if (!user || !moment) return;
+        try {
+            await SocialService.createMoment(user.$id, '', 'pulse', [], 'public', undefined, undefined, moment.$id);
+            toast.success('Pulsed to your feed');
+            loadMoment();
+        } catch (e) {
+            toast.error('Failed to pulse');
+        }
+    };
+
+    const handleReply = async () => {
+        if (!user || !moment || !replyContent.trim()) return;
+        setReplying(true);
+        try {
+            await SocialService.createMoment(
+                user.$id, 
+                replyContent, 
+                'reply', 
+                [], 
+                'public', 
+                undefined, 
+                undefined, 
+                moment.$id
+            );
+            setReplyContent('');
+            toast.success('Reply posted!');
+            loadMoment(); // Refresh replies
+        } catch (e) {
+            console.error('Failed to post reply:', e);
+            toast.error('Failed to post reply');
+        } finally {
+            setReplying(false);
+        }
+    };
 
     const handleCopyLink = () => {
         navigator.clipboard.writeText(window.location.href);
@@ -274,11 +346,15 @@ export default function PostView() {
                         
                         <Stack direction="row" spacing={3} sx={{ py: 1 }}>
                             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                                <Typography sx={{ fontWeight: 900, fontSize: '0.9rem' }}>0</Typography>
+                                <Typography sx={{ fontWeight: 900, fontSize: '0.9rem' }}>{moment.stats?.replies || 0}</Typography>
                                 <Typography variant="caption" sx={{ opacity: 0.5, fontWeight: 700 }}>REPLIES</Typography>
                             </Box>
                             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                                <Typography sx={{ fontWeight: 900, fontSize: '0.9rem' }}>0</Typography>
+                                <Typography sx={{ fontWeight: 900, fontSize: '0.9rem' }}>{moment.stats?.pulses || 0}</Typography>
+                                <Typography variant="caption" sx={{ opacity: 0.5, fontWeight: 700 }}>PULSES</Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                <Typography sx={{ fontWeight: 900, fontSize: '0.9rem' }}>{moment.stats?.likes || 0}</Typography>
                                 <Typography variant="caption" sx={{ opacity: 0.5, fontWeight: 700 }}>LIKES</Typography>
                             </Box>
                         </Stack>
@@ -292,13 +368,22 @@ export default function PostView() {
                                 </IconButton>
                             </Tooltip>
                             <Tooltip title="Pulse">
-                                <IconButton sx={{ '&:hover': { color: '#10B981', bgcolor: alpha('#10B981', 0.1) } }}>
+                                <IconButton 
+                                    onClick={handlePulse}
+                                    sx={{ '&:hover': { color: '#10B981', bgcolor: alpha('#10B981', 0.1) } }}
+                                >
                                     <Repeat2 size={22} />
                                 </IconButton>
                             </Tooltip>
                             <Tooltip title="Heart">
-                                <IconButton sx={{ '&:hover': { color: '#F59E0B', bgcolor: alpha('#F59E0B', 0.1) } }}>
-                                    <Heart size={22} />
+                                <IconButton 
+                                    onClick={handleToggleLike}
+                                    sx={{ 
+                                        color: moment.isLiked ? '#F59E0B' : 'inherit',
+                                        '&:hover': { color: '#F59E0B', bgcolor: alpha('#F59E0B', 0.1) } 
+                                    }}
+                                >
+                                    <Heart size={22} fill={moment.isLiked ? '#F59E0B' : 'none'} />
                                 </IconButton>
                             </Tooltip>
                             <Tooltip title="Bookmark">
@@ -322,12 +407,91 @@ export default function PostView() {
                     </CardContent>
                 </Card>
 
-                {/* Reply Section Placeholder */}
-                <Box sx={{ mt: 3, p: 2, bgcolor: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' }}>
-                    <Typography variant="body2" sx={{ opacity: 0.5, fontWeight: 700 }}>
-                        Replies are currently evolving in the Intelligence Feed.
-                    </Typography>
-                </Box>
+                {/* Reply Composer */}
+                {user && (
+                    <Box sx={{ mt: 3, p: 2, bgcolor: '#161412', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <Stack direction="row" spacing={2}>
+                            <Avatar src={userAvatarUrl} sx={{ width: 40, height: 40, borderRadius: '10px' }}>
+                                {user.name?.charAt(0)}
+                            </Avatar>
+                            <TextField
+                                fullWidth
+                                placeholder="Post your reply"
+                                variant="standard"
+                                multiline
+                                maxRows={10}
+                                value={replyContent}
+                                onChange={(e) => setReplyContent(e.target.value)}
+                                InputProps={{
+                                    disableUnderline: true,
+                                    sx: { color: 'white', py: 1, fontSize: '1.1rem' },
+                                    endAdornment: (
+                                        <InputAdornment position="end">
+                                            <IconButton 
+                                                onClick={handleReply}
+                                                disabled={!replyContent.trim() || replying}
+                                                sx={{ 
+                                                    bgcolor: '#F59E0B', 
+                                                    color: 'black',
+                                                    '&:hover': { bgcolor: alpha('#F59E0B', 0.8) },
+                                                    '&.Mui-disabled': { bgcolor: 'rgba(245, 158, 11, 0.2)', color: 'rgba(0,0,0,0.3)' }
+                                                }}
+                                            >
+                                                {replying ? <CircularProgress size={20} color="inherit" /> : <Send size={18} />}
+                                            </IconButton>
+                                        </InputAdornment>
+                                    )
+                                }}
+                            />
+                        </Stack>
+                    </Box>
+                )}
+
+                {/* Replies Feed */}
+                <Stack spacing={2} sx={{ mt: 4 }}>
+                    {replies.map((reply) => {
+                        const rCreatorName = reply.creator?.displayName || reply.creator?.username || 'Unknown';
+                        return (
+                            <Box key={reply.$id} sx={{ 
+                                display: 'flex', 
+                                gap: 2, 
+                                p: 2, 
+                                borderBottom: '1px solid rgba(255,255,255,0.03)',
+                                transition: 'background 0.2s',
+                                '&:hover': { bgcolor: 'rgba(255,255,255,0.01)' }
+                            }}>
+                                <Avatar 
+                                    src={reply.creator?.avatar} 
+                                    sx={{ width: 40, height: 40, borderRadius: '10px', bgcolor: 'rgba(255,255,255,0.05)' }}
+                                >
+                                    {rCreatorName.charAt(0)}
+                                </Avatar>
+                                <Box sx={{ flex: 1 }}>
+                                    <Stack direction="row" spacing={1} alignItems="center">
+                                        <Typography sx={{ fontWeight: 800, fontSize: '0.95rem' }}>{rCreatorName}</Typography>
+                                        <Typography variant="caption" sx={{ opacity: 0.4 }}>@{reply.creator?.username}</Typography>
+                                        <Typography variant="caption" sx={{ opacity: 0.4 }}>· {format(new Date(reply.$createdAt), 'MMM d')}</Typography>
+                                    </Stack>
+                                    <Typography sx={{ mt: 0.5, color: 'rgba(255,255,255,0.8)', fontSize: '1rem', whiteSpace: 'pre-wrap' }}>
+                                        {reply.caption}
+                                    </Typography>
+                                    
+                                    <Stack direction="row" spacing={4} sx={{ mt: 1.5, color: 'rgba(255,255,255,0.4)' }}>
+                                        <IconButton size="small" sx={{ p: 0.5, '&:hover': { color: '#6366F1' } }}>
+                                            <MessageCircle size={16} />
+                                        </IconButton>
+                                        <IconButton size="small" sx={{ p: 0.5, '&:hover': { color: '#10B981' } }}>
+                                            <Repeat2 size={16} />
+                                        </IconButton>
+                                        <IconButton size="small" sx={{ p: 0.5, '&:hover': { color: '#F59E0B' } }}>
+                                            <Heart size={16} />
+                                        </IconButton>
+                                    </Stack>
+                                </Box>
+                            </Box>
+                        );
+                    })}
+                </Stack>
             </Container>
         </AppShell>
     );

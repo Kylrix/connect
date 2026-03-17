@@ -49,6 +49,9 @@ import { NoteViewDrawer } from './NoteViewDrawer';
 import { EventSelectorModal } from './EventSelectorModal';
 import { EventViewDrawer } from './EventViewDrawer';
 
+import { format } from 'date-fns';
+import toast from 'react-hot-toast';
+
 export const Feed = () => {
     const { user } = useAuth();
     const router = useRouter();
@@ -60,6 +63,9 @@ export const Feed = () => {
 
     const [postMenuAnchorEl, setPostMenuAnchorEl] = useState<null | HTMLElement>(null);
     const [menuMoment, setMenuMoment] = useState<any>(null);
+
+    const [pulseMenuAnchorEl, setPulseMenuAnchorEl] = useState<null | HTMLElement>(null);
+    const [pulseTarget, setPulseTarget] = useState<any>(null);
 
     const [shareAnchorEl, setShareAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedMoment, setSelectedMoment] = useState<any>(null);
@@ -155,7 +161,7 @@ export const Feed = () => {
                             } catch (_e: unknown) { }
                         }
 
-                        const enrichedMoment = {
+                        const enrichedMoment = await SocialService.enrichMoment({
                             ...moment,
                             creator: creator ? { ...creator, avatar } : {
                                 username: `user_${creatorId.slice(0, 5)}`,
@@ -163,7 +169,7 @@ export const Feed = () => {
                                 avatar: null,
                                 $id: creatorId
                             }
-                        };
+                        }, user.$id);
 
                         setMoments(prev => {
                             if (prev.some(m => m.$id === enrichedMoment.$id)) return prev;
@@ -174,6 +180,18 @@ export const Feed = () => {
                     }
                 } else if (event.type === 'delete') {
                     setMoments(prev => prev.filter(m => m.$id !== event.payload.$id));
+                } else if (event.type === 'update') {
+                    const payload = event.payload as any;
+                    // If it's just an interaction update, re-fetch the specific moment stats
+                    if (payload._interactionUpdate) {
+                        const updatedStats = await SocialService.getInteractionCounts(payload.$id);
+                        const isLiked = await SocialService.isLiked(user.$id, payload.$id);
+                        setMoments(prev => prev.map(m => m.$id === payload.$id ? { ...m, stats: updatedStats, isLiked } : m));
+                    } else {
+                        // Standard update (e.g. caption changed)
+                        const enriched = await SocialService.enrichMoment(payload, user.$id);
+                        setMoments(prev => prev.map(m => m.$id === enriched.$id ? { ...m, ...enriched } : m));
+                    }
                 }
             });
 
@@ -185,19 +203,40 @@ export const Feed = () => {
     }, [user, loadFeed, fetchUserAvatar]);
 
     const handlePost = async () => {
-        if (!newMoment.trim() && !selectedNote && !selectedEvent) return;
+        if (!newMoment.trim() && !selectedNote && !selectedEvent && !pulseTarget) return;
         setPosting(true);
         try {
-            await SocialService.createMoment(user!.$id, newMoment, 'image', [], 'public', selectedNote?.$id, selectedEvent?.$id);
+            const type = pulseTarget ? 'quote' : 'post';
+            await SocialService.createMoment(user!.$id, newMoment, type, [], 'public', selectedNote?.$id, selectedEvent?.$id, pulseTarget?.$id);
             setNewMoment('');
             setSelectedNote(null);
             setSelectedEvent(null);
+            setPulseTarget(null);
             loadFeed();
         } catch (error: unknown) {
             console.error('Failed to post:', error);
         } finally {
             setPosting(false);
         }
+    };
+
+    const handlePulse = async (moment: any) => {
+        if (!user) return;
+        try {
+            await SocialService.createMoment(user.$id, '', 'pulse', [], 'public', undefined, undefined, moment.$id);
+            toast.success('Pulsed to your feed');
+            loadFeed();
+        } catch (e) {
+            toast.error('Failed to pulse');
+        }
+        setPulseMenuAnchorEl(null);
+    };
+
+    const handleQuote = (moment: any) => {
+        // Open composer with sourceMoment set
+        setPulseTarget(moment);
+        setPulseMenuAnchorEl(null);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const handleOpenNote = (note: any) => {
@@ -252,7 +291,24 @@ export const Feed = () => {
         }
     };
 
-    if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress sx={{ color: 'primary.main' }} /></Box>;
+    const handleToggleLike = async (e: React.MouseEvent, moment: any) => {
+        e.stopPropagation();
+        if (!user) return;
+        try {
+            const creatorId = moment.userId || moment.creatorId;
+            const contentSnippet = moment.caption?.substring(0, 30);
+            const { liked } = await SocialService.toggleLike(user.$id, moment.$id, creatorId, contentSnippet);
+            setMoments(prev => prev.map(m => m.$id === moment.$id ? { 
+                ...m, 
+                isLiked: liked,
+                stats: { ...m.stats, likes: m.stats.likes + (liked ? 1 : -1) }
+            } : m));
+        } catch (e) {
+            toast.error('Failed to update like');
+        }
+    };
+
+    if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress sx={{ color: '#F59E0B' }} /></Box>;
 
     return (
         <Box sx={{ maxWidth: 600, mx: 'auto', p: { xs: 1, sm: 2 } }}>
@@ -341,6 +397,37 @@ export const Feed = () => {
                                 <IconButton
                                     size="small"
                                     onClick={() => setSelectedEvent(null)}
+                                    sx={{ ml: 1 }}
+                                >
+                                    <X size={16} strokeWidth={1.5} />
+                                </IconButton>
+                            </Paper>
+                        )}
+
+                        {pulseTarget && (
+                            <Paper
+                                variant="outlined"
+                                sx={{
+                                    mt: 2,
+                                    p: 2,
+                                    borderRadius: 3,
+                                    bgcolor: 'rgba(16, 185, 129, 0.03)',
+                                    borderColor: 'rgba(16, 185, 129, 0.2)',
+                                    position: 'relative'
+                                }}
+                            >
+                                <Repeat2 size={20} color="#10B981" style={{ marginRight: '16px' }} strokeWidth={1.5} />
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography variant="subtitle2" fontWeight={800} noWrap>
+                                        Quoting @{pulseTarget.creator?.username}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
+                                        {pulseTarget.caption?.substring(0, 60)}...
+                                    </Typography>
+                                </Box>
+                                <IconButton
+                                    size="small"
+                                    onClick={() => setPulseTarget(null)}
                                     sx={{ ml: 1 }}
                                 >
                                     <X size={16} strokeWidth={1.5} />
@@ -454,10 +541,40 @@ export const Feed = () => {
                             sx={{ pt: 0, px: 3, cursor: 'pointer' }}
                             onClick={() => router.push(`/post/${moment.$id}`)}
                         >
+                        {/* Repost/Pulse Header */}
+                        {moment.metadata?.type === 'pulse' && moment.sourceMoment && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, color: '#10B981', opacity: 0.8 }}>
+                                <Repeat2 size={14} strokeWidth={3} />
+                                <Typography variant="caption" sx={{ fontWeight: 800, letterSpacing: '0.05em' }}>
+                                    {isOwnPost ? 'YOU PULSED' : `${creatorName.toUpperCase()} PULSED`}
+                                </Typography>
+                            </Box>
+                        )}
+
                         {moment.caption && moment.caption.trim() !== "" && (
-                            <Typography variant="body1" sx={{ lineHeight: 1.6, fontSize: '1.05rem', mb: moment.attachedNote ? 2 : 0 }}>
+                            <Typography variant="body1" sx={{ lineHeight: 1.6, fontSize: '1.05rem', mb: (moment.attachedNote || moment.sourceMoment) ? 2 : 0 }}>
                                 {moment.caption}
                             </Typography>
+                        )}
+
+                        {/* Pulsed/Reposted Content */}
+                        {moment.metadata?.type === 'pulse' && moment.sourceMoment && (
+                            <Paper sx={{ 
+                                p: 2, 
+                                borderRadius: 4, 
+                                bgcolor: 'rgba(255,255,255,0.01)', 
+                                border: '1px solid rgba(255,255,255,0.05)',
+                                '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' }
+                            }}>
+                                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                                    <Avatar src={moment.sourceMoment.creator?.avatar} sx={{ width: 20, height: 20, borderRadius: '6px' }} />
+                                    <Typography sx={{ fontWeight: 800, fontSize: '0.85rem' }}>{moment.sourceMoment.creator?.displayName || moment.sourceMoment.creator?.username}</Typography>
+                                    <Typography variant="caption" sx={{ opacity: 0.4 }}>@{moment.sourceMoment.creator?.username}</Typography>
+                                </Stack>
+                                <Typography variant="body2" sx={{ opacity: 0.8, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                    {moment.sourceMoment.caption}
+                                </Typography>
+                            </Paper>
                         )}
 
                         {moment.attachedNote && (
@@ -651,7 +768,7 @@ export const Feed = () => {
                             </Paper>
                         )}
                     </CardContent>
-                    <CardActions sx={{ px: 2, pb: 1, pt: 0, justifyContent: 'space-around', color: 'rgba(255, 255, 255, 0.4)' }}>
+                        <CardActions sx={{ px: 2, pb: 1, pt: 0, justifyContent: 'space-around', color: 'rgba(255, 255, 255, 0.4)' }}>
                         <Tooltip title="Reply">
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                 <IconButton 
@@ -663,7 +780,7 @@ export const Feed = () => {
                                 >
                                     <MessageCircle size={19} strokeWidth={1.5} />
                                 </IconButton>
-                                <Typography variant="caption" sx={{ fontWeight: 700, opacity: 0.5 }}>0</Typography>
+                                <Typography variant="caption" sx={{ fontWeight: 700, opacity: 0.5 }}>{moment.stats?.replies || 0}</Typography>
                             </Box>
                         </Tooltip>
 
@@ -671,6 +788,11 @@ export const Feed = () => {
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                 <IconButton 
                                     size="small"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPulseMenuAnchorEl(e.currentTarget);
+                                        setMenuMoment(moment);
+                                    }}
                                     sx={{ 
                                         p: 1,
                                         '&:hover': { color: '#10B981', bgcolor: alpha('#10B981', 0.1) } 
@@ -678,7 +800,7 @@ export const Feed = () => {
                                 >
                                     <Repeat2 size={19} strokeWidth={1.5} />
                                 </IconButton>
-                                <Typography variant="caption" sx={{ fontWeight: 700, opacity: 0.5 }}>0</Typography>
+                                <Typography variant="caption" sx={{ fontWeight: 700, opacity: 0.5 }}>{moment.stats?.pulses || 0}</Typography>
                             </Box>
                         </Tooltip>
 
@@ -686,14 +808,16 @@ export const Feed = () => {
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                 <IconButton 
                                     size="small"
+                                    onClick={(e) => handleToggleLike(e, moment)}
                                     sx={{ 
                                         p: 1,
+                                        color: moment.isLiked ? '#F59E0B' : 'inherit',
                                         '&:hover': { color: '#F59E0B', bgcolor: alpha('#F59E0B', 0.1) } 
                                     }}
                                 >
-                                    <Heart size={19} strokeWidth={1.5} />
+                                    <Heart size={19} fill={moment.isLiked ? '#F59E0B' : 'none'} strokeWidth={1.5} />
                                 </IconButton>
-                                <Typography variant="caption" sx={{ fontWeight: 700, opacity: 0.5 }}>0</Typography>
+                                <Typography variant="caption" sx={{ fontWeight: 700, opacity: 0.5 }}>{moment.stats?.likes || 0}</Typography>
                             </Box>
                         </Tooltip>
 
@@ -754,6 +878,35 @@ export const Feed = () => {
                     sx={{ gap: 1.5, py: 1.2, fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#ff4d4d' }}
                 >
                     <Trash2 size={16} strokeWidth={2} /> Delete Moment
+                </MenuItem>
+            </Menu>
+
+            <Menu
+                anchorEl={pulseMenuAnchorEl}
+                open={Boolean(pulseMenuAnchorEl)}
+                onClose={() => setPulseMenuAnchorEl(null)}
+                PaperProps={{
+                    sx: {
+                        mt: 1,
+                        borderRadius: '16px',
+                        bgcolor: 'rgba(15, 15, 15, 0.95)',
+                        backdropFilter: 'blur(20px)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        minWidth: 180
+                    }
+                }}
+            >
+                <MenuItem 
+                    onClick={() => menuMoment && handlePulse(menuMoment)}
+                    sx={{ gap: 1.5, py: 1.2, fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#10B981' }}
+                >
+                    <Repeat2 size={18} strokeWidth={2} /> Pulse Now
+                </MenuItem>
+                <MenuItem 
+                    onClick={() => menuMoment && handleQuote(menuMoment)}
+                    sx={{ gap: 1.5, py: 1.2, fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                >
+                    <Edit size={18} strokeWidth={2} style={{ opacity: 0.7 }} /> Quote Moment
                 </MenuItem>
             </Menu>
 
