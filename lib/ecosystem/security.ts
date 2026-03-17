@@ -6,13 +6,11 @@
 
 import { MeshProtocol } from './mesh';
 import { tablesDB } from '../appwrite/client';
-import { databases as genDB } from '../../generated/appwrite';
 import { APPWRITE_CONFIG } from '../appwrite/config';
 import { Query, ID } from 'appwrite';
 
 const PW_DB = APPWRITE_CONFIG.DATABASES.PASSWORD_MANAGER;
 const KEYCHAIN_TABLE = APPWRITE_CONFIG.TABLES.PASSWORD_MANAGER.KEYCHAIN;
-const IDENTITIES_TABLE = APPWRITE_CONFIG.TABLES.PASSWORD_MANAGER.IDENTITIES;
 
 export class EcosystemSecurity {
   private static instance: EcosystemSecurity;
@@ -220,7 +218,7 @@ export class EcosystemSecurity {
     }
   }
 
-  async updateWrappedKey(userId: string, wrappedKey: string) {
+  async updateWrappedKey(_userId: string, _wrappedKey: string) {
     // wrappedKey is not in chat.users schema
     console.log('[Security] updateWrappedKey called but not supported in chat.users schema');
   }

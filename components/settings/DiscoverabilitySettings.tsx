@@ -16,9 +16,10 @@ import {
     DialogContent,
     DialogActions,
     Button,
-    TextField
+    TextField,
+    Avatar
 } from '@mui/material';
-import { Search, Edit2, Check, X, ShieldAlert, User, Image, Globe } from 'lucide-react';
+import { Search, Edit2, Check, X, ShieldAlert, User, Image as ImageIcon, Globe } from 'lucide-react';
 import { UsersService } from '@/lib/services/users';
 import { useAuth } from '@/lib/auth';
 import { getUserProfilePicId } from '@/lib/user-utils';
@@ -238,7 +239,7 @@ export const DiscoverabilitySettings = () => {
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                             <Box sx={{ p: 1, borderRadius: '12px', bgcolor: alpha('#F43F5E', 0.1), color: '#F43F5E' }}>
-                                <Image size={18} />
+                                <ImageIcon size={18} />
                             </Box>
                             <Box>
                                 <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Profile Image Visibility</Typography>
@@ -470,6 +471,14 @@ export const DiscoverabilitySettings = () => {
                     </Box>
                 </Stack>
             </Paper>
+
+            <Box sx={{ mt: 3, p: 2, borderRadius: '16px', bgcolor: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Avatar src={profile?.avatar} alt="Profile Preview" sx={{ width: 48, height: 48, border: '2px solid rgba(255, 255, 255, 0.1)' }} />
+                <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Profile Preview</Typography>
+                    <Typography variant="caption" sx={{ opacity: 0.5 }}>How you appear in search results</Typography>
+                </Box>
+            </Box>
 
             {/* Confirmation Dialog */}
             <Dialog

@@ -1,4 +1,4 @@
-import { ID, Query, Storage } from 'appwrite';
+import { ID, Query } from 'appwrite';
 import { tablesDB, realtime, storage } from '../appwrite/client';
 import { APPWRITE_CONFIG } from '../appwrite/config';
 
@@ -42,11 +42,11 @@ export const SocialService = {
                         if (meta.type === 'reply') replies++;
                         if (meta.type === 'pulse') pulses++;
                     }
-                } catch (e) {}
+                } catch (_e) {}
             });
 
             return { likes, replies, pulses };
-        } catch (e) {
+        } catch (_e) {
             return { likes: 0, replies: 0, pulses: 0 };
         }
     },
@@ -115,7 +115,7 @@ export const SocialService = {
             if (moment.fileId && (moment.fileId.startsWith('{') || moment.fileId.startsWith('['))) {
                 metadata = JSON.parse(moment.fileId);
             }
-        } catch (e) {
+        } catch (_e) {
             // Not JSON, handle as legacy
         }
 
@@ -168,7 +168,7 @@ export const SocialService = {
                     if (!enriched.attachments) enriched.attachments = [];
                     enriched.attachments.push(att);
                 }
-            } catch (e) {
+            } catch (_e) {
                 console.warn(`Failed to resolve attachment ${att.type}:${att.id}`, e);
             }
         }));
@@ -178,7 +178,7 @@ export const SocialService = {
             try {
                 const source = await tablesDB.getRow(DB_ID, MOMENTS_TABLE, metadata.sourceId);
                 enriched.sourceMoment = await this.enrichMoment(source);
-            } catch (e) {
+            } catch (_e) {
                 console.warn(`Failed to resolve source moment ${metadata.sourceId}`, e);
             }
         }
@@ -295,7 +295,7 @@ export const SocialService = {
                 file
             );
             return uploaded.$id;
-        } catch (e) {
+        } catch (_e) {
             console.error('Failed to upload media', e);
             throw e;
         }
@@ -337,7 +337,7 @@ export const SocialService = {
 
         // Record in Activity Log for Ecosystem Notifications
         try {
-            const isSelf = type === 'post'; // Pure posts are usually announcements
+            const _isSelf = type === 'post'; // Pure posts are usually announcements
             const targetUserId = (type === 'reply' || type === 'pulse' || type === 'quote') ? 
                 (await tablesDB.getRow(DB_ID, MOMENTS_TABLE, sourceId!)).userId : creatorId;
 
@@ -428,7 +428,7 @@ export const SocialService = {
                 followers: followers.total,
                 following: following.total
             };
-        } catch (e) {
+        } catch (_e) {
             return { followers: 0, following: 0 };
         }
     },
@@ -455,7 +455,7 @@ export const SocialService = {
                     try {
                         const meta = JSON.parse(m.fileId);
                         return meta.sourceId === momentId && meta.type === 'reply';
-                    } catch (e) { return false; }
+                    } catch (_e) { return false; }
                 })
                 .map(m => this.enrichMoment(m, currentUserId))
         );

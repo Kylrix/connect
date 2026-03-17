@@ -55,7 +55,6 @@ import { NoteViewDrawer } from './NoteViewDrawer';
 import { EventSelectorModal } from './EventSelectorModal';
 import { EventViewDrawer } from './EventViewDrawer';
 
-import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
 interface FeedProps {
@@ -76,7 +75,6 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
     const [searching, setSearching] = useState(false);
 
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-    const [uploadingMedia, setUploadingMedia] = useState(false);
 
     const [postMenuAnchorEl, setPostMenuAnchorEl] = useState<null | HTMLElement>(null);
     const [menuMoment, setMenuMoment] = useState<any>(null);
@@ -239,7 +237,6 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
             // Upload files first
             const mediaIds: string[] = [];
             if (selectedFiles.length > 0) {
-                setUploadingMedia(true);
                 for (const file of selectedFiles) {
                     const id = await SocialService.uploadMedia(file);
                     mediaIds.push(id);
@@ -259,7 +256,6 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
             toast.error('Failed to post moment');
         } finally {
             setPosting(false);
-            setUploadingMedia(false);
         }
     };
 
@@ -276,7 +272,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
             await SocialService.createMoment(user.$id, '', 'pulse', [], 'public', undefined, undefined, moment.$id);
             toast.success('Pulsed to your feed');
             loadFeed();
-        } catch (e) {
+        } catch (_e) {
             toast.error('Failed to pulse');
         }
         setPulseMenuAnchorEl(null);
@@ -317,43 +313,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                 );
                 alert('Saved to Messages');
             }
-        } catch (e: unknown) {
-            console.error('Forward failed:', e);
-        }
-        setShareAnchorEl(null);
-    };
-
-    const handleForwardToChat = (_moment: any) => {
-        // In a real app, this would open a 'Select Contact' dialog
-        // For now, let's redirect to chats with a hint
-        router.push('/chats');
-        setShareAnchorEl(null);
-    };
-
-    const handleDeletePost = async (momentId: string) => {
-        if (!window.confirm('Are you sure you want to delete this moment?')) return;
-        try {
-            await SocialService.deleteMoment(momentId);
-            setMoments(prev => prev.filter(m => m.$id !== momentId));
-            setPostMenuAnchorEl(null);
-        } catch (error) {
-            console.error('Failed to delete post:', error);
-        }
-    };
-
-    const handleToggleLike = async (e: React.MouseEvent, moment: any) => {
-        e.stopPropagation();
-        if (!user) return;
-        try {
-            const creatorId = moment.userId || moment.creatorId;
-            const contentSnippet = moment.caption?.substring(0, 30);
-            const { liked } = await SocialService.toggleLike(user.$id, moment.$id, creatorId, contentSnippet);
-            setMoments(prev => prev.map(m => m.$id === moment.$id ? { 
-                ...m, 
-                isLiked: liked,
-                stats: { ...m.stats, likes: m.stats.likes + (liked ? 1 : -1) }
-            } : m));
-        } catch (e) {
+        } catch (_e) {
             toast.error('Failed to update like');
         }
     };
@@ -372,7 +332,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                     try {
                         const url = await fetchProfilePreview(u.avatar, 64, 64);
                         avatar = url as unknown as string;
-                    } catch (e) {}
+                    } catch (_e) {}
                 }
                 return { ...u, avatar };
             }));

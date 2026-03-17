@@ -30,6 +30,7 @@ import {
     Repeat2,
     Share,
     ArrowLeft,
+    LogIn,
     MoreHorizontal,
     Calendar,
     FileText,
@@ -165,7 +166,7 @@ export function PostViewClient() {
                     stats: { ...r.stats, likes: r.stats.likes + (liked ? 1 : -1) }
                 } : r));
             }
-        } catch (e) {
+        } catch (_e) {
             toast.error('Failed to update like');
         }
     };
@@ -180,7 +181,7 @@ export function PostViewClient() {
             await SocialService.createMoment(user.$id, '', 'pulse', [], 'public', undefined, undefined, moment.$id);
             toast.success('Pulsed to your feed');
             loadMoment();
-        } catch (e) {
+        } catch (_e) {
             toast.error('Failed to pulse');
         }
     };

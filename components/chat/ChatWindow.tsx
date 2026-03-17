@@ -1126,8 +1126,6 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                                                 )}
                                             </Box>
                                         )}
-                                    </Box>
-                                )}
                             </Box>
                         </Box>
                     ))

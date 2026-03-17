@@ -42,7 +42,7 @@ interface SudoModalProps {
 export function SudoModal({
     isOpen,
     onSuccess,
-    onCancel,
+    _onCancel,
     intent,
 }: SudoModalProps) {
     const { user } = useAuth();
@@ -162,14 +162,6 @@ export function SudoModal({
             setPasskeyLoading(false);
         }
     }, [user?.$id, isOpen, handleSuccessWithSync]);
-
-    const handleLogout = async () => {
-        setLoading(true);
-        await logout();
-        setLoading(false);
-        onCancel();
-        window.location.href = "/";
-    };
 
     // Check if user has passkey and PIN set up
     useEffect(() => {
