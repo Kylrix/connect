@@ -128,8 +128,14 @@ export const AppHeader = () => {
               py: 0.5,
               transition: 'all 0.2s ease',
               '&:hover': {
-                borderColor: 'rgba(255, 255, 255, 0.2)',
+                borderColor: alpha('#6366F1', 0.4),
                 bgcolor: 'rgba(255, 255, 255, 0.05)',
+                boxShadow: '0 0 15px rgba(99, 102, 241, 0.1)'
+              },
+              '&:focus-within': {
+                borderColor: '#6366F1',
+                bgcolor: 'rgba(255, 255, 255, 0.08)',
+                boxShadow: '0 0 20px rgba(99, 102, 241, 0.15)'
               }
             }}
           >
@@ -157,17 +163,17 @@ export const AppHeader = () => {
             <IconButton 
               onClick={(e) => setAnchorElNotifications(e.currentTarget)}
               sx={{ 
-                color: unreadCount > 0 ? '#F43F5E' : 'rgba(255, 255, 255, 0.4)',
-                bgcolor: alpha('#F43F5E', 0.03),
+                color: unreadCount > 0 ? '#6366F1' : 'rgba(255, 255, 255, 0.4)',
+                bgcolor: alpha('#6366F1', 0.03),
                 border: '1px solid',
-                borderColor: unreadCount > 0 ? alpha('#F43F5E', 0.3) : alpha('#F43F5E', 0.1),
+                borderColor: unreadCount > 0 ? alpha('#6366F1', 0.3) : alpha('#6366F1', 0.1),
                 borderRadius: '12px',
                 width: { xs: 36, sm: 42 },
                 height: { xs: 36, sm: 42 },
                 position: 'relative',
                 '&:hover': { 
-                  bgcolor: alpha('#F43F5E', 0.08), 
-                  boxShadow: '0 0 15px rgba(244, 63, 94, 0.2)' 
+                  bgcolor: alpha('#6366F1', 0.08), 
+                  boxShadow: '0 0 15px rgba(99, 102, 241, 0.2)' 
                 }
               }}
             >
@@ -177,7 +183,7 @@ export const AppHeader = () => {
                   position: 'absolute',
                   top: -4,
                   right: -4,
-                  bgcolor: '#F43F5E',
+                  bgcolor: '#FF4D4D',
                   color: 'white',
                   fontSize: '0.65rem',
                   fontWeight: 900,
