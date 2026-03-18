@@ -127,14 +127,14 @@ export const CallHistory = ({ onNewCall }: { onNewCall?: () => void }) => {
 
     const startCall = (call: any) => {
         if (call.isLink) {
-            router.push(`/call/${call.$id}`);
+            window.open(`/call/${call.$id}`, '_blank');
             return;
         }
         if (!call.otherUser?.$id) {
             toast.error("User ID not available for this call");
             return;
         }
-        router.push(`/chat/${call.otherUser.$id}`);
+        window.open(`/chat/${call.otherUser.$id}`, '_blank');
     };
 
     if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>;
@@ -153,17 +153,33 @@ export const CallHistory = ({ onNewCall }: { onNewCall?: () => void }) => {
             {activeCalls.length > 0 && (
                 <List sx={{ mb: 2 }}>
                     {activeCalls.map((call) => (
-                        <Paper key={call.$id} sx={{ mb: 1.5, borderRadius: 3, border: '1px solid #6366F1' }} elevation={0} variant="outlined">
+                        <Paper 
+                            key={call.$id} 
+                            sx={{ 
+                                mb: 1.5, 
+                                borderRadius: 3, 
+                                border: '1px solid #6366F1',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                '&:hover': {
+                                    bgcolor: 'rgba(99, 102, 241, 0.05)',
+                                    transform: 'translateY(-2px)'
+                                }
+                            }} 
+                            elevation={0} 
+                            variant="outlined"
+                            onClick={() => startCall(call)}
+                        >
                             <ListItem
                                 secondaryAction={
                                     <Stack direction="row" spacing={1}>
                                         <Tooltip title="End Call">
-                                            <IconButton edge="end" onClick={() => handleEndCall(call.$id)} color="warning">
+                                            <IconButton edge="end" onClick={(e) => { e.stopPropagation(); handleEndCall(call.$id); }} color="warning">
                                                 <StopIcon />
                                             </IconButton>
                                         </Tooltip>
                                         <Tooltip title="Delete Permanently">
-                                            <IconButton edge="end" onClick={() => handleDeleteCall(call.$id)} color="error">
+                                            <IconButton edge="end" onClick={(e) => { e.stopPropagation(); handleDeleteCall(call.$id); }} color="error">
                                                 <DeleteIcon />
                                             </IconButton>
                                         </Tooltip>
@@ -219,14 +235,26 @@ export const CallHistory = ({ onNewCall }: { onNewCall?: () => void }) => {
             ) : (
                 <List>
                     {calls.filter(c => c.status !== 'ongoing').map((call) => (
-                        <Paper key={call.$id} sx={{ mb: 1.5, borderRadius: 3 }} elevation={0} variant="outlined">
+                        <Paper 
+                            key={call.$id} 
+                            sx={{ 
+                                mb: 1.5, 
+                                borderRadius: 3,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                '&:hover': {
+                                    bgcolor: 'rgba(255, 255, 255, 0.02)',
+                                    transform: 'translateY(-2px)'
+                                }
+                            }} 
+                            elevation={0} 
+                            variant="outlined"
+                            onClick={() => startCall(call)}
+                        >
                             <ListItem
                                 secondaryAction={
                                     <Stack direction="row" spacing={1}>
-                                        <IconButton edge="end" onClick={() => startCall(call)} color="primary">
-                                            <CallIcon />
-                                        </IconButton>
-                                        <IconButton edge="end" onClick={() => handleDeleteCall(call.$id)} size="small" sx={{ opacity: 0.3 }}>
+                                        <IconButton edge="end" onClick={(e) => { e.stopPropagation(); handleDeleteCall(call.$id); }} size="small" sx={{ opacity: 0.3 }}>
                                             <DeleteIcon fontSize="small" />
                                         </IconButton>
                                     </Stack>

@@ -18,7 +18,8 @@ import {
     CircularProgress,
     Button,
     Paper,
-    alpha
+    alpha,
+    Stack
 } from '@mui/material';
 import {
     PhoneOff,
@@ -40,7 +41,11 @@ import {
     Monitor,
     Circle,
     Square,
-    ChevronUp
+    ChevronUp,
+    Clock,
+    Copy,
+    Check,
+    Hash
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { InCallChat } from './InCallChat';
@@ -67,19 +72,29 @@ export const CallInterface = ({
     isCaller, 
     callType = 'video',
     targetId: initialTargetId,
-    callCode
+    callCode,
+    initialMediaSettings = { video: true, audio: true, companion: false },
+    callTitle,
+    expiresAt
 }: { 
     conversationId?: string, 
     isCaller: boolean, 
     callType?: 'audio' | 'video',
     targetId?: string,
-    callCode?: string
+    callCode?: string,
+    initialMediaSettings?: { video: boolean, audio: boolean, companion: boolean },
+    callTitle?: string,
+    expiresAt?: string
 }) => {
     const { user } = useAuth();
     const [status, setStatus] = useState('Initializing...');
-    const [isMuted, setIsMuted] = useState(false);
-    const [isVideoOff, setIsVideoOff] = useState(callType === 'audio');
+    const [isMuted, setIsMuted] = useState(!initialMediaSettings.audio || initialMediaSettings.companion);
+    const [isVideoOff, setIsVideoOff] = useState(!initialMediaSettings.video || initialMediaSettings.companion);
+    const [isCompanion, setIsCompanion] = useState(initialMediaSettings.companion);
     const [targetId, setTargetId] = useState<string | undefined>(initialTargetId);
+    const [timeRemaining, setTimeRemaining] = useState<string>('');
+    const [copied, setCopied] = useState(false);
+    
     const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -210,8 +225,10 @@ export const CallInterface = ({
         });
 
         // 2. Initialize Media
-        const initVideo = callType === 'video';
-        rtcManager.current.initializeLocalStream(initVideo, true).then((stream) => {
+        const initVideo = !isCompanion && initialMediaSettings.video;
+        const initAudio = !isCompanion && initialMediaSettings.audio;
+        
+        rtcManager.current.initializeLocalStream(initVideo, initAudio).then((stream) => {
             if (localVideoRef.current && initVideo) {
                 localVideoRef.current.srcObject = stream;
             }
@@ -294,6 +311,55 @@ export const CallInterface = ({
         router.back();
     };
 
+    // Timer for call expiration
+    useEffect(() => {
+        if (!expiresAt) return;
+
+        const interval = setInterval(() => {
+            const now = new Date();
+            const end = new Date(expiresAt);
+            const diff = end.getTime() - now.getTime();
+
+            if (diff <= 0) {
+                setTimeRemaining('Ended');
+                clearInterval(interval);
+                toast.error("Call duration exceeded. Ending session...");
+                setTimeout(endCall, 3000);
+                return;
+            }
+
+            const hours = Math.floor(diff / 3600000);
+            const mins = Math.floor((diff % 3600000) / 60000);
+            const secs = Math.floor((diff % 60000) / 1000);
+            
+            if (hours > 0) {
+                setTimeRemaining(`${hours}h ${mins}m`);
+            } else {
+                setTimeRemaining(`${mins}m ${secs}s`);
+            }
+
+            // Warning at 5 minutes
+            if (diff <= 300000 && diff > 299000) {
+                toast("5 minutes remaining in this session", { icon: '⏳' });
+            }
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [expiresAt]);
+
+    const handleCopyLink = () => {
+        const url = `${window.location.origin}/call/${callCode || conversationId}`;
+        navigator.clipboard.writeText(url);
+        setCopied(true);
+        toast.success("Link copied to clipboard");
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleCopyId = () => {
+        navigator.clipboard.writeText(callCode || conversationId || '');
+        toast.success("Meeting ID copied");
+    };
+
     const toggleMute = () => {
         if (localVideoRef.current?.srcObject) {
             const stream = localVideoRef.current.srcObject as MediaStream;
@@ -341,17 +407,57 @@ export const CallInterface = ({
                     />
                     
                     {((status as string) !== 'connected' || (status as string) === 'failed') && (
-                        <Box sx={{ textAlign: 'center', color: 'white', zIndex: 1 }}>
+                        <Box sx={{ textAlign: 'center', color: 'white', zIndex: 1, px: 3 }}>
                             <Avatar sx={{ width: 120, height: 120, mb: 3, mx: 'auto', bgcolor: alpha('#6366F1', 0.1), border: '2px solid #6366F1' }}>
                                 <Users size={64} color="#6366F1" />
                             </Avatar>
                             <Typography variant="h4" sx={{ fontWeight: 900, fontFamily: 'var(--font-clash)', letterSpacing: '-0.02em', mb: 1 }}>
                                 {status === 'Initializing...' ? 'Kylrix Connect' : status === 'new' ? 'Connecting...' : status}
                             </Typography>
-                            <Typography variant="body1" sx={{ opacity: 0.5, fontWeight: 700 }}>
-                                {isCaller && !targetId ? 'Copy the link and share to start' : 'Establishing Secure P2P Mesh...'}
-                            </Typography>
-                            {status === 'Initializing...' && <CircularProgress size={24} sx={{ mt: 4, color: '#6366F1' }} />}
+                            
+                            {isCaller && !targetId && (
+                                <Stack spacing={2} alignItems="center" sx={{ mt: 3 }}>
+                                    <Typography variant="body1" sx={{ opacity: 0.5, fontWeight: 700 }}>
+                                        Share this link or ID to start the session
+                                    </Typography>
+                                    
+                                    <Stack direction="row" spacing={1} sx={{ width: '100%', maxWidth: 400 }}>
+                                        <Paper sx={{ 
+                                            flex: 1, p: 1.5, bgcolor: 'rgba(255,255,255,0.03)', 
+                                            border: '1px solid rgba(255,255,255,0.05)', borderRadius: 3,
+                                            display: 'flex', alignItems: 'center', gap: 1, overflow: 'hidden'
+                                        }}>
+                                            <Typography variant="caption" sx={{ 
+                                                color: 'rgba(255,255,255,0.4)', fontWeight: 800, 
+                                                whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' 
+                                            }}>
+                                                {`${window.location.origin.replace(/^https?:\/\//, '')}/call/${callCode || conversationId}`}
+                                            </Typography>
+                                            <IconButton size="small" onClick={handleCopyLink} sx={{ color: COLORS.primary }}>
+                                                {copied ? <Check size={16} /> : <Copy size={16} />}
+                                            </IconButton>
+                                        </Paper>
+
+                                        <Paper sx={{ 
+                                            p: 1.5, bgcolor: 'rgba(255,255,255,0.03)', 
+                                            border: '1px solid rgba(255,255,255,0.05)', borderRadius: 3,
+                                            display: 'flex', alignItems: 'center', gap: 1
+                                        }}>
+                                            <Hash size={14} color="rgba(255,255,255,0.3)" />
+                                            <Typography variant="caption" sx={{ color: 'white', fontWeight: 900, fontFamily: 'var(--font-jetbrains)' }}>
+                                                {(callCode || conversationId || '').slice(0, 8)}
+                                            </Typography>
+                                            <IconButton size="small" onClick={handleCopyId} sx={{ color: COLORS.secondary }}>
+                                                <Copy size={16} />
+                                            </IconButton>
+                                        </Paper>
+                                    </Stack>
+                                </Stack>
+                            )}
+
+                            {(!isCaller || targetId) && status === 'Initializing...' && (
+                                <CircularProgress size={24} sx={{ mt: 4, color: '#6366F1' }} />
+                            )}
                         </Box>
                     )}
                 </Paper>
@@ -387,10 +493,23 @@ export const CallInterface = ({
                 )}
 
                 <Box sx={{ position: 'absolute', top: 40, left: 40, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                    <Paper sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1, bgcolor: 'rgba(22,20,18,0.6)', backdropFilter: 'blur(10px)', borderRadius: 3, border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <Box sx={{ width: 8, height: 8, bgcolor: status === 'connected' ? '#10B981' : '#F59E0B', borderRadius: '50%', boxShadow: `0 0 10px ${status === 'connected' ? '#10B981' : '#F59E0B'}` }} />
-                        <Typography variant="caption" sx={{ fontWeight: 800, letterSpacing: '0.05em', color: 'white' }}>{status.toUpperCase()}</Typography>
-                    </Paper>
+                    {callTitle && (
+                        <Paper sx={{ px: 2, py: 1, bgcolor: 'rgba(22,20,18,0.6)', backdropFilter: 'blur(10px)', borderRadius: 3, border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 900, color: 'white', fontFamily: 'var(--font-clash)' }}>{callTitle.toUpperCase()}</Typography>
+                        </Paper>
+                    )}
+                    <Stack direction="row" spacing={1.5}>
+                        <Paper sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1, bgcolor: 'rgba(22,20,18,0.6)', backdropFilter: 'blur(10px)', borderRadius: 3, border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <Box sx={{ width: 8, height: 8, bgcolor: status === 'connected' ? '#10B981' : '#F59E0B', borderRadius: '50%', boxShadow: `0 0 10px ${status === 'connected' ? '#10B981' : '#F59E0B'}` }} />
+                            <Typography variant="caption" sx={{ fontWeight: 800, letterSpacing: '0.05em', color: 'white' }}>{status.toUpperCase()}</Typography>
+                        </Paper>
+                        {timeRemaining && (
+                            <Paper sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1, bgcolor: 'rgba(239, 68, 68, 0.1)', backdropFilter: 'blur(10px)', borderRadius: 3, border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                                <Clock size={12} color="#EF4444" />
+                                <Typography variant="caption" sx={{ fontWeight: 900, color: '#EF4444', fontFamily: 'var(--font-jetbrains)' }}>{timeRemaining}</Typography>
+                            </Paper>
+                        )}
+                    </Stack>
                     <Paper sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1, bgcolor: 'rgba(22,20,18,0.6)', backdropFilter: 'blur(10px)', borderRadius: 3, border: '1px solid rgba(255,255,255,0.05)' }}>
                         <ShieldCheck size={14} color="#6366F1" />
                         <Typography variant="caption" sx={{ fontWeight: 800, color: 'white', opacity: 0.8 }}>E2E ENCRYPTED P2P</Typography>
@@ -489,4 +608,13 @@ export const CallInterface = ({
             />
         </Box>
     );
+};
+
+const COLORS = {
+    background: '#0A0908',
+    surface: '#161412',
+    hover: '#1C1A18',
+    primary: '#6366F1',
+    secondary: '#F59E0B',
+    rim: 'rgba(255, 255, 255, 0.05)'
 };

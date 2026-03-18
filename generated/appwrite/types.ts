@@ -826,7 +826,6 @@ export type AppActivity = Models.Row & {
 export type CallLinksCreate = {
     "userId": string;
     "conversationId"?: string | null;
-    "code": string;
     "type"?: CallLinksType;
     "url"?: string | null;
     "expiresAt"?: string | null;
@@ -837,7 +836,6 @@ export type CallLinksCreate = {
 export type CallLinks = Models.Row & {
     "userId": string;
     "conversationId"?: string | null;
-    "code": string;
     "type"?: CallLinksType;
     "url"?: string | null;
     "expiresAt"?: string | null;
@@ -1902,7 +1900,6 @@ export type DatabaseTableMap = {
       create: (data: {
         "userId": string;
         "conversationId"?: string | null;
-        "code": string;
         "type"?: CallLinksType;
         "url"?: string | null;
         "expiresAt"?: string | null;
@@ -1913,7 +1910,6 @@ export type DatabaseTableMap = {
       update: (id: string, data: Partial<{
         "userId": string;
         "conversationId"?: string | null;
-        "code": string;
         "type"?: CallLinksType;
         "url"?: string | null;
         "expiresAt"?: string | null;

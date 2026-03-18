@@ -37,7 +37,8 @@ import {
     Clock,
     Type,
     Timer,
-    ArrowLeft
+    ArrowLeft,
+    Hash
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { ChatService } from '@/lib/services/chat';
@@ -64,9 +65,11 @@ export const CallActionModal = ({ open, onClose }: { open: boolean, onClose: () 
     const [conversations, setConversations] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [showScheduleForm, setShowScheduleForm] = useState(false);
+    const [showJoinWithId, setShowJoinWithId] = useState(false);
     const [scheduleTitle, setScheduleTitle] = useState('');
     const [instantTitle, setInstantTitle] = useState('');
     const [scheduleTime, setScheduleTime] = useState('');
+    const [joinId, setJoinId] = useState('');
     const [duration, setDuration] = useState(120); // Default 2 hours
     const [creating, setCreating] = useState(false);
 
@@ -74,9 +77,11 @@ export const CallActionModal = ({ open, onClose }: { open: boolean, onClose: () 
         if (open && user) {
             loadConversations();
             setShowScheduleForm(false);
+            setShowJoinWithId(false);
             setScheduleTitle('');
             setInstantTitle('');
             setScheduleTime('');
+            setJoinId('');
             setDuration(120);
         }
     }, [open, user]);
@@ -148,6 +153,15 @@ export const CallActionModal = ({ open, onClose }: { open: boolean, onClose: () 
         }
     };
 
+    const handleJoinWithId = () => {
+        if (!joinId.trim()) {
+            toast.error("Please enter a meeting ID");
+            return;
+        }
+        router.push(`/call/${joinId.trim()}`);
+        onClose();
+    };
+
     const handleCallIndividual = (convId: string, type: 'audio' | 'video' = 'video') => {
         router.push(`/call/${convId}?caller=true&type=${type}`);
         onClose();
@@ -202,9 +216,9 @@ export const CallActionModal = ({ open, onClose }: { open: boolean, onClose: () 
                 borderBottom: `1px solid ${COLORS.rim}`
             }}>
                 <Stack direction="row" spacing={1.5} alignItems="center">
-                    {showScheduleForm && (
+                    {(showScheduleForm || showJoinWithId) && (
                         <IconButton 
-                            onClick={() => setShowScheduleForm(false)} 
+                            onClick={() => { setShowScheduleForm(false); setShowJoinWithId(false); }} 
                             size="small"
                             sx={{ color: 'rgba(255,255,255,0.5)', ml: -1 }}
                         >
@@ -217,7 +231,7 @@ export const CallActionModal = ({ open, onClose }: { open: boolean, onClose: () 
                         letterSpacing: '-0.02em',
                         color: 'white'
                     }}>
-                        {showScheduleForm ? 'Schedule Session' : 'New Session'}
+                        {showScheduleForm ? 'Schedule Session' : showJoinWithId ? 'Join with ID' : 'New Session'}
                     </Typography>
                 </Stack>
                 <IconButton onClick={onClose} sx={{ color: 'rgba(255,255,255,0.3)', '&:hover': { color: 'white', bgcolor: COLORS.hover } }}>
@@ -226,40 +240,42 @@ export const CallActionModal = ({ open, onClose }: { open: boolean, onClose: () 
             </DialogTitle>
 
             <DialogContent sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-                    <TextField
-                        select
-                        fullWidth
-                        label="Call Duration"
-                        value={duration}
-                        onChange={(e) => setDuration(Number(e.target.value))}
-                        sx={inputStyles}
-                        InputProps={{
-                            startAdornment: <Timer size={18} style={{ marginRight: '12px', color: COLORS.secondary }} />,
-                        }}
-                    >
-                        <MenuItem value={15}>15 Minutes</MenuItem>
-                        <MenuItem value={30}>30 Minutes</MenuItem>
-                        <MenuItem value={60}>1 Hour</MenuItem>
-                        <MenuItem value={120}>2 Hours (Free Max)</MenuItem>
-                    </TextField>
-
-                    {!showScheduleForm && (
+                {!showJoinWithId && (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
                         <TextField
+                            select
                             fullWidth
-                            label="Meeting Title (Optional)"
-                            placeholder="e.g. Quick Sync"
-                            value={instantTitle}
-                            onChange={(e) => setInstantTitle(e.target.value)}
+                            label="Call Duration"
+                            value={duration}
+                            onChange={(e) => setDuration(Number(e.target.value))}
                             sx={inputStyles}
                             InputProps={{
-                                startAdornment: <Type size={18} style={{ marginRight: '12px', color: COLORS.primary }} />,
+                                startAdornment: <Timer size={18} style={{ marginRight: '12px', color: COLORS.secondary }} />,
                             }}
-                        />
-                    )}
-                </Box>
+                        >
+                            <MenuItem value={15}>15 Minutes</MenuItem>
+                            <MenuItem value={30}>30 Minutes</MenuItem>
+                            <MenuItem value={60}>1 Hour</MenuItem>
+                            <MenuItem value={120}>2 Hours (Free Max)</MenuItem>
+                        </TextField>
 
-                {!showScheduleForm ? (
+                        {!showScheduleForm && (
+                            <TextField
+                                fullWidth
+                                label="Meeting Title (Optional)"
+                                placeholder="e.g. Quick Sync"
+                                value={instantTitle}
+                                onChange={(e) => setInstantTitle(e.target.value)}
+                                sx={inputStyles}
+                                InputProps={{
+                                    startAdornment: <Type size={18} style={{ marginRight: '12px', color: COLORS.primary }} />,
+                                }}
+                            />
+                        )}
+                    </Box>
+                )}
+
+                {!showScheduleForm && !showJoinWithId ? (
                     <>
                         <Stack direction="row" spacing={2}>
                             <Button
@@ -307,6 +323,25 @@ export const CallActionModal = ({ open, onClose }: { open: boolean, onClose: () 
                                 Schedule
                             </Button>
                         </Stack>
+
+                        <Button
+                            fullWidth
+                            variant="text"
+                            onClick={() => setShowJoinWithId(true)}
+                            startIcon={<Hash size={18} />}
+                            sx={{ 
+                                color: 'rgba(255,255,255,0.4)',
+                                py: 1, 
+                                borderRadius: '12px', 
+                                fontWeight: 800,
+                                textTransform: 'none',
+                                '&:hover': { color: 'white', bgcolor: 'rgba(255,255,255,0.05)' }
+                            }}
+                        >
+                            Join with Meeting ID
+                        </Button>
+
+                        <Divider sx={{ opacity: 0.05, my: 1 }} />
 
                         <Box sx={{ mt: 1 }}>
                             <Typography variant="caption" sx={{ 
@@ -382,6 +417,41 @@ export const CallActionModal = ({ open, onClose }: { open: boolean, onClose: () 
                             )}
                         </Box>
                     </>
+                ) : showJoinWithId ? (
+                    <Stack spacing={3}>
+                        <TextField
+                            fullWidth
+                            label="Meeting ID"
+                            placeholder="Paste the ID here..."
+                            value={joinId}
+                            onChange={(e) => setJoinId(e.target.value)}
+                            sx={inputStyles}
+                            InputProps={{
+                                startAdornment: <Hash size={18} style={{ marginRight: '12px', color: COLORS.primary }} />,
+                            }}
+                        />
+                        <Button
+                            fullWidth
+                            variant="contained"
+                            onClick={handleJoinWithId}
+                            sx={{ 
+                                py: 2, 
+                                borderRadius: '16px', 
+                                fontWeight: 900, 
+                                textTransform: 'none', 
+                                bgcolor: COLORS.primary,
+                                color: 'white',
+                                fontFamily: 'var(--font-satoshi)',
+                                boxShadow: `0 8px 20px -6px ${alpha(COLORS.primary, 0.4)}`,
+                                '&:hover': { 
+                                    bgcolor: alpha(COLORS.primary, 0.9),
+                                    boxShadow: `0 12px 24px -6px ${alpha(COLORS.primary, 0.5)}`,
+                                }
+                            }}
+                        >
+                            Join Session
+                        </Button>
+                    </Stack>
                 ) : (
                     <Stack spacing={3}>
                         <TextField

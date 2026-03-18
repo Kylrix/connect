@@ -5,6 +5,7 @@ import { CallService } from '@/lib/services/call';
 import { UsersService } from '@/lib/services/users';
 import { useAuth } from '@/lib/auth';
 import { CallInterface } from '@/components/call/CallInterface';
+import { PreCallCheck } from '@/components/call/PreCallCheck';
 import { 
     Box, 
     Container, 
@@ -48,6 +49,9 @@ export function PublicCall({ id }: { id: string }) {
     const [requestStatus, setRequestStatus] = useState<'none' | 'pending' | 'rejected'>('none');
     const [localUser, setLocalUser] = useState<any>(user);
     const [timeToStart, setTimeToStart] = useState<string>('');
+    const [showPreCheck, setShowPreCheck] = useState(false);
+    const [mediaSettings, setMediaSettings] = useState({ video: true, audio: true, companion: false });
+    const [isCompanionDetected, setIsCompanionDetected] = useState(false);
 
     useEffect(() => {
         setLocalUser(user);
@@ -95,12 +99,19 @@ export function PublicCall({ id }: { id: string }) {
             // Fetch host profile
             const host = await UsersService.getProfileById(link.userId);
             setHostProfile(host);
+
+            // Detect companion mode
+            if (user) {
+                const participants = await CallService.getActiveParticipants(id);
+                const isAlreadyIn = participants.some(p => p.userId === user.$id);
+                setIsCompanionDetected(isAlreadyIn);
+            }
         } catch (e) {
             console.error('Failed to load call details:', e);
         } finally {
             setLoading(false);
         }
-    }, [id]);
+    }, [id, user]);
 
     useEffect(() => {
         loadCallDetails();
@@ -120,7 +131,7 @@ export function PublicCall({ id }: { id: string }) {
                     try {
                         const signal = JSON.parse(activity.customStatus);
                         if (signal.target === localUser.$id && signal.type === 'let_in') {
-                            setIsAdmitted(true);
+                            setShowPreCheck(true);
                             setJoining(false);
                             toast.success("Host admitted you to the call!");
                         }
@@ -150,7 +161,14 @@ export function PublicCall({ id }: { id: string }) {
                 setLocalUser(activeUser);
             }
 
-            // 2. Send join request signal to the host
+            // 2. If host OR authenticated user, skip request and go to pre-check
+            if (activeUser.$id === linkData.userId || user) {
+                setShowPreCheck(true);
+                setJoining(false);
+                return;
+            }
+
+            // 3. Send join request signal to the host
             await CallService.sendSignal(activeUser.$id, linkData.userId, {
                 type: 'join_request',
                 senderName: displayName || activeUser.name || 'Guest'
@@ -162,6 +180,12 @@ export function PublicCall({ id }: { id: string }) {
             setJoining(false);
             toast.error("Failed to send join request");
         }
+    };
+
+    const onPreCheckJoin = (settings: { video: boolean, audio: boolean, companion: boolean }) => {
+        setMediaSettings(settings);
+        setIsAdmitted(true);
+        setShowPreCheck(false);
     };
 
     if (loading) return (
@@ -194,14 +218,29 @@ export function PublicCall({ id }: { id: string }) {
         </Box>
     );
 
-    // If host or already admitted, show the interface
-    if (localUser?.$id === linkData.userId || isAdmitted) {
+    // If host or already admitted, show pre-check then interface
+    if (isAdmitted || (localUser?.$id === linkData.userId && showPreCheck) || (showPreCheck)) {
+        if (showPreCheck) {
+            return (
+                <Box sx={{ minHeight: '100vh', bgcolor: '#0A0908', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 3 }}>
+                    <PreCallCheck 
+                        onJoin={onPreCheckJoin} 
+                        userProfile={localUser} 
+                        isCompanionDetected={isCompanionDetected}
+                    />
+                </Box>
+            );
+        }
+
         return (
             <CallInterface 
                 isCaller={localUser?.$id === linkData.userId} 
                 callType={linkData.type} 
                 targetId={localUser?.$id === linkData.userId ? undefined : linkData.userId}
                 callCode={id}
+                initialMediaSettings={mediaSettings}
+                callTitle={linkData.title}
+                expiresAt={linkData.expiresAt}
             />
         );
     }
@@ -328,7 +367,7 @@ export function PublicCall({ id }: { id: string }) {
                                         '&:hover': { bgcolor: '#4F46E5' }
                                     }}
                                 >
-                                    {joining ? <CircularProgress size={24} color="inherit" /> : 'Ask to Join'}
+                                    {joining ? <CircularProgress size={24} color="inherit" /> : (user ? 'Enter Meeting' : 'Ask to Join')}
                                 </Button>
 
                                 {!user && (

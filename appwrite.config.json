@@ -3650,15 +3650,6 @@
                     "encrypt": false
                 },
                 {
-                    "key": "code",
-                    "type": "string",
-                    "required": true,
-                    "array": false,
-                    "size": 64,
-                    "default": null,
-                    "encrypt": false
-                },
-                {
                     "key": "type",
                     "type": "string",
                     "required": false,
@@ -3704,17 +3695,6 @@
                 }
             ],
             "indexes": [
-                {
-                    "key": "idx_call_links_code",
-                    "type": "unique",
-                    "status": "available",
-                    "columns": [
-                        "code"
-                    ],
-                    "orders": [
-                        "ASC"
-                    ]
-                },
                 {
                     "key": "idx_call_links_user",
                     "type": "key",

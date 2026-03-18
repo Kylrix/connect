@@ -129,6 +129,13 @@ export class WebRTCManager {
 
   public async initializeLocalStream(video: boolean = true, audio: boolean = true): Promise<MediaStream> {
     try {
+      // If both are false, we can't call getUserMedia. 
+      // We return an empty stream or handle it as a 'media-less' session.
+      if (!video && !audio) {
+        this.localStream = new MediaStream();
+        return this.localStream;
+      }
+
       this.localStream = await navigator.mediaDevices.getUserMedia({ video, audio });
       return this.localStream;
     } catch (error: unknown) {

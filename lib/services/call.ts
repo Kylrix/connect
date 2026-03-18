@@ -75,17 +75,9 @@ export const CallService = {
     },
 
     async getCallLinkByCode(code: string) {
-        // Legacy support for code-based lookup if needed, but we're moving to ID
-        const res = await tablesDB.listRows(DB_ID, LINKS_TABLE, [
-            Query.equal('code', code),
-            Query.limit(1)
-        ]);
-        
-        if (res.total === 0) return null;
-        
-        const link = res.rows[0];
-        const isExpired = new Date(link.expiresAt) < new Date();
-        return { ...link, isExpired };
+        // This method is now redundant as we use Row ID, but keeping it as a no-op 
+        // or removing it if no longer called.
+        return null;
     },
 
     async cleanupOldCallLogs() {
@@ -231,6 +223,28 @@ export const CallService = {
             status: 'completed',
             updatedAt: new Date().toISOString()
         });
+    },
+
+    async getActiveParticipants(conversationId: string) {
+        try {
+            // We use AppActivity to see who is currently 'online' and has this conversationId in their customStatus
+            const res = await tablesDB.listRows(DB_ID, ACTIVITY_TABLE, [
+                Query.equal('status', 'online'),
+                Query.limit(100)
+            ]);
+            
+            return res.rows.filter(row => {
+                try {
+                    if (!row.customStatus) return false;
+                    const status = JSON.parse(row.customStatus);
+                    return status.conversationId === conversationId || status.callCode === conversationId;
+                } catch (e) {
+                    return false;
+                }
+            });
+        } catch (e) {
+            return [];
+        }
     },
 
     async deleteCallLog(callId: string) {

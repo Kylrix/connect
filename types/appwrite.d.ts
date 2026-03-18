@@ -476,7 +476,6 @@ export type AppActivity = Models.Row & {
 export type CallLinks = Models.Row & {
     userId: string;
     conversationId: string | null;
-    code: string;
     type: CallLinksType;
     url: string | null;
     expiresAt: string | null;
