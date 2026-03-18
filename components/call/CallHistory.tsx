@@ -64,8 +64,8 @@ export const CallHistory = ({ onNewCall }: { onNewCall?: () => void }) => {
                         return {
                             ...call,
                             otherUser: profile || { 
-                                username: call.isLink ? 'Public Link' : 'Guest/Unknown', 
-                                displayName: call.isLink ? 'Public Link Session' : undefined,
+                                username: call.isLink ? (call.title || 'Public Link') : 'Guest/Unknown', 
+                                displayName: call.isLink ? (call.title || 'Public Link Session') : undefined,
                                 $id: otherId 
                             },
                             direction: isCaller ? 'outgoing' : 'incoming'
@@ -74,7 +74,7 @@ export const CallHistory = ({ onNewCall }: { onNewCall?: () => void }) => {
                         return { 
                             ...call, 
                             otherUser: { 
-                                username: call.isLink ? 'Public Link' : 'Unknown', 
+                                username: call.isLink ? (call.title || 'Public Link') : 'Unknown', 
                                 $id: otherId 
                             }, 
                             direction: isCaller ? 'outgoing' : 'incoming' 

@@ -19,11 +19,13 @@ export const CallService = {
         }
     },
 
-    async createCallLink(userId: string, type: 'audio' | 'video' = 'video', conversationId?: string) {
+    async createCallLink(userId: string, type: 'audio' | 'video' = 'video', conversationId?: string, title?: string, startsAt?: string, durationMinutes: number = 120) {
         const domain = process.env.NEXT_PUBLIC_DOMAIN || 'kylrix.space';
         
-        // Expire in 3 hours by default
-        const expiresAt = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
+        // Default to starting now if not provided
+        const startTime = startsAt ? new Date(startsAt) : new Date();
+        // Expire based on duration (default 2 hours)
+        const expiresAt = new Date(startTime.getTime() + durationMinutes * 60 * 1000).toISOString();
 
         // Create the row first to get the ID
         const row = await tablesDB.createRow(
@@ -34,7 +36,9 @@ export const CallService = {
                 userId,
                 conversationId,
                 type,
-                expiresAt
+                expiresAt,
+                title: title || 'Quick Meeting',
+                startsAt: startTime.toISOString()
             },
             [
                 Permission.read(Role.any()),
@@ -51,13 +55,19 @@ export const CallService = {
     async getCallLink(id: string) {
         try {
             const link = await tablesDB.getRow(DB_ID, LINKS_TABLE, id);
+            const now = new Date();
+            const startsAt = new Date(link.startsAt);
+            const expiresAt = new Date(link.expiresAt);
             
-            if (new Date(link.expiresAt) < new Date()) {
-                // We don't delete immediately as per user request, just return it so UI can show "ended"
-                return { ...link, isExpired: true };
+            if (now > expiresAt) {
+                return { ...link, isExpired: true, isScheduled: false };
             }
             
-            return { ...link, isExpired: false };
+            if (now < startsAt) {
+                return { ...link, isExpired: false, isScheduled: true };
+            }
+            
+            return { ...link, isExpired: false, isScheduled: false };
         } catch (e) {
             console.error('Failed to get call link:', e);
             return null;

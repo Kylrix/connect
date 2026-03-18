@@ -27,7 +27,9 @@ import {
     ShieldAlert, 
     CheckCircle2,
     Users,
-    LogIn
+    LogIn,
+    Calendar,
+    Clock
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -45,10 +47,34 @@ export function PublicCall({ id }: { id: string }) {
     const [isAdmitted, setIsAdmitted] = useState(false);
     const [requestStatus, setRequestStatus] = useState<'none' | 'pending' | 'rejected'>('none');
     const [localUser, setLocalUser] = useState<any>(user);
+    const [timeToStart, setTimeToStart] = useState<string>('');
 
     useEffect(() => {
         setLocalUser(user);
     }, [user]);
+
+    // Timer for scheduled calls
+    useEffect(() => {
+        if (!linkData?.isScheduled) return;
+
+        const interval = setInterval(() => {
+            const now = new Date();
+            const start = new Date(linkData.startsAt);
+            const diff = start.getTime() - now.getTime();
+
+            if (diff <= 0) {
+                setLinkData((prev: any) => ({ ...prev, isScheduled: false }));
+                clearInterval(interval);
+                return;
+            }
+
+            const mins = Math.floor(diff / 60000);
+            const secs = Math.floor((diff % 60000) / 1000);
+            setTimeToStart(`${mins}m ${secs}s`);
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [linkData]);
 
     const loadCallDetails = useCallback(async () => {
         try {
@@ -153,7 +179,7 @@ export function PublicCall({ id }: { id: string }) {
                 </Typography>
                 <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.5)', mb: 4 }}>
                     {linkData?.isExpired 
-                        ? "This call has expired. Links last for 3 hours. Please ask the host for a new link." 
+                        ? "This call has expired. Links last for 3 hours from the start time. Please ask the host for a new link." 
                         : "This call link is no longer active or never existed. Check with the host for a new link."}
                 </Typography>
                 <Button 
@@ -218,14 +244,53 @@ export function PublicCall({ id }: { id: string }) {
 
                         <Box>
                             <Typography variant="h4" sx={{ fontWeight: 900, fontFamily: 'var(--font-clash)', letterSpacing: '-0.02em', mb: 1 }}>
-                                Join Call
+                                {linkData.title || 'Join Call'}
                             </Typography>
                             <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.5)', fontWeight: 700 }}>
                                 Hosted by <span style={{ color: '#6366F1' }}>@{hostProfile?.username || 'user'}</span>
                             </Typography>
                         </Box>
 
-                        {requestStatus === 'none' ? (
+                        {linkData.isScheduled ? (
+                            <Stack spacing={3} alignItems="center" sx={{ py: 2, width: '100%' }}>
+                                <Box sx={{ 
+                                    p: 3, 
+                                    borderRadius: 4, 
+                                    bgcolor: 'rgba(99, 102, 241, 0.05)', 
+                                    border: '1px dashed rgba(99, 102, 241, 0.2)',
+                                    width: '100%'
+                                }}>
+                                    <Stack direction="row" spacing={2} alignItems="center" justifyContent="center" sx={{ mb: 2 }}>
+                                        <Calendar size={20} color="#6366F1" />
+                                        <Typography variant="h6" fontWeight={800}>
+                                            {new Date(linkData.startsAt).toLocaleDateString()}
+                                        </Typography>
+                                    </Stack>
+                                    <Stack direction="row" spacing={2} alignItems="center" justifyContent="center">
+                                        <Clock size={20} color="#6366F1" />
+                                        <Typography variant="h5" fontWeight={900} sx={{ fontFamily: 'var(--font-jetbrains)' }}>
+                                            {new Date(linkData.startsAt).toLocaleTimeString()}
+                                        </Typography>
+                                    </Stack>
+                                </Box>
+                                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.4)' }}>
+                                    Starts in <span style={{ color: '#6366F1', fontWeight: 900 }}>{timeToStart || '...'}</span>
+                                </Typography>
+                                <Button
+                                    fullWidth
+                                    variant="outlined"
+                                    disabled
+                                    sx={{ 
+                                        py: 2, 
+                                        borderRadius: 4, 
+                                        borderColor: 'rgba(255,255,255,0.05)',
+                                        color: 'rgba(255,255,255,0.2)'
+                                    }}
+                                >
+                                    Waiting for start time...
+                                </Button>
+                            </Stack>
+                        ) : requestStatus === 'none' ? (
                             <Stack spacing={3} sx={{ width: '100%' }}>
                                 {!user && (
                                     <TextField
