@@ -1068,11 +1068,9 @@ export type QueryValue = string | number | boolean;
 
 export type ExtractQueryValue<T> = T extends (infer U)[]
   ? U extends QueryValue ? U : never
-  : T extends QueryValue | null ? NonNullable<T> : never;
+  : T extends QueryValue | null | undefined ? NonNullable<T> : any;
 
-export type QueryableKeys<T> = {
-  [K in keyof T]: ExtractQueryValue<T[K]> extends never ? never : K;
-}[keyof T];
+export type QueryableKeys<T> = keyof T;
 
 export type QueryBuilder<T> = {
   equal: <K extends QueryableKeys<T>>(field: K, value: ExtractQueryValue<T[K]>) => string;
