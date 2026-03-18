@@ -16,7 +16,8 @@ import {
     CircularProgress,
     TextField,
     IconButton,
-    Stack
+    Stack,
+    Badge
 } from '@mui/material';
 import { 
     Video, 
@@ -30,7 +31,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { client } from '@/lib/appwrite/client';
+import { client, account as authAccount } from '@/lib/appwrite/client';
 import { APPWRITE_CONFIG } from '@/lib/appwrite/config';
 
 export function PublicCall({ code }: { code: string }) {
@@ -43,6 +44,11 @@ export function PublicCall({ code }: { code: string }) {
     const [displayName, setDisplayName] = useState('');
     const [isAdmitted, setIsAdmitted] = useState(false);
     const [requestStatus, setRequestStatus] = useState<'none' | 'pending' | 'rejected'>('none');
+    const [localUser, setLocalUser] = useState<any>(user);
+
+    useEffect(() => {
+        setLocalUser(user);
+    }, [user]);
 
     const loadCallDetails = useCallback(async () => {
         try {
@@ -69,7 +75,7 @@ export function PublicCall({ code }: { code: string }) {
 
     // Handle signals while in landing state (specifically waiting for 'let_in')
     useEffect(() => {
-        if (!user || requestStatus !== 'pending') return;
+        if (!localUser || requestStatus !== 'pending') return;
 
         const unsubscribe = client.subscribe(
             `databases.${APPWRITE_CONFIG.DATABASES.CHAT}.tables.${APPWRITE_CONFIG.TABLES.CHAT.APP_ACTIVITY}.rows`,
@@ -80,7 +86,7 @@ export function PublicCall({ code }: { code: string }) {
                     
                     try {
                         const signal = JSON.parse(activity.customStatus);
-                        if (signal.target === user.$id && signal.type === 'let_in') {
+                        if (signal.target === localUser.$id && signal.type === 'let_in') {
                             setIsAdmitted(true);
                             setJoining(false);
                             toast.success("Host admitted you to the call!");
@@ -91,23 +97,24 @@ export function PublicCall({ code }: { code: string }) {
         );
 
         return () => unsubscribe();
-    }, [user, requestStatus]);
+    }, [localUser, requestStatus]);
 
     const handleJoinRequest = async () => {
-        if (!displayName.trim() && !user) {
+        if (!displayName.trim() && !localUser) {
             toast.error("Please enter your name");
             return;
         }
 
         setJoining(true);
         try {
-            let activeUser = user;
+            let activeUser = localUser;
             
             // 1. Create anonymous session if not logged in
             if (!activeUser) {
                 await CallService.createAnonymousSession();
                 // Fetch the new guest user
-                activeUser = await client.account.get() as any;
+                activeUser = await authAccount.get() as any;
+                setLocalUser(activeUser);
             }
 
             // 2. Send join request signal to the host
@@ -151,12 +158,12 @@ export function PublicCall({ code }: { code: string }) {
     );
 
     // If host or already admitted, show the interface
-    if (user?.$id === linkData.userId || isAdmitted) {
+    if (localUser?.$id === linkData.userId || isAdmitted) {
         return (
             <CallInterface 
-                isCaller={user?.$id === linkData.userId} 
+                isCaller={localUser?.$id === linkData.userId} 
                 callType={linkData.type} 
-                targetId={user?.$id === linkData.userId ? undefined : linkData.userId}
+                targetId={localUser?.$id === linkData.userId ? undefined : linkData.userId}
                 callCode={code}
             />
         );
