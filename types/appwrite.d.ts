@@ -434,17 +434,6 @@ export type Contacts = Models.Row & {
     updatedAt: string | null;
 }
 
-export type Users = Models.Row & {
-    username: string;
-    displayName: string | null;
-    bio: string | null;
-    walletAddress: string | null;
-    createdAt: string | null;
-    updatedAt: string | null;
-    publicKey: string | null;
-    avatar: string | null;
-}
-
 export type Follows = Models.Row & {
     followerId: string;
     followingId: string;
@@ -484,6 +473,18 @@ export type Calls = Models.Row & {
     startsAt: string | null;
     expiresAt: string | null;
     metadata: string | null;
+}
+
+export type Profiles = Models.Row & {
+    userId: string;
+    username: string;
+    displayName: string | null;
+    bio: string | null;
+    avatar: string | null;
+    walletAddress: string | null;
+    publicKey: string | null;
+    status: string;
+    preferences: string | null;
 }
 
 export type FocusSessions = Models.Row & {

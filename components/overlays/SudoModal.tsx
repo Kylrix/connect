@@ -166,6 +166,9 @@ export function SudoModal({
     // Check if user has passkey and PIN set up
     useEffect(() => {
         if (isOpen && user?.$id) {
+            const isKylrixDomain = typeof window !== 'undefined' && 
+                (window.location.hostname === 'kylrix.space' || window.location.hostname.endsWith('.kylrix.space'));
+
             const pinSet = ecosystemSecurity.isPinSet();
             setHasPin(pinSet);
 
@@ -173,7 +176,11 @@ export function SudoModal({
             KeychainService.listKeychainEntries(user.$id).then(entries => {
                 const passkeyPresent = entries.some((e: any) => e.type === 'passkey');
                 const passwordPresent = entries.some((e: any) => e.type === 'password');
-                setHasPasskey(passkeyPresent);
+                
+                // Disable passkey if not on kylrix.space domain
+                const effectivePasskeyPresent = passkeyPresent && isKylrixDomain;
+                
+                setHasPasskey(effectivePasskeyPresent);
                 setHasMasterpass(passwordPresent);
 
                 // Intent Logic
@@ -189,7 +196,7 @@ export function SudoModal({
                 }
 
                 if (intent === "reset") {
-                    setMode(passkeyPresent ? "passkey" : "password");
+                    setMode(effectivePasskeyPresent ? "passkey" : "password");
                     setIsDetecting(false);
                     return;
                 }
@@ -201,7 +208,7 @@ export function SudoModal({
                     return;
                 }
 
-                if (passkeyPresent) {
+                if (effectivePasskeyPresent) {
                     setMode("passkey");
                 } else if (pinSet) {
                     setMode("pin");

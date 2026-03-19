@@ -29,6 +29,7 @@ export const SocialService = {
             // For replies and pulses, we have to look at the moments table
             // This is slightly inefficient but works for now
             const moments = await tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
+                Query.equal('type', 'image'), // Filter by type to reduce rows if possible
                 Query.limit(100)
             ]);
 
@@ -37,6 +38,7 @@ export const SocialService = {
 
             moments.rows.forEach((m: any) => {
                 try {
+                    if (!m.fileId) return;
                     const meta = JSON.parse(m.fileId);
                     if (meta.sourceId === momentId) {
                         if (meta.type === 'reply') replies++;
@@ -52,49 +54,52 @@ export const SocialService = {
     },
 
     async toggleLike(userId: string, momentId: string, creatorId?: string, contentSnippet?: string) {
-        const existing = await tablesDB.listRows(DB_ID, INTERACTIONS_TABLE, [
-            Query.equal('userId', userId),
-            Query.equal('messageId', momentId),
-            Query.equal('emoji', 'like')
-        ]);
+        try {
+            const existing = await tablesDB.listRows(DB_ID, INTERACTIONS_TABLE, [
+                Query.equal('userId', userId),
+                Query.equal('messageId', momentId),
+                Query.equal('emoji', 'like')
+            ]);
 
-        if (existing.total > 0) {
-            await tablesDB.deleteRow(DB_ID, INTERACTIONS_TABLE, existing.rows[0].$id);
-            return { liked: false };
-        } else {
-            await tablesDB.createRow(DB_ID, INTERACTIONS_TABLE, ID.unique(), {
-                userId,
-                messageId: momentId,
-                emoji: 'like',
-                createdAt: new Date().toISOString()
-            });
+            if (existing.total > 0) {
+                await tablesDB.deleteRow(DB_ID, INTERACTIONS_TABLE, existing.rows[0].$id);
+                return { liked: false };
+            } else {
+                await tablesDB.createRow(DB_ID, INTERACTIONS_TABLE, ID.unique(), {
+                    userId,
+                    messageId: momentId,
+                    emoji: 'like'
+                });
 
-            // Record in Activity Log for Notifications (if not our own post)
-            if (creatorId && creatorId !== userId) {
-                try {
-                    await tablesDB.createRow(
-                        APPWRITE_CONFIG.DATABASES.KYLRIXNOTE, 
-                        APPWRITE_CONFIG.TABLES.KYLRIXNOTE.ACTIVITY_LOG, 
-                        ID.unique(), 
-                        {
-                            userId: creatorId,
-                            action: 'Moment Liked',
-                            targetType: 'moment',
-                            targetId: momentId,
-                            timestamp: new Date().toISOString(),
-                            details: JSON.stringify({
-                                read: false,
-                                originalDetails: `Someone liked your post: ${contentSnippet || '...'}` ,
-                                actionUrl: `https://connect.${process.env.NEXT_PUBLIC_DOMAIN || 'kylrix.space'}/post/${momentId}`
-                            })
-                        }
-                    );
-                } catch (logErr) {
-                    console.warn('Failed to log like to activityLog', logErr);
+                // Record in Activity Log for Notifications (if not our own post)
+                if (creatorId && creatorId !== userId) {
+                    try {
+                        await tablesDB.createRow(
+                            APPWRITE_CONFIG.DATABASES.KYLRIXNOTE, 
+                            APPWRITE_CONFIG.TABLES.KYLRIXNOTE.ACTIVITY_LOG, 
+                            ID.unique(), 
+                            {
+                                userId: creatorId,
+                                action: 'Moment Liked',
+                                targetType: 'moment',
+                                targetId: momentId,
+                                details: JSON.stringify({
+                                    read: false,
+                                    originalDetails: `Someone liked your post: ${contentSnippet || '...'}` ,
+                                    actionUrl: `https://connect.${process.env.NEXT_PUBLIC_DOMAIN || 'kylrix.space'}/post/${momentId}`
+                                })
+                            }
+                        );
+                    } catch (logErr) {
+                        console.warn('Failed to log like to activityLog', logErr);
+                    }
                 }
-            }
 
-            return { liked: true };
+                return { liked: true };
+            }
+        } catch (error) {
+            console.error('toggleLike error:', error);
+            throw error;
         }
     },
 
@@ -152,7 +157,7 @@ export const SocialService = {
                 if (att.type === 'note') {
                     const note = await tablesDB.getRow(
                         APPWRITE_CONFIG.DATABASES.KYLRIXNOTE,
-                        '67ff05f3002502ef239e',
+                        APPWRITE_CONFIG.TABLES.KYLRIXNOTE.USERS === '67ff05c900247b5673d3' ? '67ff05f3002502ef239e' : 'notes',
                         att.id
                     );
                     enriched.attachedNote = note;
@@ -196,7 +201,7 @@ export const SocialService = {
     async getFeed(userId?: string, targetUserId?: string) {
         // Fetch public moments or moments from followed users
         const queries = [
-            Query.orderDesc('createdAt'),
+            Query.orderDesc('$createdAt'),
             Query.limit(100)
         ];
 
@@ -245,7 +250,7 @@ export const SocialService = {
             if (Math.abs(b._rankScore - a._rankScore) > 0.1) {
                 return b._rankScore - a._rankScore;
             }
-            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            return new Date(b.$createdAt).getTime() - new Date(a.$createdAt).getTime();
         });
 
         return { ...moments, rows: sortedRows.slice(0, 50), total: sortedRows.length };
@@ -339,15 +344,20 @@ export const SocialService = {
             caption: content,
             type: 'image', // Database schema only accepts image/video
             fileId: effectiveFileId, 
-            createdAt: new Date().toISOString(),
             expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() 
         }, permissions);
 
         // Record in Activity Log for Ecosystem Notifications
         try {
-            const _isSelf = type === 'post'; // Pure posts are usually announcements
-            const targetUserId = (type === 'reply' || type === 'pulse' || type === 'quote') ? 
-                (await tablesDB.getRow(DB_ID, MOMENTS_TABLE, sourceId!)).userId : creatorId;
+            let targetUserId = creatorId;
+            if (type === 'reply' || type === 'pulse' || type === 'quote') {
+                try {
+                    const sourceMoment = await tablesDB.getRow(DB_ID, MOMENTS_TABLE, sourceId!);
+                    targetUserId = sourceMoment.userId;
+                } catch (sourceErr) {
+                    console.warn('Failed to fetch source moment for activity log', sourceErr);
+                }
+            }
 
             await tablesDB.createRow(
                 APPWRITE_CONFIG.DATABASES.KYLRIXNOTE, 
@@ -358,7 +368,6 @@ export const SocialService = {
                     action: type === 'post' ? 'Post Created' : type === 'reply' ? 'Moment Replied' : type === 'pulse' ? 'Moment Pulsed' : 'Moment Quoted',
                     targetType: 'moment',
                     targetId: moment.$id,
-                    timestamp: new Date().toISOString(),
                     details: JSON.stringify({
                         read: targetUserId === creatorId, // Auto-read if it's our own action
                         originalDetails: type === 'post' ? `New post shared: ${content.substring(0, 50)}...` : 
@@ -408,8 +417,7 @@ export const SocialService = {
         return await tablesDB.createRow(DB_ID, INTERACTIONS_TABLE, ID.unique(), {
             userId,
             momentId,
-            type: 'like',
-            createdAt: new Date().toISOString()
+            type: 'like'
         });
     },
 
@@ -417,8 +425,7 @@ export const SocialService = {
         return await tablesDB.createRow(DB_ID, FOLLOWS_TABLE, ID.unique(), {
             followerId,
             followingId,
-            status: 'accepted',
-            createdAt: new Date().toISOString()
+            status: 'accepted'
         });
     },
 
@@ -462,6 +469,28 @@ export const SocialService = {
         }
     },
 
+    async searchMoments(query: string, userId?: string) {
+        try {
+            const queries = [
+                Query.contains('caption', query),
+                Query.orderDesc('$createdAt'),
+                Query.limit(50)
+            ];
+
+            const moments = await tablesDB.listRows(DB_ID, MOMENTS_TABLE, queries);
+            
+            // Enrich search results
+            const enrichedRows = await Promise.all(moments.rows.map(async (moment: any) => {
+                return this.enrichMoment(moment, userId);
+            }));
+
+            return { ...moments, rows: enrichedRows };
+        } catch (error) {
+            console.error('searchMoments error:', error);
+            return { rows: [], total: 0 };
+        }
+    },
+
     async getMomentById(momentId: string, currentUserId?: string) {
         const moment = await tablesDB.getRow(DB_ID, MOMENTS_TABLE, momentId);
         return this.enrichMoment(moment, currentUserId);
@@ -474,7 +503,7 @@ export const SocialService = {
         // Optimization: Use a dedicated 'sourceId' string field in the DB.
         // Fallback: Fetch latest and filter client-side (until we add sourceId field)
         const moments = await tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
-            Query.orderDesc('createdAt'),
+            Query.orderDesc('$createdAt'),
             Query.limit(100)
         ]);
 

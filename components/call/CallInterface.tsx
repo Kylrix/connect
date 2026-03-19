@@ -96,6 +96,7 @@ export const CallInterface = ({
     const [copied, setCopied] = useState(false);
     
     const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
+    const [participants, setParticipants] = useState<any[]>([]);
     const [isChatOpen, setIsChatOpen] = useState(false);
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
     const [unreadChatCount, setUnreadChatCount] = useState(0);
@@ -271,16 +272,23 @@ export const CallInterface = ({
 
                         if (signal.type === 'join_request') {
                             if (signal.callId === (callCode || conversationId) || !signal.callId) {
-                                setJoinRequests(prev => [...prev, { 
-                                    senderId: signal.sender, 
-                                    senderName: signal.senderName || 'Guest' 
-                                }]);
+                                setJoinRequests(prev => {
+                                    if (prev.some(r => r.senderId === signal.sender)) return prev;
+                                    return [...prev, { 
+                                        senderId: signal.sender, 
+                                        senderName: signal.senderName || 'Guest' 
+                                    }];
+                                });
                                 toast(`Join Request from ${signal.senderName || 'Guest'}`, { icon: '👋' });
                             }
                         } else if (signal.type === 'let_in') {
+                            console.log('[CallInterface] Admitted by host, creating offer...');
                             setStatus('Joining...');
                             setTargetId(signal.sender);
-                            rtcManager.current?.createOffer(user.$id, signal.sender);
+                            // Small delay to ensure host is ready
+                            setTimeout(() => {
+                                rtcManager.current?.createOffer(user.$id, signal.sender);
+                            }, 500);
                         } else if (signal.type === 'chat_message') {
                             setChatMessages(prev => [...prev, signal.message]);
                             // We use a ref or a separate state for unread count to avoid re-running this effect
@@ -324,6 +332,40 @@ export const CallInterface = ({
         cleanupCall();
         router.back();
     }, [cleanupCall, router]);
+
+    // Presence & Participant Tracking
+    useEffect(() => {
+        if (!user || !callCode) return;
+
+        const updatePresence = async () => {
+            try {
+                const signal = {
+                    type: 'presence',
+                    sender: user.$id,
+                    senderName: user.name || 'User',
+                    callId: callCode || conversationId,
+                    ts: Date.now()
+                };
+                // We broadcast this to the host or everyone if we are the host
+                // For now, we update our own activity which others can see
+                await CallService.sendSignal(user.$id, isCaller ? 'broadcast' : (targetId || 'host'), signal);
+            } catch (e) {}
+        };
+
+        const fetchParticipants = async () => {
+            const active = await CallService.getActiveParticipants(callCode || conversationId || '');
+            setParticipants(active);
+        };
+
+        updatePresence();
+        fetchParticipants();
+        const interval = setInterval(() => {
+            updatePresence();
+            fetchParticipants();
+        }, 10000);
+
+        return () => clearInterval(interval);
+    }, [user, callCode, conversationId, isCaller, targetId]);
 
     // Timer for call expiration
     useEffect(() => {
@@ -524,6 +566,12 @@ export const CallInterface = ({
                             </Paper>
                         )}
                     </Stack>
+                    <Paper sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1, bgcolor: 'rgba(22,20,18,0.6)', backdropFilter: 'blur(10px)', borderRadius: 3, border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <Users size={14} color="#6366F1" />
+                        <Typography variant="caption" sx={{ fontWeight: 800, color: 'white', opacity: 0.8 }}>
+                            {participants.length || 1} {participants.length === 1 ? 'PARTICIPANT' : 'PARTICIPANTS'}
+                        </Typography>
+                    </Paper>
                     <Paper sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1, bgcolor: 'rgba(22,20,18,0.6)', backdropFilter: 'blur(10px)', borderRadius: 3, border: '1px solid rgba(255,255,255,0.05)' }}>
                         <ShieldCheck size={14} color="#6366F1" />
                         <Typography variant="caption" sx={{ fontWeight: 800, color: 'white', opacity: 0.8 }}>E2E ENCRYPTED P2P</Typography>

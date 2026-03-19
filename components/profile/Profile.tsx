@@ -25,6 +25,7 @@ import {
     Repeat2
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useProfile } from '@/components/providers/ProfileProvider';
 import { EditProfileModal } from './EditProfileModal';
 import { getUserProfilePicId } from '@/lib/user-utils';
 import { fetchProfilePreview, getCachedProfilePreview } from '@/lib/profile-preview';
@@ -35,6 +36,7 @@ interface ProfileProps {
 
 export const Profile = ({ username }: ProfileProps) => {
     const { user: currentUser } = useAuth();
+    const { profile: myProfile, refreshProfile: refreshMyProfile } = useProfile();
     const router = useRouter();
     const [profile, setProfile] = useState<any>(null);
     const [profileUrl, setProfileUrl] = useState<string | null>(null);
@@ -91,7 +93,12 @@ export const Profile = ({ username }: ProfileProps) => {
             if (username) {
                 data = await UsersService.getProfile(username);
             } else if (currentUser) {
-                data = await UsersService.getProfileById(currentUser.$id);
+                // Use the profile from context if it's our own profile
+                if (myProfile && myProfile.$id === currentUser.$id) {
+                    data = myProfile;
+                } else {
+                    data = await UsersService.getProfileById(currentUser.$id);
+                }
             }
 
             if (data) {
@@ -113,33 +120,6 @@ export const Profile = ({ username }: ProfileProps) => {
                 });
                 setIsFollowing(followingStatus);
                 setMomentsLoading(false);
-            } else if (currentUser && !username) {
-                // Fallback for current user if profile not found in chat directory
-                // We use the same preview logic as AppHeader
-                const profilePicId = getUserProfilePicId(currentUser);
-                let avatarUrl = null;
-                
-                if (profilePicId) {
-                    const cached = getCachedProfilePreview(profilePicId);
-                    if (cached) {
-                        avatarUrl = cached;
-                    } else {
-                        try {
-                            avatarUrl = await fetchProfilePreview(profilePicId, 140, 140);
-                        } catch (e) {
-                            console.warn("Could not fetch fallback avatar", e);
-                        }
-                    }
-                }
-
-                setProfile({
-                    $id: currentUser.$id,
-                    username: currentUser.name || 'user',
-                    displayName: currentUser.name,
-                    avatar: avatarUrl,
-                    bio: 'Kylrix Ecosystem Resident',
-                    __isFallback: true
-                });
             } else {
                 setProfile(null);
             }
@@ -148,7 +128,7 @@ export const Profile = ({ username }: ProfileProps) => {
         } finally {
             setLoading(false);
         }
-    }, [username, currentUser]);
+    }, [username, currentUser, myProfile]);
 
     useEffect(() => {
         loadProfile();
@@ -507,7 +487,10 @@ export const Profile = ({ username }: ProfileProps) => {
                 open={isEditModalOpen}
                 onClose={() => setIsEditModalOpen(false)}
                 profile={profile}
-                onUpdate={loadProfile}
+                onUpdate={() => {
+                    refreshMyProfile();
+                    loadProfile();
+                }}
             />
         </Box>
     );

@@ -53,6 +53,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { fetchProfilePreview } from '@/lib/profile-preview';
 import { getUserProfilePicId } from '@/lib/user-utils';
+import { FormattedText } from '../common/FormattedText';
 import { NoteSelectorModal } from './NoteSelectorModal';
 import { NoteViewDrawer } from './NoteViewDrawer';
 import { EventSelectorModal } from './EventSelectorModal';
@@ -155,6 +156,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
     const [showNewPosts, setShowNewPosts] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [momentSearchResults, setMomentSearchResults] = useState<any[]>([]);
     const [searching, setSearching] = useState(false);
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [selectedNote, setSelectedNote] = useState<any>(null);
@@ -173,6 +175,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
     const [shareAnchorEl, setShareAnchorEl] = useState<null | HTMLElement>(null);
     const [menuMoment, setMenuMoment] = useState<any>(null);
     const [selectedMoment, setSelectedMoment] = useState<any>(null);
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
 
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -217,7 +220,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
             setMoments((prev: any[]) => prev.map((m: any) => m.$id === moment.$id ? {
                 ...m,
                 isLiked: liked,
-                stats: { ...m.stats, likes: (m.stats?.likes || 0) + (liked ? 1 : -1) }
+                stats: { ...m.stats, likes: Math.max(0, (m.stats?.likes || 0) + (liked ? 1 : -1)) }
             } : m));
         } catch (_e) {
             toast.error('Failed to update like');
@@ -416,7 +419,17 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
             }
 
             const type = pulseTarget ? 'quote' : 'post';
-            await SocialService.createMoment(user!.$id, newMoment, type, mediaIds, 'public', selectedNote?.$id, selectedEvent?.$id, pulseTarget?.$id, selectedCall?.$id);
+            const createdMoment = await SocialService.createMoment(user!.$id, newMoment, type, mediaIds, 'public', selectedNote?.$id, selectedEvent?.$id, pulseTarget?.$id, selectedCall?.$id);
+            
+            // Enrich and add to local state immediately for instant feedback
+            const enriched = await SocialService.enrichMoment(createdMoment, user!.$id);
+            setMoments(prev => {
+                if (prev.some(m => m.$id === enriched.$id)) return prev;
+                const updated = [enriched, ...prev];
+                saveToCache(updated);
+                return updated;
+            });
+
             setNewMoment('');
             setSelectedNote(null);
             setSelectedEvent(null);
@@ -425,7 +438,6 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
             setSelectedFiles([]);
             // Scroll to top to see own post
             window.scrollTo({ top: 0, behavior: 'smooth' });
-            loadFeed();
         } catch (error: unknown) {
             console.error('Failed to post:', error);
             toast.error('Failed to post moment');
@@ -528,12 +540,19 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
     const handleSearch = useCallback(async (query: string) => {
         if (!query.trim()) {
             setSearchResults([]);
+            setMomentSearchResults([]);
             return;
         }
         setSearching(true);
         try {
-            const result = await UsersService.searchUsers(query);
-            const enriched = await Promise.all(result.rows.map(async (u: any) => {
+            // Search Users and Moments in parallel
+            const [userResult, momentResult] = await Promise.all([
+                UsersService.searchUsers(query),
+                SocialService.searchMoments(query, user?.$id)
+            ]);
+
+            // Enrich User Results
+            const enrichedUsers = await Promise.all(userResult.rows.map(async (u: any) => {
                 let avatar = null;
                 if (u.avatar) {
                     try {
@@ -543,13 +562,35 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                 }
                 return { ...u, avatar };
             }));
-            setSearchResults(enriched);
+
+            // Enrich Moment Results with Creator Info
+            const enrichedMoments = await Promise.all(momentResult.rows.map(async (m: any) => {
+                const creatorId = m.userId || m.creatorId;
+                if (profileRegistry.has(creatorId)) {
+                    return { ...m, creator: profileRegistry.get(creatorId) };
+                }
+                try {
+                    const profile = await UsersService.getProfileById(creatorId);
+                    let avatar = null;
+                    if (profile?.avatar) {
+                        avatar = await fetchProfilePreview(profile.avatar, 64, 64) as unknown as string;
+                    }
+                    const enrichedCreator = { ...profile, avatar };
+                    profileRegistry.set(creatorId, enrichedCreator);
+                    return { ...m, creator: enrichedCreator };
+                } catch (_e) {
+                    return m;
+                }
+            }));
+
+            setSearchResults(enrichedUsers);
+            setMomentSearchResults(enrichedMoments);
         } catch (e) {
             console.error('Search failed', e);
         } finally {
             setSearching(false);
         }
-    }, []);
+    }, [user?.$id]);
 
     useEffect(() => {
         if (view === 'search') {
@@ -573,7 +614,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
 
     const isEmpty = !loading && moments.length === 0;
 
-    if (view === 'search') {
+    if (view === 'search' || isSearchOpen) {
         return (
             <Box>
                 <Paper sx={{ 
@@ -586,7 +627,12 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                     alignItems: 'center',
                     gap: 1.5
                 }}>
-                    <Search size={20} color="#F59E0B" style={{ marginLeft: '12px', opacity: 0.6 }} />
+                    {isSearchOpen && (
+                        <IconButton onClick={() => setIsSearchOpen(false)} sx={{ color: 'rgba(255,255,255,0.5)' }}>
+                            <X size={20} />
+                        </IconButton>
+                    )}
+                    <Search size={20} color="#F59E0B" style={{ marginLeft: isSearchOpen ? '0' : '12px', opacity: 0.6 }} />
                     <TextField 
                         fullWidth
                         placeholder="Search for people by name or @username..."
@@ -600,44 +646,92 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
 
                 {searching && <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={24} sx={{ color: '#F59E0B' }} /></Box>}
                 
-                <Stack spacing={1}>
-                    {searchResults.map((u) => (
-                        <Paper 
-                            key={u.$id}
-                            onClick={() => router.push(`/@${u.username}`)}
-                            sx={{ 
-                                p: 2, 
-                                borderRadius: '16px', 
-                                bgcolor: '#161412', 
-                                border: '1px solid rgba(255, 255, 255, 0.05)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 2,
-                                cursor: 'pointer',
-                                transition: 'all 0.2s ease',
-                                '&:hover': { bgcolor: '#1C1A18', transform: 'translateX(4px)', borderColor: 'rgba(245, 158, 11, 0.3)' }
-                            }}
-                        >
-                            <Avatar src={u.avatar} sx={{ width: 48, height: 48, bgcolor: alpha('#F59E0B', 0.1), color: '#F59E0B', fontWeight: 800 }}>
-                                {u.username?.charAt(0).toUpperCase()}
-                            </Avatar>
-                            <Box sx={{ flex: 1 }}>
-                                <Typography sx={{ fontWeight: 800 }}>{u.displayName || u.username}</Typography>
-                                <Typography variant="caption" sx={{ opacity: 0.5, fontWeight: 700 }}>@{u.username}</Typography>
-                            </Box>
-                            <IconButton size="small" sx={{ color: '#F59E0B' }}>
-                                <Plus size={20} />
-                            </IconButton>
-                        </Paper>
-                    ))}
-                    {!searching && searchQuery && searchResults.length === 0 && (
-                        <Typography sx={{ textAlign: 'center', py: 8, opacity: 0.4, fontWeight: 600 }}>No users found for &quot;{searchQuery}&quot;</Typography>
+                <Stack spacing={3}>
+                    {searchResults.length > 0 && (
+                        <Box>
+                            <Typography variant="overline" sx={{ opacity: 0.5, fontWeight: 900, ml: 1, mb: 1, display: 'block' }}>People</Typography>
+                            <Stack spacing={1}>
+                                {searchResults.map((u) => (
+                                    <Paper 
+                                        key={u.$id}
+                                        onClick={() => router.push(`/@${u.username}`)}
+                                        sx={{ 
+                                            p: 2, 
+                                            borderRadius: '16px', 
+                                            bgcolor: '#161412', 
+                                            border: '1px solid rgba(255, 255, 255, 0.05)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 2,
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease',
+                                            '&:hover': { bgcolor: '#1C1A18', transform: 'translateX(4px)', borderColor: 'rgba(245, 158, 11, 0.3)' }
+                                        }}
+                                    >
+                                        <Avatar src={u.avatar} sx={{ width: 48, height: 48, bgcolor: alpha('#F59E0B', 0.1), color: '#F59E0B', fontWeight: 800 }}>
+                                            {u.username?.charAt(0).toUpperCase()}
+                                        </Avatar>
+                                        <Box sx={{ flex: 1 }}>
+                                            <Typography sx={{ fontWeight: 800 }}>{u.displayName || u.username}</Typography>
+                                            <Typography variant="caption" sx={{ opacity: 0.5, fontWeight: 700 }}>@{u.username}</Typography>
+                                        </Box>
+                                        <IconButton size="small" sx={{ color: '#F59E0B' }}>
+                                            <Plus size={20} />
+                                        </IconButton>
+                                    </Paper>
+                                ))}
+                            </Stack>
+                        </Box>
+                    )}
+
+                    {momentSearchResults.length > 0 && (
+                        <Box>
+                            <Typography variant="overline" sx={{ opacity: 0.5, fontWeight: 900, ml: 1, mb: 1, display: 'block' }}>Moments</Typography>
+                            <Stack spacing={2}>
+                                {momentSearchResults.map((moment) => {
+                                    const isOwnPost = user?.$id === (moment.userId || moment.creatorId);
+                                    const creatorName = isOwnPost ? (user?.name || 'You') : (moment.creator?.displayName || moment.creator?.username || 'Unknown');
+                                    const creatorAvatar = isOwnPost ? userAvatarUrl : (moment.creator?.avatar || undefined);
+
+                                    return (
+                                        <Card 
+                                            key={moment.$id} 
+                                            onClick={() => router.push(`/post/${moment.$id}`)}
+                                            sx={{ 
+                                                borderRadius: '24px', 
+                                                bgcolor: '#161412', 
+                                                border: '1px solid rgba(255, 255, 255, 0.05)', 
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s ease', 
+                                                '&:hover': { bgcolor: '#1C1A18', borderColor: 'rgba(245, 158, 11, 0.2)' } 
+                                            }} 
+                                            elevation={0}
+                                        >
+                                            <CardHeader
+                                                avatar={<Avatar src={creatorAvatar} sx={{ width: 32, height: 32, borderRadius: '8px' }} />}
+                                                title={<Typography variant="subtitle2" sx={{ fontWeight: 800 }}>{creatorName}</Typography>}
+                                                subheader={<Typography variant="caption" sx={{ opacity: 0.5 }}>{new Date(moment.createdAt).toLocaleDateString()}</Typography>}
+                                            />
+                                            <CardContent sx={{ pt: 0 }}>
+                                                <Typography variant="body2" sx={{ opacity: 0.8, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                    {moment.caption}
+                                                </Typography>
+                                            </CardContent>
+                                        </Card>
+                                    );
+                                })}
+                            </Stack>
+                        </Box>
+                    )}
+
+                    {!searching && searchQuery && searchResults.length === 0 && momentSearchResults.length === 0 && (
+                        <Typography sx={{ textAlign: 'center', py: 8, opacity: 0.4, fontWeight: 600 }}>No results found for &quot;{searchQuery}&quot;</Typography>
                     )}
                     {!searchQuery && (
                         <Box sx={{ textAlign: 'center', py: 8, opacity: 0.4 }}>
                             <Search size={48} style={{ marginBottom: '16px' }} />
                             <Typography sx={{ fontWeight: 700 }}>Search the Kylrix Ecosystem</Typography>
-                            <Typography variant="body2">Find friends, creators, and colleagues.</Typography>
+                            <Typography variant="body2">Find friends, creators, and moments.</Typography>
                         </Box>
                     )}
                 </Stack>
@@ -647,6 +741,31 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
 
     return (
         <Box sx={{ maxWidth: 600, mx: 'auto', p: { xs: 1, sm: 2 }, position: 'relative' }}>
+            {/* Search Toggle Button */}
+            {!isSearchOpen && (view as any) !== 'search' && (
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                    <Button
+                        onClick={() => setIsSearchOpen(true)}
+                        startIcon={<Search size={18} />}
+                        sx={{
+                            borderRadius: '12px',
+                            bgcolor: 'rgba(255, 255, 255, 0.03)',
+                            border: '1px solid rgba(255, 255, 255, 0.05)',
+                            color: 'rgba(255, 255, 255, 0.5)',
+                            textTransform: 'none',
+                            fontWeight: 700,
+                            px: 2,
+                            '&:hover': {
+                                bgcolor: 'rgba(255, 255, 255, 0.06)',
+                                borderColor: 'rgba(245, 158, 11, 0.3)',
+                                color: '#F59E0B'
+                            }
+                        }}
+                    >
+                        Search Ecosystem
+                    </Button>
+                </Box>
+            )}
             {showNewPosts && pendingMoments.length > 0 && (
                 <NewPostsWidget 
                     pendingMoments={pendingMoments} 
@@ -964,7 +1083,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                             }
                             subheader={
                                 <Typography variant="caption" sx={{ opacity: 0.5, fontWeight: 600 }}>
-                                    {new Date(moment.createdAt || moment.$createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    {new Date(moment.$createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                 </Typography>
                             }
                             action={
@@ -1048,14 +1167,16 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                         )}
 
                         {moment.caption && moment.caption.trim() !== "" && (
-                            <Typography variant="body1" sx={{ 
-                                lineHeight: 1.6, 
-                                fontSize: '1.05rem', 
-                                mb: (moment.attachedNote || (moment.sourceMoment && moment.metadata?.type !== 'reply') || moment.metadata?.attachments?.length) ? 2 : 0,
-                                mt: moment.metadata?.type === 'reply' ? 1 : 0 
-                            }}>
-                                {moment.caption}
-                            </Typography>
+                            <FormattedText 
+                                text={moment.caption}
+                                variant="body1"
+                                sx={{ 
+                                    lineHeight: 1.6, 
+                                    fontSize: '1.05rem', 
+                                    mb: (moment.attachedNote || (moment.sourceMoment && moment.metadata?.type !== 'reply') || moment.metadata?.attachments?.length) ? 2 : 0,
+                                    mt: moment.metadata?.type === 'reply' ? 1 : 0 
+                                }}
+                            />
                         )}
 
                         {/* Media Grid */}

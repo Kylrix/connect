@@ -246,7 +246,7 @@ export class WebRTCManager {
     }
   }
 
-  public async handleSignal(signal: SignalData & { cloudflareSessionId?: string, cloudflareTracks?: any[] }) {
+    public async handleSignal(signal: SignalData & { cloudflareSessionId?: string, cloudflareTracks?: any[], ts?: number }) {
     if (!this.peerConnection && signal.type === 'offer') {
       this.createPeerConnection(signal.target, signal.sender);
     }
@@ -254,34 +254,50 @@ export class WebRTCManager {
     if (!this.peerConnection) return;
 
     if (signal.type === 'offer' && signal.sdp) {
+      console.log(`[WebRTCManager] Offer received from ${signal.sender}`);
       // Pull tracks from Cloudflare if specified
       if (signal.cloudflareSessionId && signal.cloudflareTracks) {
         // Logic to subscribe to remote tracks via Cloudflare SFU
         // For simplicity in this surgical fix, we continue the signaling flow
       }
       
-      await this.peerConnection.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: signal.sdp }));
-      this.isRemoteDescriptionSet = true;
-      this.processCandidateQueue();
-      
-      const answer = await this.peerConnection.createAnswer();
-      await this.peerConnection.setLocalDescription(answer);
-      
-      this.events.onSignal({
-        type: 'answer',
-        sdp: answer.sdp,
-        target: signal.sender,
-        sender: signal.target
-      });
+      try {
+        await this.peerConnection.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: signal.sdp }));
+        this.isRemoteDescriptionSet = true;
+        await this.processCandidateQueue();
+        
+        const answer = await this.peerConnection.createAnswer();
+        await this.peerConnection.setLocalDescription(answer);
+        
+        console.log(`[WebRTCManager] Sending answer to ${signal.sender}`);
+        this.events.onSignal({
+          type: 'answer',
+          sdp: answer.sdp,
+          target: signal.sender,
+          sender: signal.target
+        });
+      } catch (err) {
+        console.error('[WebRTCManager] Error handling offer:', err);
+      }
     } else if (signal.type === 'answer' && signal.sdp) {
-      await this.peerConnection.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: signal.sdp }));
-      this.isRemoteDescriptionSet = true;
-      this.processCandidateQueue();
+      console.log(`[WebRTCManager] Answer received from ${signal.sender}`);
+      try {
+        await this.peerConnection.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: signal.sdp }));
+        this.isRemoteDescriptionSet = true;
+        await this.processCandidateQueue();
+      } catch (err) {
+        console.error('[WebRTCManager] Error handling answer:', err);
+      }
     } else if (signal.type === 'candidate' && signal.candidate) {
-      if (this.isRemoteDescriptionSet) {
-        await this.peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
-      } else {
-        this.candidateQueue.push(signal.candidate);
+      console.log(`[WebRTCManager] Candidate received from ${signal.sender}`);
+      try {
+        if (this.isRemoteDescriptionSet) {
+          await this.peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+        } else {
+          this.candidateQueue.push(signal.candidate);
+        }
+      } catch (err) {
+        console.error('[WebRTCManager] Error handling candidate:', err);
       }
     }
   }

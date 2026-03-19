@@ -65,7 +65,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       const res = await databases.listDocuments(
         APPWRITE_CONFIG.DATABASES.KYLRIXNOTE,
         APPWRITE_CONFIG.TABLES.KYLRIXNOTE.ACTIVITY_LOG,
-        [Query.equal('userId', user.$id), Query.orderDesc('timestamp'), Query.limit(50)]
+        [Query.equal('userId', user.$id), Query.orderDesc('$createdAt'), Query.limit(50)]
       );
       const logs = res.documents as unknown as ActivityLog[];
       setNotifications(logs);

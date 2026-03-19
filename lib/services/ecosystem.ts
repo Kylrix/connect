@@ -25,9 +25,7 @@ export const EcosystemService = {
                 title,
                 content,
                 isPublic: false,
-                status: 'published',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
+                status: 'published'
             }
         );
     },

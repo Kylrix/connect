@@ -15,11 +15,11 @@ export const ChatService = {
      */
     async _wrapConversationKey(convKey: CryptoKey, participants: string[]) {
         const CHAT_DB = APPWRITE_CONFIG.DATABASES.CHAT;
-        const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.USERS;
+        const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.PROFILES;
 
         const wrappedKeys: Record<string, string> = {};
 
-        // Fetch public keys for all participants from the unified chat.users table
+        // Fetch public keys for all participants from the unified profiles table
         const res = await tablesDB.listRows(CHAT_DB, USERS_TABLE, [
             Query.equal('$id', participants),
         ]);
@@ -229,9 +229,7 @@ export const ChatService = {
             tags: [],
             isEncrypted: !!encryptionKeyMap,
             encryptionKey: encryptionKeyMap || '',
-            encryptionVersion: '1.0',
-            createdAt: now,
-            updatedAt: now
+            encryptionVersion: '1.0'
         });
 
         // Cache the local key for this session
@@ -285,17 +283,14 @@ export const ChatService = {
             attachments,
             replyTo,
             readBy: [senderId],
-            metadata: finalMetadata,
-            createdAt: now,
-            updatedAt: now
+            metadata: finalMetadata
         });
 
         // 2. Update Conversation Last Message (with encrypted snippet)
         await tablesDB.updateRow(DB_ID, CONV_TABLE, conversationId, {
             lastMessageId: message.$id,
             lastMessageAt: now,
-            lastMessageText: type === 'text' ? finalContent : `[${type}]`,
-            updatedAt: now
+            lastMessageText: type === 'text' ? finalContent : `[${type}]`
         });
 
         // 3. (Background) If this is a group, check if any participant needs re-keying
@@ -452,8 +447,7 @@ export const ChatService = {
         tags: string[];
     }>) {
         return await tablesDB.updateRow(DB_ID, CONV_TABLE, conversationId, {
-            ...data,
-            updatedAt: new Date().toISOString()
+            ...data
         });
     },
 
@@ -484,8 +478,7 @@ export const ChatService = {
 
     async updateMessage(messageId: string, data: Partial<{ content: string; type: string; readBy: string[] }>) {
         return await tablesDB.updateRow(DB_ID, MSG_TABLE, messageId, {
-            ...data,
-            updatedAt: new Date().toISOString()
+            ...data
         });
     },
 

@@ -43,6 +43,7 @@ import {
 import { fetchProfilePreview } from '@/lib/profile-preview';
 import { getUserProfilePicId } from '@/lib/user-utils';
 import { format } from 'date-fns';
+import { FormattedText } from '@/components/common/FormattedText';
 import toast from 'react-hot-toast';
 import { TextField, InputAdornment, Alert, Menu, MenuItem } from '@mui/material';
 import Image from 'next/image';
@@ -159,13 +160,13 @@ export function PostViewClient() {
                 setMoment((prev: any) => ({ 
                     ...prev, 
                     isLiked: liked,
-                    stats: { ...prev.stats, likes: prev.stats.likes + (liked ? 1 : -1) }
+                    stats: { ...prev.stats, likes: Math.max(0, (prev.stats?.likes || 0) + (liked ? 1 : -1)) }
                 }));
             } else {
                 setReplies((prev: any[]) => prev.map(r => r.$id === target.$id ? {
                     ...r,
                     isLiked: liked,
-                    stats: { ...r.stats, likes: r.stats.likes + (liked ? 1 : -1) }
+                    stats: { ...r.stats, likes: Math.max(0, (r.stats?.likes || 0) + (liked ? 1 : -1)) }
                 } : r));
             }
         } catch (_e) {
@@ -315,9 +316,11 @@ export function PostViewClient() {
                                     <Typography variant="caption" sx={{ opacity: 0.4 }}>@{moment.sourceMoment.creator?.username}</Typography>
                                     <Typography variant="caption" sx={{ opacity: 0.3 }}>· {format(new Date(moment.sourceMoment.$createdAt || moment.sourceMoment.createdAt), 'MMM d')}</Typography>
                                 </Stack>
-                                <Typography variant="body2" sx={{ mt: 0.2, color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                    {moment.sourceMoment.caption}
-                                </Typography>
+                                <FormattedText 
+                                    text={moment.sourceMoment.caption}
+                                    variant="body2"
+                                    sx={{ mt: 0.2, color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+                                />
                             </Box>
                         </Box>
                     </Box>
@@ -378,19 +381,19 @@ export function PostViewClient() {
                     />
 
                     <CardContent sx={{ pt: 1, px: 3 }}>
-                        <Typography variant="h5" sx={{ 
-                            lineHeight: 1.4, 
-                            fontSize: '1.4rem', 
-                            fontWeight: 500,
-                            mb: 3,
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-word',
-                            color: 'rgba(255,255,255,0.95)',
-                            fontFamily: 'var(--font-satoshi)',
-                            letterSpacing: '-0.01em'
-                        }}>
-                            {moment.caption}
-                        </Typography>
+                        <FormattedText 
+                            text={moment.caption}
+                            variant="h5"
+                            sx={{ 
+                                lineHeight: 1.4, 
+                                fontSize: '1.4rem', 
+                                fontWeight: 500,
+                                mb: 3,
+                                color: 'rgba(255,255,255,0.95)',
+                                fontFamily: 'var(--font-satoshi)',
+                                letterSpacing: '-0.01em'
+                            }}
+                        />
 
                         {moment.metadata?.attachments?.filter((a: any) => a.type === 'image' || a.type === 'video').length > 0 && (
                             <Box sx={{ mb: 3, borderRadius: '20px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
@@ -489,7 +492,7 @@ export function PostViewClient() {
                         )}
 
                         <Typography variant="body2" sx={{ opacity: 0.4, fontWeight: 700, mt: 4, mb: 2 }}>
-                            {format(new Date(moment.$createdAt || moment.createdAt), 'h:mm a · MMM d, yyyy')} · Kylrix Connect
+                            {format(new Date(moment.$createdAt), 'h:mm a · MMM d, yyyy')} · Kylrix Connect
                         </Typography>
 
                         <Divider sx={{ borderColor: 'rgba(255,255,255,0.05)', my: 2 }} />
@@ -656,9 +659,11 @@ export function PostViewClient() {
                                         <Typography variant="caption" sx={{ opacity: 0.4 }}>@{reply.creator?.username}</Typography>
                                         <Typography variant="caption" sx={{ opacity: 0.4 }}>· {format(new Date(reply.$createdAt), 'MMM d')}</Typography>
                                     </Stack>
-                                    <Typography sx={{ mt: 0.5, color: 'rgba(255,255,255,0.8)', fontSize: '1rem', whiteSpace: 'pre-wrap' }}>
-                                        {reply.caption}
-                                    </Typography>
+                                    <FormattedText 
+                                        text={reply.caption}
+                                        variant="body1"
+                                        sx={{ mt: 0.5, color: 'rgba(255,255,255,0.8)', fontSize: '1rem' }}
+                                    />
                                     
                                     <Stack direction="row" spacing={4} sx={{ mt: 1.5, color: 'rgba(255,255,255,0.4)' }}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>

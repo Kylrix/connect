@@ -223,7 +223,7 @@ export class EcosystemSecurity {
     console.log('[Security] updateWrappedKey called but not supported in chat.users schema');
   }
 
-  async syncIdentity(userId: string) {
+    async syncIdentity(userId: string) {
     try {
       const PW_DB_ID = APPWRITE_CONFIG.DATABASES.PASSWORD_MANAGER;
       const IDENTITIES_TABLE_ID = APPWRITE_CONFIG.TABLES.PASSWORD_MANAGER.IDENTITIES;
@@ -246,12 +246,12 @@ export class EcosystemSecurity {
 
         this.identityKeyPair = { publicKey: pubKey, privateKey: privKey };
 
-        // Publish publicKey to chat.users
+        // Publish publicKey to chat.profiles
         try {
             const { UsersService } = await import('../services/users');
             await UsersService.updateProfile(userId, { publicKey: doc.publicKey });
         } catch (updateErr: any) {
-            console.error('[Security] Failed to update publicKey in chat.users:', updateErr?.message || updateErr);
+            console.error('[Security] Failed to update publicKey in chat.profiles:', updateErr?.message || updateErr);
         }
 
         return doc.publicKey;
@@ -271,18 +271,17 @@ export class EcosystemSecurity {
         identityType: 'e2e_connect',
         label: 'Connect E2E Identity',
         publicKey: pubBase64,
-        passkeyBlob: encryptedPriv,
-        createdAt: new Date().toISOString()
+        passkeyBlob: encryptedPriv
       });
 
       this.identityKeyPair = pair;
 
-      // Publish publicKey to chat.users
+      // Publish publicKey to chat.profiles
       try {
           const { UsersService } = await import('../services/users');
           await UsersService.updateProfile(userId, { publicKey: pubBase64 });
       } catch (updateErr: any) {
-          console.error('[Security] Failed to publish new publicKey to chat.users:', updateErr?.message || updateErr);
+          console.error('[Security] Failed to publish new publicKey to chat.profiles:', updateErr?.message || updateErr);
       }
 
       return pubBase64;

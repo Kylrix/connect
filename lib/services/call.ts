@@ -21,17 +21,18 @@ export const CallService = {
     async createCallLink(userId: string, type: 'audio' | 'video' = 'video', conversationId?: string, title?: string, startsAt?: string, durationMinutes: number = 120) {
         try {
             // Default to starting now if not provided
-            const startTime = startsAt ? new Date(startsAt) : new Date();
+            const startTime = startsAt ? new Date(startsAt) : null;
             // Expire based on duration (default 2 hours)
-            const expiresAt = new Date(startTime.getTime() + durationMinutes * 60 * 1000).toISOString();
+            const expiresAt = new Date((startTime?.getTime() || Date.now()) + durationMinutes * 60 * 1000).toISOString();
 
             // Create the row with the new concise structure
             const payload: any = {
                 userId,
                 type,
-                expiresAt,
-                startsAt: startTime.toISOString()
+                expiresAt
             };
+
+            if (startTime) payload.startsAt = startTime.toISOString();
 
             if (title) payload.title = title;
             if (conversationId) payload.metadata = JSON.stringify({ conversationId });
@@ -112,34 +113,31 @@ export const CallService = {
             ts: Date.now()
         });
 
+        console.log(`[CallService] Sending signal ${signal.type} from ${senderId} to ${targetId}`);
+
         try {
-            if (!this._activityDocId) {
-                const existing = await tablesDB.listRows(DB_ID, ACTIVITY_TABLE, [
-                    Query.equal('userId', senderId),
-                    Query.limit(1)
-                ]);
+            // We always fetch the latest activity doc ID for the sender to ensure we update the right one
+            const existing = await tablesDB.listRows(DB_ID, ACTIVITY_TABLE, [
+                Query.equal('userId', senderId),
+                Query.limit(1)
+            ]);
 
-                if (existing.total > 0) {
-                    this._activityDocId = existing.rows[0].$id;
-                } else {
-                    const newDoc = await tablesDB.createRow(DB_ID, ACTIVITY_TABLE, ID.unique(), {
-                        userId: senderId,
-                        customStatus: payload,
-                        status: 'online',
-                        lastSeen: new Date().toISOString()
-                    });
-                    this._activityDocId = newDoc.$id;
-                    return newDoc;
-                }
+            if (existing.total > 0) {
+                const docId = existing.rows[0].$id;
+                return await tablesDB.updateRow(DB_ID, ACTIVITY_TABLE, docId, {
+                    customStatus: payload,
+                    status: 'online'
+                });
+            } else {
+                const newDoc = await tablesDB.createRow(DB_ID, ACTIVITY_TABLE, ID.unique(), {
+                    userId: senderId,
+                    customStatus: payload,
+                    status: 'online'
+                });
+                return newDoc;
             }
-
-            return await tablesDB.updateRow(DB_ID, ACTIVITY_TABLE, this._activityDocId!, {
-                customStatus: payload,
-                lastSeen: new Date().toISOString()
-            });
         } catch (e) {
             console.error('Signal dispatch failed:', e);
-            this._activityDocId = null; // Reset cache on error
             throw e;
         }
     },
@@ -149,7 +147,6 @@ export const CallService = {
         const payload: any = {
             userId: callerId,
             type,
-            startsAt: new Date().toISOString(),
             expiresAt: new Date(Date.now() + 120 * 60 * 1000).toISOString(), // Default 2 hours
         };
 

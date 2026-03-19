@@ -33,14 +33,12 @@ export const ActivityService = {
             if (existing.total > 0) {
                 return await tablesDB.updateRow(DB_ID, ACTIVITY_TABLE, existing.rows[0].$id, {
                     status,
-                    lastSeen: now,
                     customStatus
                 });
             } else {
                 return await tablesDB.createRow(DB_ID, ACTIVITY_TABLE, ID.unique(), {
                     userId,
                     status,
-                    lastSeen: now,
                     customStatus
                 });
             }
@@ -76,7 +74,7 @@ export const ActivityService = {
     async getRecentActivity(userId: string, limit = 50) {
         return await tablesDB.listRows(DB_ID, ACTIVITY_TABLE, [
             Query.equal('userId', userId),
-            Query.orderDesc('timestamp'),
+            Query.orderDesc('$createdAt'),
             Query.limit(limit)
         ]);
     },

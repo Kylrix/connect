@@ -19,12 +19,13 @@ import {
     TextField,
     Avatar
 } from '@mui/material';
-import { Search, Edit2, Check, X, ShieldAlert, User, Image as ImageIcon, Globe } from 'lucide-react';
+import { Search, Edit2, Check, X, ShieldAlert, User, Image as ImageIcon, Globe, MessageSquare } from 'lucide-react';
 import { UsersService } from '@/lib/services/users';
 import { useAuth } from '@/lib/auth';
 import { getUserProfilePicId } from '@/lib/user-utils';
 import { ecosystemSecurity } from '@/lib/ecosystem/security';
 import toast from 'react-hot-toast';
+import { SudoModal } from '../overlays/SudoModal';
 
 export const DiscoverabilitySettings = () => {
     const { user } = useAuth();
@@ -32,6 +33,7 @@ export const DiscoverabilitySettings = () => {
     const [saving, setSaving] = useState(false);
     const [savingAvatar, setSavingAvatar] = useState(false);
     const [savingDiscoverable, setSavingDiscoverable] = useState(false);
+    const [savingContact, setSavingContact] = useState(false);
     const [profile, setProfile] = useState<any>(null);
     const [username, setUsername] = useState('');
     const [isEditing, setIsEditing] = useState(false);
@@ -40,6 +42,7 @@ export const DiscoverabilitySettings = () => {
     const [checkingAvailability, setCheckingAvailability] = useState(false);
     const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
     const [syncError, setSyncError] = useState<string | null>(null);
+    const [isSudoOpen, setIsSudoOpen] = useState(false);
 
     const loadProfile = useCallback(async () => {
         try {
@@ -124,6 +127,46 @@ export const DiscoverabilitySettings = () => {
         }
     };
 
+    const handleToggleContact = async (checked: boolean) => {
+        if (!user?.$id) return;
+
+        if (checked) {
+            // Turning ON requires vault unlock
+            if (!ecosystemSecurity.status.isUnlocked) {
+                setIsSudoOpen(true);
+                return;
+            }
+            
+            setSavingContact(true);
+            try {
+                const pub = await ecosystemSecurity.ensureE2EIdentity(user.$id);
+                if (pub) {
+                    await UsersService.updateProfile(user.$id, { publicKey: pub });
+                    const p = await UsersService.getProfileById(user.$id);
+                    setProfile(p);
+                    toast.success("People can now contact you securely");
+                }
+            } catch (e: any) {
+                toast.error("Failed to enable contact: " + e.message);
+            } finally {
+                setSavingContact(false);
+            }
+        } else {
+            // Turning OFF just deletes the publicKey
+            setSavingContact(true);
+            try {
+                await UsersService.updateProfile(user.$id, { publicKey: "" });
+                const p = await UsersService.getProfileById(user.$id);
+                setProfile(p);
+                toast.success("Secure contact disabled");
+            } catch (e: any) {
+                toast.error("Failed to disable contact: " + e.message);
+            } finally {
+                setSavingContact(false);
+            }
+        }
+    };
+
     const handleSyncE2E = async () => {
         if (!user?.$id || !profile) return;
 
@@ -201,6 +244,7 @@ export const DiscoverabilitySettings = () => {
 
     const isDiscoverable = profile?.$permissions?.some((p: string) => p.includes('read("any")'));
     const isAvatarVisible = !!profile?.avatar;
+    const isContactable = !!profile?.publicKey;
 
     return (
         <Box>
@@ -253,6 +297,32 @@ export const DiscoverabilitySettings = () => {
                             sx={{
                                 '& .MuiSwitch-switchBase.Mui-checked': { color: '#F43F5E' },
                                 '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#F43F5E' }
+                            }}
+                        />
+                    </Box>
+
+                    <Divider sx={{ opacity: 0.05 }} />
+
+                    {/* Allow Contact Section */}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                            <Box sx={{ p: 1, borderRadius: '12px', bgcolor: alpha('#6366F1', 0.1), color: '#6366F1' }}>
+                                <MessageSquare size={18} />
+                            </Box>
+                            <Box>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Allow Contact</Typography>
+                                <Typography variant="body2" sx={{ opacity: 0.5, fontSize: '0.8rem' }}>Allow others to send you encrypted messages</Typography>
+                            </Box>
+                        </Box>
+                        <Switch
+                            checked={isContactable}
+                            onChange={(e) => handleToggleContact(e.target.checked)}
+                            disabled={savingContact || (!isContactable && !ecosystemSecurity.status.isUnlocked)}
+                            sx={{
+                                opacity: (!isContactable && !ecosystemSecurity.status.isUnlocked) ? 0.5 : 1,
+                                filter: (!isContactable && !ecosystemSecurity.status.isUnlocked) ? 'blur(0.5px)' : 'none',
+                                '& .MuiSwitch-switchBase.Mui-checked': { color: '#6366F1' },
+                                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#6366F1' }
                             }}
                         />
                     </Box>
@@ -471,6 +541,15 @@ export const DiscoverabilitySettings = () => {
                     </Box>
                 </Stack>
             </Paper>
+
+            <SudoModal
+                isOpen={isSudoOpen}
+                onCancel={() => setIsSudoOpen(false)}
+                onSuccess={() => {
+                    setIsSudoOpen(false);
+                    handleToggleContact(true);
+                }}
+            />
 
             <Box sx={{ mt: 3, p: 2, borderRadius: '16px', bgcolor: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Avatar src={profile?.avatar} alt="Profile Preview" sx={{ width: 48, height: 48, border: '2px solid rgba(255, 255, 255, 0.1)' }} />

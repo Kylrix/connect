@@ -62,7 +62,6 @@ export function useAuth() {
         try {
             const session = await account.get();
             setUser(session);
-            await UsersService.ensureProfileForUser(session as any);
             setLoading(false);
             
             // Clear the auth=success param from URL if it exists
@@ -87,7 +86,6 @@ export function useAuth() {
             try {
                 const retrySession = await account.get();
                 setUser(retrySession);
-                await UsersService.ensureProfileForUser(retrySession as any);
             } catch {
                 const err = error as any;
                 const isNetworkError = !err.response && (err.message?.includes('Network Error') || err.message?.includes('Failed to fetch'));
