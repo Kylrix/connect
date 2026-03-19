@@ -29,8 +29,15 @@ export class WebRTCManager {
   private async fetchCloudflareSession() {
     if (this.sessionId) return { sessionId: this.sessionId, sessionToken: this.cloudflareSessionToken };
     
+    console.log('[WebRTCManager] Fetching Cloudflare session...');
     const response = await fetch('/api/calls/session', { method: 'POST' });
+    if (!response.ok) {
+      const err = await response.text();
+      console.error('[WebRTCManager] Cloudflare session fetch failed:', err);
+      throw new Error(`Cloudflare session failed: ${response.status} ${err}`);
+    }
     const data = await response.json();
+    console.log('[WebRTCManager] Cloudflare session created:', data.sessionId);
     this.sessionId = data.sessionId;
     this.cloudflareSessionToken = data.sessionToken;
     return data;
@@ -148,10 +155,12 @@ export class WebRTCManager {
     if (this.peerConnection) return;
     this.currentTargetId = targetId;
 
+    console.log(`[WebRTCManager] Creating PeerConnection for ${senderId} -> ${targetId}`);
     this.peerConnection = new RTCPeerConnection(this.config);
 
     this.peerConnection.onicecandidate = (event) => {
       if (event.candidate && this.currentTargetId) {
+        console.log(`[WebRTCManager] ICE Candidate generated for ${this.currentTargetId}`);
         this.events.onSignal({
           type: 'candidate',
           candidate: event.candidate.toJSON(),
@@ -162,16 +171,24 @@ export class WebRTCManager {
     };
 
     this.peerConnection.ontrack = (event) => {
+      console.log(`[WebRTCManager] Remote track received`);
       this.remoteStream = event.streams[0];
       this.events.onTrack(this.remoteStream);
     };
 
     this.peerConnection.onconnectionstatechange = () => {
-      this.updateState(this.peerConnection?.connectionState as PeerState);
+      const state = this.peerConnection?.connectionState as PeerState;
+      console.log(`[WebRTCManager] Connection state changed: ${state}`);
+      this.updateState(state);
+    };
+
+    this.peerConnection.oniceconnectionstatechange = () => {
+      console.log(`[WebRTCManager] ICE state changed: ${this.peerConnection?.iceConnectionState}`);
     };
 
     // Add local tracks to connection
     if (this.localStream) {
+      console.log(`[WebRTCManager] Adding ${this.localStream.getTracks().length} local tracks`);
       this.localStream.getTracks().forEach(track => {
         this.peerConnection?.addTrack(track, this.localStream!);
       });
@@ -211,11 +228,21 @@ export class WebRTCManager {
         cloudflareTracks: trackData.tracks
       });
     } catch (error) {
-      console.error('Cloudflare SFU Initiation failed, falling back to P2P:', error);
-      // Fallback: Re-create peer connection with P2P logic if needed
-      // For now, we ensure the error doesn't crash the manager and we notify the UI
-      this.updateState('failed');
-      throw error;
+      console.error('Cloudflare SFU Initiation failed, falling back to pure P2P:', error);
+      
+      // Fallback to pure P2P signaling
+      this.createPeerConnection(senderId, targetId);
+      if (!this.peerConnection) return;
+
+      const offer = await this.peerConnection.createOffer();
+      await this.peerConnection.setLocalDescription(offer);
+
+      this.events.onSignal({
+        type: 'offer',
+        sdp: offer.sdp,
+        target: targetId,
+        sender: senderId
+      });
     }
   }
 

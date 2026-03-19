@@ -13,7 +13,6 @@ export const APPWRITE_CONFIG = {
         CHAT: {
             CONVERSATIONS: 'conversations',
             MESSAGES: 'messages',
-            CALL_LOGS: 'call_logs',
             APP_ACTIVITY: 'app_activity',
             CALL_LINKS: 'calls',
             FOLLOWS: 'follows',

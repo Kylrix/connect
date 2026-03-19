@@ -4,7 +4,6 @@ import { APPWRITE_CONFIG } from '../appwrite/config';
 
 const DB_ID = APPWRITE_CONFIG.DATABASES.CHAT;
 const LINKS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.CALL_LINKS;
-const LOGS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.CALL_LOGS;
 const ACTIVITY_TABLE = APPWRITE_CONFIG.TABLES.CHAT.APP_ACTIVITY;
 
 import { account as authAccount } from '../appwrite/client';
@@ -79,32 +78,31 @@ export const CallService = {
     },
 
     async getCallLinkByCode(_code: string) {
-        // This method is now redundant as we use Row ID, but keeping it as a no-op 
-        // or removing it if no longer called.
         return null;
     },
 
     async cleanupOldCallLogs() {
         try {
             const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-            const oldLogs = await tablesDB.listRows(DB_ID, LOGS_TABLE, [
-                Query.lessThan('startedAt', sevenDaysAgo),
+            const oldLogs = await tablesDB.listRows(DB_ID, LINKS_TABLE, [
+                Query.lessThan('startsAt', sevenDaysAgo),
                 Query.limit(100)
             ]);
 
             for (const log of oldLogs.rows) {
-                await tablesDB.deleteRow(DB_ID, LOGS_TABLE, log.$id);
+                await tablesDB.deleteRow(DB_ID, LINKS_TABLE, log.$id);
             }
             return oldLogs.total;
         } catch (_e) {
-            console.error('Failed to cleanup old call logs:', _e);
+            console.error('Failed to cleanup old calls:', _e);
             return 0;
         }
     },
 
+    _activityDocId: null as string | null,
+
     /**
      * Send a signal via Realtime by updating the user's AppActivity document.
-     * This is much faster than the Messages table and specifically for transient state.
      */
     async sendSignal(senderId: string, targetId: string, signal: any) {
         const payload = JSON.stringify({
@@ -114,146 +112,131 @@ export const CallService = {
             ts: Date.now()
         });
 
-        // We use AppActivity.customStatus as a transient signaling pipe
-        // The recipient subscribes to the sender's AppActivity document
         try {
-            const existing = await tablesDB.listRows(DB_ID, ACTIVITY_TABLE, [
-                Query.equal('userId', senderId),
-                Query.limit(1)
-            ]);
+            if (!this._activityDocId) {
+                const existing = await tablesDB.listRows(DB_ID, ACTIVITY_TABLE, [
+                    Query.equal('userId', senderId),
+                    Query.limit(1)
+                ]);
 
-            if (existing.total > 0) {
-                return await tablesDB.updateRow(DB_ID, ACTIVITY_TABLE, existing.rows[0].$id, {
-                    customStatus: payload,
-                    lastSeen: new Date().toISOString()
-                });
-            } else {
-                return await tablesDB.createRow(DB_ID, ACTIVITY_TABLE, ID.unique(), {
-                    userId: senderId,
-                    customStatus: payload,
-                    status: 'online',
-                    lastSeen: new Date().toISOString()
-                });
+                if (existing.total > 0) {
+                    this._activityDocId = existing.rows[0].$id;
+                } else {
+                    const newDoc = await tablesDB.createRow(DB_ID, ACTIVITY_TABLE, ID.unique(), {
+                        userId: senderId,
+                        customStatus: payload,
+                        status: 'online',
+                        lastSeen: new Date().toISOString()
+                    });
+                    this._activityDocId = newDoc.$id;
+                    return newDoc;
+                }
             }
+
+            return await tablesDB.updateRow(DB_ID, ACTIVITY_TABLE, this._activityDocId!, {
+                customStatus: payload,
+                lastSeen: new Date().toISOString()
+            });
         } catch (e) {
             console.error('Signal dispatch failed:', e);
+            this._activityDocId = null; // Reset cache on error
             throw e;
         }
     },
 
     async startCall(callerId: string, receiverId?: string, conversationId?: string, type: 'audio' | 'video' = 'video') {
-        return await tablesDB.createRow(DB_ID, LOGS_TABLE, ID.unique(), {
-            callerId,
-            receiverId,
-            conversationId,
+        // Direct calls are now also stored in the 'calls' table
+        const payload: any = {
+            userId: callerId,
             type,
-            status: 'ongoing',
-            startedAt: new Date().toISOString()
-        });
+            startsAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 120 * 60 * 1000).toISOString(), // Default 2 hours
+        };
+
+        if (receiverId || conversationId) {
+            payload.metadata = JSON.stringify({ receiverId, conversationId });
+        }
+
+        return await tablesDB.createRow(DB_ID, LINKS_TABLE, ID.unique(), payload, [
+            Permission.read(Role.any()),
+            Permission.update(Role.user(callerId)),
+            Permission.delete(Role.user(callerId)),
+        ]);
     },
 
-    async updateCallStatus(callId: string, status: 'completed' | 'declined' | 'missed', duration: number = 0) {
-        return await tablesDB.updateRow(DB_ID, LOGS_TABLE, callId, {
-            status,
-            duration,
-            updatedAt: new Date().toISOString()
-        });
+    async updateCallStatus(callId: string, status: 'completed' | 'declined' | 'missed', _duration: number = 0) {
+        try {
+            const call = await tablesDB.getRow(DB_ID, LINKS_TABLE, callId);
+            let meta = {};
+            try {
+                if (call.metadata) meta = JSON.parse(call.metadata);
+            } catch (e) {}
+
+            return await tablesDB.updateRow(DB_ID, LINKS_TABLE, callId, {
+                metadata: JSON.stringify({ ...meta, status }),
+                expiresAt: new Date().toISOString() // End the call immediately
+            });
+        } catch (e) {
+            console.error('Failed to update call status:', e);
+        }
     },
 
     async cleanupCall(callId: string) {
         try {
-            await tablesDB.deleteRow(DB_ID, LOGS_TABLE, callId);
+            await tablesDB.deleteRow(DB_ID, LINKS_TABLE, callId);
         } catch (_e) {
-            console.error('Failed to cleanup call log:', _e);
+            console.error('Failed to cleanup call:', _e);
         }
     },
 
     async cleanupLink(linkId: string) {
-        try {
-            await tablesDB.deleteRow(DB_ID, LINKS_TABLE, linkId);
-        } catch (_e) {
-            console.error('Failed to cleanup call link:', _e);
-        }
+        return this.cleanupCall(linkId);
     },
 
     async getCallHistory(userId: string) {
-        // Fetch calls where user is caller OR receiver OR creator (for links)
-        // Note: Using $createdAt (Appwrite internal) for sorting instead of non-existent createdAt
-        const [asCaller, asReceiver, asCreator] = await Promise.all([
-            tablesDB.listRows(DB_ID, LOGS_TABLE, [Query.equal('callerId', userId), Query.orderDesc('startedAt'), Query.limit(20)]),
-            tablesDB.listRows(DB_ID, LOGS_TABLE, [Query.equal('receiverId', userId), Query.orderDesc('startedAt'), Query.limit(20)]),
-            tablesDB.listRows(DB_ID, LINKS_TABLE, [Query.equal('userId', userId), Query.orderDesc('$createdAt'), Query.limit(20)])
+        // Fetch calls where user is creator OR receiver (stored in metadata)
+        const [asCreator, asReceiver] = await Promise.all([
+            tablesDB.listRows(DB_ID, LINKS_TABLE, [Query.equal('userId', userId), Query.orderDesc('$createdAt'), Query.limit(20)]),
+            tablesDB.listRows(DB_ID, LINKS_TABLE, [Query.contains('metadata', userId), Query.orderDesc('$createdAt'), Query.limit(20)])
         ]);
         
-        // Convert links to log-like objects for the UI
-        const linkLogs = asCreator.rows.map(link => {
-            let conversationId = undefined;
+        const allRows = [...asCreator.rows, ...asReceiver.rows].map(row => {
+            let receiverId = null;
+            let status = 'ongoing';
             try {
-                if (link.metadata) {
-                    const meta = JSON.parse(link.metadata);
-                    conversationId = meta.conversationId;
+                if (row.metadata) {
+                    const meta = JSON.parse(row.metadata);
+                    receiverId = meta.receiverId;
+                    status = meta.status || (new Date(row.expiresAt) < new Date() ? 'completed' : 'ongoing');
                 }
             } catch (e) {}
 
             return {
-                ...link,
-                callerId: link.userId,
-                receiverId: null,
-                conversationId,
-                status: new Date(link.expiresAt) < new Date() ? 'completed' : 'ongoing',
-                startedAt: link.startsAt || link.$createdAt,
-                isLink: true
+                ...row,
+                callerId: row.userId,
+                receiverId,
+                status,
+                startedAt: row.startsAt || row.$createdAt,
+                isLink: !receiverId
             };
         });
 
-        const allCalls = [...asCaller.rows, ...asReceiver.rows, ...linkLogs].sort((a: any, b: any) => 
-            new Date(b.startedAt || b.$createdAt).getTime() - new Date(a.startedAt || a.$createdAt).getTime()
+        return allRows.sort((a: any, b: any) => 
+            new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
         );
-        
-        return allCalls;
     },
 
     async getActiveCalls(userId: string) {
-        // Fetch ongoing calls where user is participant OR active links
-        const [asCaller, asReceiver, asCreator] = await Promise.all([
-            tablesDB.listRows(DB_ID, LOGS_TABLE, [Query.equal('callerId', userId), Query.equal('status', 'ongoing')]),
-            tablesDB.listRows(DB_ID, LOGS_TABLE, [Query.equal('receiverId', userId), Query.equal('status', 'ongoing')]),
-            tablesDB.listRows(DB_ID, LINKS_TABLE, [Query.equal('userId', userId), Query.greaterThan('expiresAt', new Date().toISOString())])
-        ]);
-        
-        const linkLogs = asCreator.rows.map(link => {
-            let conversationId = undefined;
-            try {
-                if (link.metadata) {
-                    const meta = JSON.parse(link.metadata);
-                    conversationId = meta.conversationId;
-                }
-            } catch (e) {}
-
-            return {
-                ...link,
-                callerId: link.userId,
-                receiverId: null,
-                conversationId,
-                status: 'ongoing',
-                startedAt: link.startsAt || link.$createdAt,
-                isLink: true
-            };
-        });
-
-        return [...asCaller.rows, ...asReceiver.rows, ...linkLogs];
+        const history = await this.getCallHistory(userId);
+        return history.filter((c: any) => c.status === 'ongoing' && new Date(c.expiresAt) > new Date());
     },
 
     async endCall(callId: string) {
-        return await tablesDB.updateRow(DB_ID, LOGS_TABLE, callId, {
-            status: 'completed',
-            updatedAt: new Date().toISOString()
-        });
+        return this.updateCallStatus(callId, 'completed');
     },
 
     async getActiveParticipants(callId: string) {
         try {
-            // We use AppActivity to see who is currently 'online' and has this callId in their customStatus
             const res = await tablesDB.listRows(DB_ID, ACTIVITY_TABLE, [
                 Query.equal('status', 'online'),
                 Query.limit(100)
@@ -274,12 +257,6 @@ export const CallService = {
     },
 
     async deleteCallLog(callId: string) {
-        try {
-            // Try deleting from logs table first
-            return await tablesDB.deleteRow(DB_ID, LOGS_TABLE, callId);
-        } catch (_e) {
-            // If it fails, try deleting from links table
-            return await tablesDB.deleteRow(DB_ID, LINKS_TABLE, callId);
-        }
+        return this.cleanupCall(callId);
     }
 };

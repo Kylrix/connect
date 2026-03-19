@@ -247,7 +247,7 @@ export const CallInterface = ({
             // 3. If caller and has target, initiate
             if (isCaller && targetId) {
                 rtcManager.current?.createOffer(user.$id, targetId);
-            } else if (isCaller && !targetId && !callCode && !conversationId) {
+            } else if (isCaller && !targetId) {
                  setStatus('Waiting for participants...');
             }
         }).catch(err => {
@@ -283,13 +283,12 @@ export const CallInterface = ({
                             rtcManager.current?.createOffer(user.$id, signal.sender);
                         } else if (signal.type === 'chat_message') {
                             setChatMessages(prev => [...prev, signal.message]);
-                            if (!isChatOpen) {
-                                setUnreadChatCount(c => c + 1);
-                                toast(`${signal.message.senderName}: ${signal.message.content.substring(0, 30)}...`, { 
-                                    icon: '💬',
-                                    style: { borderRadius: '12px', background: '#161412', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }
-                                });
-                            }
+                            // We use a ref or a separate state for unread count to avoid re-running this effect
+                            setUnreadChatCount(c => c + 1);
+                            toast(`${signal.message.senderName}: ${signal.message.content.substring(0, 30)}...`, { 
+                                icon: '💬',
+                                style: { borderRadius: '12px', background: '#161412', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }
+                            });
                         } else {
                             rtcManager.current?.handleSignal(signal);
                         }
@@ -304,7 +303,7 @@ export const CallInterface = ({
                 rtcManager.current.cleanup();
             }
         };
-    }, [user, isCaller, callType, targetId, callCode, isChatOpen, conversationId, initialMediaSettings.audio, initialMediaSettings.video, isCompanion]);
+    }, [user, isCaller, callType, targetId, callCode, conversationId, initialMediaSettings.audio, initialMediaSettings.video, isCompanion]);
 
     const handleAcceptRequest = async (request: JoinRequest) => {
         if (!user) return;
