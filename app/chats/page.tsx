@@ -46,11 +46,18 @@ function ChatHandler() {
           if (found) {
             router.push(`/chat/${found.$id}`);
           } else {
+            // Ensure we use the actual userId from the profile, not the document ID
+            const actualTargetUserId = targetProfile.userId;
+            if (!actualTargetUserId) {
+                toast.error("User ID missing from profile.");
+                return;
+            }
+
             // Ensure Sudo is unlocked before creating (needed for E2E keys)
             requestSudo({
               onSuccess: async () => {
                 try {
-                  const newConv = await ChatService.createConversation([user.$id, userId], 'direct');
+                  const newConv = await ChatService.createConversation([user.$id, actualTargetUserId], 'direct');
                   router.push(`/chat/${newConv.$id}`);
                 } catch (err: any) {
                   console.error("Failed to create chat:", err);

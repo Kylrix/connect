@@ -99,17 +99,32 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                 if (otherId) {
                     try {
                         const profile = await UsersService.getProfileById(otherId);
+                        let avatarUrl = null;
+                        if (profile?.avatar) {
+                            try {
+                                const url = await fetchProfilePreview(profile.avatar, 64, 64);
+                                avatarUrl = url as unknown as string;
+                            } catch (_e) {}
+                        }
                         setConversation({
                             ...conv,
-                            name: profile ? (profile.displayName || profile.username) : 'User'
+                            name: profile ? (profile.displayName || profile.username) : `@${otherId.slice(0, 7)}`,
+                            avatarUrl
                         });
                     } catch (_e: unknown) {
-                        setConversation({ ...conv, name: 'User' });
+                        setConversation({ ...conv, name: `@${otherId.slice(0, 7)}` });
                     }
                 } else {
                     const myProfile = await UsersService.getProfileById(user.$id);
                     const myName = myProfile ? (myProfile.displayName || myProfile.username) : (user.name || 'You');
-                    setConversation({ ...conv, name: `${myName} (You)` });
+                    let avatarUrl = null;
+                    if (myProfile?.avatar) {
+                        try {
+                            const url = await fetchProfilePreview(myProfile.avatar, 64, 64);
+                            avatarUrl = url as unknown as string;
+                        } catch (_e) {}
+                    }
+                    setConversation({ ...conv, name: `${myName} (You)`, avatarUrl });
                 }
             } else {
                 setConversation(conv);
@@ -190,7 +205,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
             let unsub: any;
             const initRealtime = async () => {
                 unsub = await realtime.subscribe(
-                    [`databases.${APPWRITE_CONFIG.DATABASES.CHAT}.collections.${APPWRITE_CONFIG.TABLES.CHAT.MESSAGES}.documents`],
+                    [`databases.${APPWRITE_CONFIG.DATABASES.CHAT}.tables.${APPWRITE_CONFIG.TABLES.CHAT.MESSAGES}.rows`],
                     async (response) => {
                         const payload = response.payload as Messages;
                         if (payload.conversationId === conversationId) {
@@ -954,14 +969,17 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                         onClick={(e) => setAnchorEl(e.currentTarget)}
                         sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, cursor: 'pointer', '&:hover': { opacity: 0.8 } }}
                     >
-                        <Avatar sx={{
-                            width: 36,
-                            height: 36,
-                            bgcolor: isSelf ? alpha('#6366F1', 0.1) : '#161412',
-                            border: '1px solid rgba(255, 255, 255, 0.05)',
-                            boxShadow: '0 1px 0 rgba(0,0,0,0.4)'
-                        }}>
-                            {isSelf ? <Bookmark size={18} color="#6366F1" strokeWidth={1.5} /> : (conversation?.type === 'group' ? <Users size={20} strokeWidth={1.5} /> : <User size={20} strokeWidth={1.5} />)}
+                        <Avatar 
+                            src={conversation?.avatarUrl}
+                            sx={{
+                                width: 36,
+                                height: 36,
+                                bgcolor: isSelf ? alpha('#6366F1', 0.1) : '#161412',
+                                border: '1px solid rgba(255, 255, 255, 0.05)',
+                                boxShadow: '0 1px 0 rgba(0,0,0,0.4)'
+                            }}
+                        >
+                            {isSelf ? <Bookmark size={18} color="#6366F1" strokeWidth={1.5} /> : (conversation?.type === 'group' ? <Users size={20} strokeWidth={1.5} /> : (conversation?.name?.replace(/^@/, '').charAt(0).toUpperCase() || <User size={20} strokeWidth={1.5} />))}
                         </Avatar>
                         <Box>
                             <Typography variant="subtitle1" sx={{ fontWeight: 800, fontFamily: 'var(--font-clash)', lineHeight: 1.2, color: isSelf ? '#6366F1' : 'text.primary' }}>

@@ -165,7 +165,8 @@ export const Profile = ({ username }: ProfileProps) => {
 
     const handleMessage = () => {
         if (!profile) return;
-        router.push(`/chats?userId=${profile.$id}`);
+        const targetId = profile.userId || profile.$id;
+        router.push(`/chats?userId=${targetId}`);
     };
 
     if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>;

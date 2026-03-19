@@ -659,7 +659,9 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                         <Box>
                             <Typography variant="overline" sx={{ opacity: 0.5, fontWeight: 900, ml: 1, mb: 1, display: 'block' }}>People</Typography>
                             <Stack spacing={1}>
-                                {searchResults.map((u) => (
+                                {searchResults
+                                    .filter(u => u.userId !== user?.$id) // Hide current user from results
+                                    .map((u) => (
                                     <Paper 
                                         key={u.$id}
                                         onClick={() => router.push(`/@${u.username}`)}
@@ -676,8 +678,18 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                                             '&:hover': { bgcolor: '#1C1A18', transform: 'translateX(4px)', borderColor: 'rgba(245, 158, 11, 0.3)' }
                                         }}
                                     >
-                                        <Avatar src={u.avatar} sx={{ width: 48, height: 48, bgcolor: alpha('#F59E0B', 0.1), color: '#F59E0B', fontWeight: 800 }}>
-                                            {u.username?.charAt(0).toUpperCase()}
+                                        <Avatar 
+                                            src={u.avatar} 
+                                            sx={{ 
+                                                width: 48, 
+                                                height: 48, 
+                                                bgcolor: alpha('#F59E0B', 0.1), 
+                                                color: '#F59E0B', 
+                                                fontWeight: 800,
+                                                border: '1px solid rgba(245, 158, 11, 0.2)'
+                                            }}
+                                        >
+                                            {(u.displayName || u.username)?.charAt(0).toUpperCase()}
                                         </Avatar>
                                         <Box sx={{ flex: 1 }}>
                                             <Typography sx={{ fontWeight: 800 }}>{u.displayName || u.username}</Typography>

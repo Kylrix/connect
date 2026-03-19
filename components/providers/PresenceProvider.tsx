@@ -23,7 +23,7 @@ export const PresenceProvider = ({ children }: { children: React.ReactNode }) =>
 
         // Subscribe to presence updates
         const unsub = realtime.subscribe(
-            [`databases.${APPWRITE_CONFIG.DATABASES.CHAT}.collections.${APPWRITE_CONFIG.TABLES.CHAT.APP_ACTIVITY}.documents`],
+            [`databases.${APPWRITE_CONFIG.DATABASES.CHAT}.tables.${APPWRITE_CONFIG.TABLES.CHAT.APP_ACTIVITY}.rows`],
             (response) => {
                 const payload = response.payload as any;
                 setPresence(prev => ({

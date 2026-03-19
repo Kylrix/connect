@@ -165,12 +165,60 @@ export const ChatService = {
 
     async getConversations(userId: string) {
         console.log('[ChatService] getConversations for:', userId);
+        
+        // 1. Standard fetch of existing conversations
         const res = await tablesDB.listRows(DB_ID, CONV_TABLE, [
             Query.contains('participants', userId),
-            Query.orderDesc('lastMessageAt')
+            Query.orderDesc('lastMessageAt'),
+            Query.limit(100)
         ]);
 
+        // 2. Proactive Scan: Check for recent messages sent to us that might not have a conversation yet
+        // This handles the "first message" scenario where the conversation doc might be delayed or missing
+        try {
+            // We fetch messages where we are NOT the sender.
+            // Since we can't filter by 'recipient' directly in the DB, we scan the latest 100 messages globally
+            // and filter for conversations we are part of but don't have in our 'res' list yet.
+            const recentMessages = await tablesDB.listRows(DB_ID, MSG_TABLE, [
+                Query.orderDesc('$createdAt'),
+                Query.limit(100)
+            ]);
+
+            const missingConvIds = new Set<string>();
+            recentMessages.rows.forEach((msg: any) => {
+                if (msg.senderId !== userId && !res.rows.some(c => c.$id === msg.conversationId)) {
+                    missingConvIds.add(msg.conversationId);
+                }
+            });
+
+            if (missingConvIds.size > 0) {
+                console.log('[ChatService] Found messages for potential missing conversations:', Array.from(missingConvIds));
+                const potentialConvs = await Promise.all(
+                    Array.from(missingConvIds).map(id => tablesDB.getRow(DB_ID, CONV_TABLE, id).catch(() => null))
+                );
+                
+                potentialConvs.forEach(c => {
+                    // CRITICAL: Only add if we are actually a participant!
+                    if (c && c.participants?.includes(userId)) {
+                        console.log('[ChatService] Discovered missing conversation via message scan:', c.$id);
+                        res.rows.push(c);
+                        res.total++;
+                    }
+                });
+            }
+        } catch (_scanErr) {
+            console.warn('[ChatService] Proactive message scan failed');
+        }
+
         res.rows = await Promise.all(res.rows.map(c => this._decryptConversation(c, userId)));
+        
+        // Re-sort after potential additions
+        res.rows.sort((a, b) => {
+            const timeA = new Date(a.lastMessageAt || a.updatedAt || a.$createdAt || 0).getTime();
+            const timeB = new Date(b.lastMessageAt || b.updatedAt || b.$createdAt || 0).getTime();
+            return timeB - timeA;
+        });
+
         return res;
     },
 
@@ -253,7 +301,6 @@ export const ChatService = {
         const now = new Date().toISOString();
 
         // E2E Layer: Universal Handshake Protocol
-        // Messages are encrypted using the unique Group/Session Key!
         let finalContent = content;
         let finalMetadata = metadata;
 
@@ -266,7 +313,6 @@ export const ChatService = {
                     finalMetadata = await ecosystemSecurity.encryptWithKey(metaStr, convKey);
                 }
             } else {
-                // Warning fallback if keys failed to sync in session
                 finalContent = await ecosystemSecurity.encrypt(content);
                 if (metadata) {
                     const metaStr = typeof metadata === 'string' ? metadata : JSON.stringify(metadata);
@@ -275,7 +321,15 @@ export const ChatService = {
             }
         }
 
-        // 1. Create Message
+        // 0. Fetch conversation to get participants for permissions
+        const conversation = await tablesDB.getRow(DB_ID, CONV_TABLE, conversationId);
+        const participants = conversation.participants || [];
+        
+        const permissions = [`read("users")`];
+        permissions.push(`update("user:${senderId}")`);
+        permissions.push(`delete("user:${senderId}")`);
+
+        // 1. Create Message with explicit permissions
         const message = await tablesDB.createRow(DB_ID, MSG_TABLE, ID.unique(), {
             conversationId,
             senderId,
@@ -285,18 +339,19 @@ export const ChatService = {
             replyTo,
             readBy: [senderId],
             metadata: finalMetadata,
-            createdAt: now
-        });
+            createdAt: now,
+            updatedAt: now
+        }, permissions);
 
-        // 2. Update Conversation Last Message (with encrypted snippet)
+        // 2. Update Conversation Last Message
         await tablesDB.updateRow(DB_ID, CONV_TABLE, conversationId, {
             lastMessageId: message.$id,
             lastMessageAt: now,
-            lastMessageText: type === 'text' ? finalContent : `[${type}]`
+            lastMessageText: type === 'text' ? finalContent : `[${type}]`,
+            updatedAt: now 
         });
 
-        // 3. (Background) If this is a group, check if any participant needs re-keying
-        // This ensures a reset participant can receive future messages
+        // 3. (Background) Re-keying check
         if (ecosystemSecurity.status.isUnlocked) {
             this.rewrapConversationKeys(conversationId).catch(err =>
                 console.warn("[ChatService] Background re-wrap failed:", err)

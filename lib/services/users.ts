@@ -43,6 +43,7 @@ export const UsersService = {
     async getProfileById(userId: string) {
         if (!userId) return null;
         try {
+            // Priority 1: Find by the dedicated 'userId' field
             const result = await tablesDB.listRows(DB_ID, USERS_TABLE, [
                 Query.equal('userId', userId),
                 Query.limit(2) // Check if more than one exists
@@ -54,7 +55,18 @@ export const UsersService = {
                 return null;
             }
             
-            return result.rows[0] || null;
+            if (result.rows[0]) return result.rows[0];
+
+            // Priority 2: Robustness fallback - check if the passed ID is actually a document ID ($id)
+            // This happens when legacy UI components pass profile.$id instead of profile.userId
+            try {
+                const doc = await genDB.use('chat').use('profiles').get(userId);
+                if (doc) return doc;
+            } catch (_e) {
+                // Not a document ID or not found
+            }
+            
+            return null;
         } catch (_e: unknown) {
             return null;
         }

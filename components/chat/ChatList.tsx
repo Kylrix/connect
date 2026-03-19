@@ -25,8 +25,10 @@ import PersonIcon from '@mui/icons-material/PersonOutlined';
 import BookmarkIcon from '@mui/icons-material/BookmarkOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import LockIcon from '@mui/icons-material/LockOutlined';
+import { fetchProfilePreview } from '@/lib/profile-preview';
 import { ecosystemSecurity } from '@/lib/ecosystem/security';
 import { SudoModal } from '../overlays/SudoModal';
+import { realtime } from '@/lib/appwrite/client';
 
 export const ChatList = () => {
     const { user } = useAuth();
@@ -115,7 +117,7 @@ export const ChatList = () => {
                 }
             }
 
-            // Enrich with other participant's name
+            // Enrich with other participant's name and avatar
             const enriched = await Promise.all(rows.map(async (conv: any) => {
                 if (conv.type === 'direct') {
                     const isActuallySelf = conv.participants && (conv.participants.length === 1 || conv.participants.length === 2) && conv.participants.every((p: string) => p === user!.$id);
@@ -125,24 +127,40 @@ export const ChatList = () => {
                         if (otherId) {
                             try {
                                 const profile = await UsersService.getProfileById(otherId);
+                                let avatarUrl = null;
+                                if (profile?.avatar) {
+                                    try {
+                                        const url = await fetchProfilePreview(profile.avatar, 64, 64);
+                                        avatarUrl = url as unknown as string;
+                                    } catch (_e) {}
+                                }
                                 return {
                                     ...conv,
                                     otherUserId: otherId,
-                                    name: profile ? (profile.displayName || profile.username) : 'User'
+                                    name: profile ? (profile.displayName || profile.username) : `@${otherId.slice(0, 7)}`,
+                                    avatarUrl
                                 };
                             } catch (_e: unknown) {
-                                return { ...conv, name: 'User' };
+                                return { ...conv, name: `@${otherId.slice(0, 7)}` };
                             }
                         }
                     } else {
                         // Self Chat
                         const myProfile = await UsersService.getProfileById(user!.$id);
                         const myName = myProfile ? (myProfile.displayName || myProfile.username) : (user!.name || 'You');
+                        let avatarUrl = null;
+                        if (myProfile?.avatar) {
+                            try {
+                                const url = await fetchProfilePreview(myProfile.avatar, 64, 64);
+                                avatarUrl = url as unknown as string;
+                            } catch (_e) {}
+                        }
                         return {
                             ...conv,
                             otherUserId: user!.$id,
                             name: `${myName} (You)`,
-                            isSelf: true
+                            isSelf: true,
+                            avatarUrl
                         };
                     }
                 }
@@ -185,6 +203,53 @@ export const ChatList = () => {
     useEffect(() => {
         if (user) {
             loadConversations();
+
+            // Real-time subscription for chat list updates
+            const channel = `databases.${APPWRITE_CONFIG.DATABASES.CHAT}.tables.${APPWRITE_CONFIG.TABLES.CHAT.CONVERSATIONS}.rows`;
+            const unsub = realtime.subscribe([channel], (response) => {
+                const payload = response.payload as any;
+                // Check if the user is a participant in the updated conversation
+                const isParticipant = payload.participants?.includes(user.$id);
+                
+                if (isParticipant) {
+                    console.log('[ChatList] Real-time update for conversation:', payload.$id);
+                    
+                    if (response.events.some(e => e.includes('.create'))) {
+                        // New conversation created (e.g. someone started a chat with us)
+                        loadConversations();
+                    } else if (response.events.some(e => e.includes('.update'))) {
+                        // Message sent, conversation re-sorted
+                        setConversations(prev => {
+                            const exists = prev.find(c => c.$id === payload.$id);
+                            if (exists) {
+                                // Update snippet and timestamp, then re-sort
+                                const updated = prev.map(c => c.$id === payload.$id ? { 
+                                    ...c, 
+                                    lastMessageText: payload.lastMessageText,
+                                    lastMessageAt: payload.lastMessageAt,
+                                    updatedAt: payload.updatedAt
+                                } : c);
+                                return updated.sort((a, b) => {
+                                    const timeA = new Date(a.lastMessageAt || a.updatedAt || a.$createdAt || 0).getTime();
+                                    const timeB = new Date(b.lastMessageAt || b.updatedAt || b.$createdAt || 0).getTime();
+                                    return timeB - timeA;
+                                });
+                            } else {
+                                // If it doesn't exist in our current list (e.g. new chat), full reload
+                                loadConversations();
+                                return prev;
+                            }
+                        });
+                    } else if (response.events.some(e => e.includes('.delete'))) {
+                        setConversations(prev => prev.filter(c => c.$id !== payload.$id));
+                    }
+                }
+            });
+
+            return () => {
+                if (typeof unsub === 'function') unsub();
+                else if ((unsub as any)?.unsubscribe) (unsub as any).unsubscribe();
+            };
         }
     }, [user, loadConversations]);
 
@@ -281,8 +346,8 @@ export const ChatList = () => {
                                         }
                                     }}
                                 >
-                                    <ListItemAvatar>
                                         <Avatar
+                                            src={conv.avatarUrl}
                                             sx={{
                                                 bgcolor: conv.isSelf ? alpha('#6366F1', 0.1) : '#161412',
                                                 color: conv.isSelf ? '#6366F1' : 'text.secondary',
@@ -292,9 +357,8 @@ export const ChatList = () => {
                                                 height: 44
                                             }}
                                         >
-                                            {conv.isSelf ? <BookmarkIcon sx={{ fontSize: 20 }} /> : (conv.type === 'group' ? <GroupIcon sx={{ fontSize: 22 }} /> : <PersonIcon sx={{ fontSize: 22 }} />)}
+                                            {conv.isSelf ? <BookmarkIcon sx={{ fontSize: 20 }} /> : (conv.type === 'group' ? <GroupIcon sx={{ fontSize: 22 }} /> : (conv.name?.replace(/^@/, '').charAt(0).toUpperCase() || <PersonIcon sx={{ fontSize: 22 }} />))}
                                         </Avatar>
-                                    </ListItemAvatar>
                                     <ListItemText
                                         primary={conv.name || (conv.type === 'direct' ? conv.otherUserId : 'Group Chat')}
                                         secondary={
