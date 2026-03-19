@@ -46,7 +46,9 @@ import {
     Edit,
     Image as ImageIcon,
     Plus,
-    Search
+    Search,
+    Phone,
+    Video
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { fetchProfilePreview } from '@/lib/profile-preview';
@@ -55,6 +57,7 @@ import { NoteSelectorModal } from './NoteSelectorModal';
 import { NoteViewDrawer } from './NoteViewDrawer';
 import { EventSelectorModal } from './EventSelectorModal';
 import { EventViewDrawer } from './EventViewDrawer';
+import { CallSelectorModal } from './CallSelectorModal';
 
 import toast from 'react-hot-toast';
 
@@ -156,6 +159,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [selectedNote, setSelectedNote] = useState<any>(null);
     const [selectedEvent, setSelectedEvent] = useState<any>(null);
+    const [selectedCall, setSelectedCall] = useState<any>(null);
     const [pulseTarget, setPulseTarget] = useState<any>(null);
     const [isNoteModalOpen, setIsNoteSelectorOpen] = useState(false);
     const [isNoteDrawerOpen, setIsNoteDrawerOpen] = useState(false);
@@ -163,6 +167,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
     const [isEventModalOpen, setIsEventSelectorOpen] = useState(false);
     const [isEventDrawerOpen, setIsEventDrawerOpen] = useState(false);
     const [viewingEvent, setViewingEvent] = useState<any>(null);
+    const [isCallModalOpen, setIsCallSelectorOpen] = useState(false);
     const [postMenuAnchorEl, setPostMenuAnchorEl] = useState<null | HTMLElement>(null);
     const [pulseMenuAnchorEl, setPulseMenuAnchorEl] = useState<null | HTMLElement>(null);
     const [shareAnchorEl, setShareAnchorEl] = useState<null | HTMLElement>(null);
@@ -398,7 +403,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
     }, [user, view, loadFeed]);
 
     const handlePost = async () => {
-        if (!newMoment.trim() && !selectedNote && !selectedEvent && !pulseTarget && selectedFiles.length === 0) return;
+        if (!newMoment.trim() && !selectedNote && !selectedEvent && !selectedCall && !pulseTarget && selectedFiles.length === 0) return;
         setPosting(true);
         try {
             // Upload files first
@@ -411,10 +416,11 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
             }
 
             const type = pulseTarget ? 'quote' : 'post';
-            await SocialService.createMoment(user!.$id, newMoment, type, mediaIds, 'public', selectedNote?.$id, selectedEvent?.$id, pulseTarget?.$id);
+            await SocialService.createMoment(user!.$id, newMoment, type, mediaIds, 'public', selectedNote?.$id, selectedEvent?.$id, pulseTarget?.$id, selectedCall?.$id);
             setNewMoment('');
             setSelectedNote(null);
             setSelectedEvent(null);
+            setSelectedCall(null);
             setPulseTarget(null);
             setSelectedFiles([]);
             // Scroll to top to see own post
@@ -739,6 +745,39 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                             </Paper>
                         )}
 
+                        {selectedCall && (
+                            <Paper
+                                variant="outlined"
+                                sx={{
+                                    mt: 2,
+                                    p: 2,
+                                    borderRadius: 3,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    bgcolor: 'rgba(245, 158, 11, 0.03)',
+                                    borderColor: 'rgba(245, 158, 11, 0.2)',
+                                    position: 'relative'
+                                }}
+                            >
+                                {selectedCall.type === 'video' ? <Video size={20} color="#F59E0B" style={{ marginRight: '16px' }} strokeWidth={1.5} /> : <Phone size={20} color="#F59E0B" style={{ marginRight: '16px' }} strokeWidth={1.5} />}
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography variant="subtitle2" fontWeight={800} noWrap>
+                                        {selectedCall.title || `${selectedCall.type.charAt(0).toUpperCase() + selectedCall.type.slice(1)} Call`}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
+                                        Starts: {new Date(selectedCall.startsAt).toLocaleString()}
+                                    </Typography>
+                                </Box>
+                                <IconButton
+                                    size="small"
+                                    onClick={() => setSelectedCall(null)}
+                                    sx={{ ml: 1 }}
+                                >
+                                    <X size={16} strokeWidth={1.5} />
+                                </IconButton>
+                            </Paper>
+                        )}
+
                         {pulseTarget && (
                             <Paper
                                 variant="outlined"
@@ -844,10 +883,25 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                             >
                                 Event
                             </Button>
+                            <Button
+                                startIcon={<Phone size={18} strokeWidth={1.5} />}
+                                onClick={() => setIsCallSelectorOpen(true)}
+                                sx={{
+                                    borderRadius: '10px',
+                                    textTransform: 'none',
+                                    fontWeight: 700,
+                                    color: 'text.secondary',
+                                    minWidth: 0,
+                                    px: 1.5,
+                                    '&:hover': { color: '#F59E0B', bgcolor: alpha('#F59E0B', 0.05) }
+                                }}
+                            >
+                                Call
+                            </Button>
                         </Box>
                         <Button
                             variant="contained"
-                            disabled={(!newMoment.trim() && !selectedNote && !selectedEvent && selectedFiles.length === 0) || posting}
+                            disabled={(!newMoment.trim() && !selectedNote && !selectedEvent && !selectedCall && selectedFiles.length === 0) || posting}
                             onClick={handlePost}
                             sx={{
                                 borderRadius: '12px',
@@ -1264,6 +1318,92 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                                 </Box>
                             </Paper>
                         )}
+
+                        {moment.attachedCall && (
+                            <Paper
+                                variant="outlined"
+                                onClick={() => router.push(`/call/${moment.attachedCall.$id}`)}
+                                sx={{
+                                    p: 0,
+                                    borderRadius: 4,
+                                    bgcolor: 'rgba(255, 255, 255, 0.02)',
+                                    borderColor: 'rgba(255, 255, 255, 0.08)',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    overflow: 'hidden',
+                                    '&:hover': {
+                                        borderColor: 'rgba(245, 158, 11, 0.4)',
+                                        transform: 'translateY(-4px)',
+                                        boxShadow: '0 12px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(245, 158, 11, 0.1)'
+                                    }
+                                }}
+                            >
+                                <Box sx={{
+                                    p: 3,
+                                    background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(245, 158, 11, 0.02) 100%)',
+                                    borderBottom: '1px solid rgba(255, 255, 255, 0.05)'
+                                }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                        <Box
+                                            sx={{
+                                                width: 40,
+                                                height: 40,
+                                                borderRadius: 1.5,
+                                                bgcolor: 'rgba(245, 158, 11, 0.1)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                mr: 2,
+                                                boxShadow: '0 4px 12px rgba(245, 158, 11, 0.15)'
+                                            }}
+                                        >
+                                            {moment.attachedCall.type === 'video' ? <Video size={20} color="#F59E0B" strokeWidth={1.5} /> : <Phone size={20} color="#F59E0B" strokeWidth={1.5} />}
+                                        </Box>
+                                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                                            <Typography
+                                                variant="subtitle1"
+                                                fontWeight={900}
+                                                sx={{
+                                                    color: 'white',
+                                                    fontFamily: 'var(--font-space-grotesk)',
+                                                    letterSpacing: '-0.01em',
+                                                    lineHeight: 1.2
+                                                }}
+                                            >
+                                                {moment.attachedCall.title || `${moment.attachedCall.type.charAt(0).toUpperCase() + moment.attachedCall.type.slice(1)} Call`}
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.4)', fontWeight: 600 }}>
+                                                Kylrix Connect Call • {new Date(moment.attachedCall.startsAt).toLocaleDateString()}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'rgba(255, 255, 255, 0.6)' }}>
+                                            <Clock size={14} strokeWidth={1.5} />
+                                            <Typography variant="caption" fontWeight={600}>
+                                                Starts: {new Date(moment.attachedCall.startsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                </Box>
+                                <Box sx={{
+                                    px: 3,
+                                    py: 1.5,
+                                    bgcolor: 'rgba(0, 0, 0, 0.2)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between'
+                                }}>
+                                    <Typography variant="caption" sx={{ color: '#F59E0B', fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase', fontSize: '0.65rem' }}>
+                                        Hosted via Kylrix Connect
+                                    </Typography>
+                                    <Button size="small" variant="text" sx={{ color: '#F59E0B', fontWeight: 800, fontSize: '0.65rem' }}>
+                                        Join Call
+                                    </Button>
+                                </Box>
+                            </Paper>
+                        ) }
                     </CardContent>
                         <CardActions sx={{ px: 2, pb: 1, pt: 0, justifyContent: 'space-around', color: 'rgba(255, 255, 255, 0.4)' }}>
                         <Tooltip title="Reply">
@@ -1472,6 +1612,12 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                 open={isEventModalOpen}
                 onClose={() => setIsEventSelectorOpen(false)}
                 onSelect={(event) => setSelectedEvent(event)}
+            />
+
+            <CallSelectorModal
+                open={isCallModalOpen}
+                onClose={() => setIsCallSelectorOpen(false)}
+                onSelect={(call) => setSelectedCall(call)}
             />
 
             <EventViewDrawer

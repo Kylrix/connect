@@ -11,7 +11,7 @@ export interface MomentMetadata {
     type: 'post' | 'reply' | 'pulse' | 'quote';
     sourceId?: string; // For replies, pulses, and quotes
     attachments?: {
-        type: 'note' | 'event' | 'image' | 'video';
+        type: 'note' | 'event' | 'image' | 'video' | 'call';
         id: string;
     }[];
 }
@@ -163,6 +163,13 @@ export const SocialService = {
                         att.id
                     );
                     enriched.attachedEvent = event;
+                } else if (att.type === 'call') {
+                    const call = await tablesDB.getRow(
+                        APPWRITE_CONFIG.DATABASES.CHAT,
+                        APPWRITE_CONFIG.TABLES.CHAT.CALL_LINKS,
+                        att.id
+                    );
+                    enriched.attachedCall = call;
                 } else if (att.type === 'image' || att.type === 'video') {
                     // For now, we just keep the IDs in enriched.attachments
                     if (!enriched.attachments) enriched.attachments = [];
@@ -305,7 +312,7 @@ export const SocialService = {
         return storage.getFilePreview(APPWRITE_CONFIG.BUCKETS.MESSAGES, fileId, width, height).toString();
     },
 
-    async createMoment(creatorId: string, content: string, type: 'post' | 'reply' | 'pulse' | 'quote' = 'post', mediaIds: string[] = [], visibility: 'public' | 'private' | 'followers' = 'public', noteId?: string, eventId?: string, sourceId?: string) {
+    async createMoment(creatorId: string, content: string, type: 'post' | 'reply' | 'pulse' | 'quote' = 'post', mediaIds: string[] = [], visibility: 'public' | 'private' | 'followers' = 'public', noteId?: string, eventId?: string, sourceId?: string, callId?: string) {
         const permissions = [
             `read("user:${creatorId}")`,
             `update("user:${creatorId}")`,
@@ -323,6 +330,7 @@ export const SocialService = {
         metadata.attachments = mediaIds.map(id => ({ type: 'image', id }));
         if (noteId) metadata.attachments.push({ type: 'note', id: noteId });
         if (eventId) metadata.attachments.push({ type: 'event', id: eventId });
+        if (callId) metadata.attachments.push({ type: 'call', id: callId });
 
         const effectiveFileId = JSON.stringify(metadata);
 
