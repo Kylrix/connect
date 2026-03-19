@@ -109,7 +109,7 @@ export const CallHistory = ({ onNewCall }: { onNewCall?: () => void }) => {
             await CallService.endCall(callId);
             toast.success('Call ended');
             loadCalls();
-        } catch (e) {
+        } catch (_e) {
             toast.error('Failed to end call');
         }
     };
@@ -120,7 +120,7 @@ export const CallHistory = ({ onNewCall }: { onNewCall?: () => void }) => {
             await CallService.deleteCallLog(callId);
             toast.success('Call log deleted');
             loadCalls();
-        } catch (e) {
+        } catch (_e) {
             toast.error('Failed to delete call log');
         }
     };

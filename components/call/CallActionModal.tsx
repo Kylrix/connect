@@ -106,7 +106,7 @@ export const CallActionModal = ({ open, onClose }: { open: boolean, onClose: () 
         if (!user) return;
         setCreating(true);
         try {
-            const link = await CallService.createCallLink(
+            const _link = await CallService.createCallLink(
                 user.$id, 
                 'video', 
                 undefined, 
@@ -114,7 +114,7 @@ export const CallActionModal = ({ open, onClose }: { open: boolean, onClose: () 
                 undefined, 
                 duration
             );
-            router.push(`/call/${link.$id}?caller=true`);
+            router.push(`/call/${_link.$id}?caller=true`);
             onClose();
         } catch (e: any) {
             console.error('[CallActionModal] Failed to start public call:', e);

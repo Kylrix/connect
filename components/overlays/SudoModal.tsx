@@ -42,7 +42,7 @@ interface SudoModalProps {
 export function SudoModal({
     isOpen,
     onSuccess,
-    onCancel,
+    onCancel: _onCancel,
     intent,
 }: SudoModalProps) {
     const { user } = useAuth();

@@ -29,7 +29,7 @@ export const ActivityService = {
                 Query.limit(1)
             ]);
 
-            const now = new Date().toISOString();
+            // const now = new Date().toISOString();
             if (existing.total > 0) {
                 return await tablesDB.updateRow(DB_ID, ACTIVITY_TABLE, existing.rows[0].$id, {
                     status,

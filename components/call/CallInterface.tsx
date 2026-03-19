@@ -29,12 +29,6 @@ import {
     VideoOff,
     Users,
     ShieldCheck,
-    Lock,
-    Unlock,
-    Settings,
-    Maximize2,
-    Minimize2,
-    UserPlus,
     UserCheck,
     UserX,
     MessageSquare,
@@ -229,8 +223,8 @@ export const CallInterface = ({
                     try {
                         // Include callId in signal for better tracking
                         await CallService.sendSignal(user.$id, signal.target, { ...signal, callId: callCode || conversationId });
-                    } catch (e) {
-                        console.error('Failed to send signal:', e);
+                    } catch (_e) {
+                        console.error('Failed to send signal');
                     }
                 }
             }
@@ -300,7 +294,7 @@ export const CallInterface = ({
                         } else {
                             rtcManager.current?.handleSignal(signal);
                         }
-                    } catch (e) {}
+                    } catch (_e) {}
                 }
             }
         );
@@ -311,7 +305,7 @@ export const CallInterface = ({
                 rtcManager.current.cleanup();
             }
         };
-    }, [user, isCaller, callType, targetId, callCode, conversationId, initialMediaSettings.audio, initialMediaSettings.video, isCompanion]);
+    }, [user, isCaller, callCode, conversationId, initialMediaSettings.audio, initialMediaSettings.video, isCompanion, targetId]);
 
     const handleAcceptRequest = async (request: JoinRequest) => {
         if (!user) return;

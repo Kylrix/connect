@@ -44,64 +44,64 @@ export const SocialService = {
                         if (meta.type === 'reply') replies++;
                         if (meta.type === 'pulse') pulses++;
                     }
-                } catch (_e) {}
+            } catch (_e) {}
+        });
+
+        return { likes, replies, pulses };
+    } catch (_e) {
+        return { likes: 0, replies: 0, pulses: 0 };
+    }
+},
+
+async toggleLike(userId: string, momentId: string, creatorId?: string, contentSnippet?: string) {
+    try {
+        const existing = await tablesDB.listRows(DB_ID, INTERACTIONS_TABLE, [
+            Query.equal('userId', userId),
+            Query.equal('messageId', momentId),
+            Query.equal('emoji', 'like')
+        ]);
+
+        if (existing.total > 0) {
+            await tablesDB.deleteRow(DB_ID, INTERACTIONS_TABLE, existing.rows[0].$id);
+            return { liked: false };
+        } else {
+            await tablesDB.createRow(DB_ID, INTERACTIONS_TABLE, ID.unique(), {
+                userId,
+                messageId: momentId,
+                emoji: 'like'
             });
 
-            return { likes, replies, pulses };
-        } catch (_e) {
-            return { likes: 0, replies: 0, pulses: 0 };
-        }
-    },
-
-    async toggleLike(userId: string, momentId: string, creatorId?: string, contentSnippet?: string) {
-        try {
-            const existing = await tablesDB.listRows(DB_ID, INTERACTIONS_TABLE, [
-                Query.equal('userId', userId),
-                Query.equal('messageId', momentId),
-                Query.equal('emoji', 'like')
-            ]);
-
-            if (existing.total > 0) {
-                await tablesDB.deleteRow(DB_ID, INTERACTIONS_TABLE, existing.rows[0].$id);
-                return { liked: false };
-            } else {
-                await tablesDB.createRow(DB_ID, INTERACTIONS_TABLE, ID.unique(), {
-                    userId,
-                    messageId: momentId,
-                    emoji: 'like'
-                });
-
-                // Record in Activity Log for Notifications (if not our own post)
-                if (creatorId && creatorId !== userId) {
-                    try {
-                        await tablesDB.createRow(
-                            APPWRITE_CONFIG.DATABASES.KYLRIXNOTE, 
-                            APPWRITE_CONFIG.TABLES.KYLRIXNOTE.ACTIVITY_LOG, 
-                            ID.unique(), 
-                            {
-                                userId: creatorId,
-                                action: 'Moment Liked',
-                                targetType: 'moment',
-                                targetId: momentId,
-                                details: JSON.stringify({
-                                    read: false,
-                                    originalDetails: `Someone liked your post: ${contentSnippet || '...'}` ,
-                                    actionUrl: `https://connect.${process.env.NEXT_PUBLIC_DOMAIN || 'kylrix.space'}/post/${momentId}`
-                                })
-                            }
-                        );
-                    } catch (logErr) {
-                        console.warn('Failed to log like to activityLog', logErr);
-                    }
+            // Record in Activity Log for Notifications (if not our own post)
+            if (creatorId && creatorId !== userId) {
+                try {
+                    await tablesDB.createRow(
+                        APPWRITE_CONFIG.DATABASES.KYLRIXNOTE, 
+                        APPWRITE_CONFIG.TABLES.KYLRIXNOTE.ACTIVITY_LOG, 
+                        ID.unique(), 
+                        {
+                            userId: creatorId,
+                            action: 'Moment Liked',
+                            targetType: 'moment',
+                            targetId: momentId,
+                            details: JSON.stringify({
+                                read: false,
+                                originalDetails: `Someone liked your post: ${contentSnippet || '...'}` ,
+                                actionUrl: `https://connect.${process.env.NEXT_PUBLIC_DOMAIN || 'kylrix.space'}/post/${momentId}`
+                            })
+                        }
+                    );
+                } catch (_logErr) {
+                    console.warn('Failed to log like to activityLog');
                 }
-
-                return { liked: true };
             }
-        } catch (error) {
-            console.error('toggleLike error:', error);
-            throw error;
+
+            return { liked: true };
         }
-    },
+    } catch (error) {
+        console.error('toggleLike error:', error);
+        throw error;
+    }
+},
 
     async isLiked(userId: string, momentId: string) {
         const existing = await tablesDB.listRows(DB_ID, INTERACTIONS_TABLE, [
@@ -377,8 +377,8 @@ export const SocialService = {
                     })
                 }
             );
-        } catch (logErr) {
-            console.warn('Failed to log moment action to activityLog', logErr);
+        } catch (_logErr) {
+            console.warn('Failed to log moment action to activityLog');
         }
 
         return moment;
@@ -391,7 +391,7 @@ export const SocialService = {
     async unpulseMoment(userId: string, sourceId: string) {
         const existing = await tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
             Query.equal('userId', userId),
-            Query.orderDesc('createdAt'),
+            Query.orderDesc('$createdAt'),
             Query.limit(100)
         ]);
 

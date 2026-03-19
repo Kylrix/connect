@@ -214,7 +214,7 @@ export const ChatService = {
             encryptedName = await ecosystemSecurity.encryptWithKey(name, convKey);
         }
 
-        const now = new Date().toISOString();
+        // const now = new Date().toISOString();
 
         const newConv = await tablesDB.createRow(DB_ID, CONV_TABLE, ID.unique(), {
             participants: uniqueParticipants,

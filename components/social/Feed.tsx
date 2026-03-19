@@ -200,7 +200,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                 const url = await fetchProfilePreview(picId, 64, 64);
                 setUserAvatarUrl(url as unknown as string);
             } catch (_e: unknown) {
-                console.warn('Feed failed to fetch user avatar', _e);
+                console.warn('Feed failed to fetch user avatar');
             }
         }
     }, [user]);
@@ -318,7 +318,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
 
     useEffect(() => {
         loadFeed();
-    }, [view, user?.$id]);
+    }, [view, user?.$id, loadFeed]);
 
     useEffect(() => {
         // Real-time subscription for new posts
@@ -378,7 +378,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                         });
                     }
                 } catch (_e: unknown) {
-                    console.warn('Failed to enrich real-time moment', _e);
+                    console.warn('Failed to enrich real-time moment');
                 }
             } else if (event.type === 'delete') {
                 setMoments(prev => prev.filter(m => m.$id !== event.payload.$id));
@@ -403,7 +403,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                 if (result instanceof Promise) result.catch(e => console.error('Cleanup failed', e));
             }
         };
-    }, [user, view, loadFeed]);
+    }, [user, view, loadFeed, saveToCache]);
 
     const handlePost = async () => {
         if (!newMoment.trim() && !selectedNote && !selectedEvent && !selectedCall && !pulseTarget && selectedFiles.length === 0) return;

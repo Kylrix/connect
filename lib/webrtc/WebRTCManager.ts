@@ -197,9 +197,9 @@ export class WebRTCManager {
 
   public async createOffer(senderId: string, targetId: string) {
     try {
-      const { sessionId, sessionToken } = await this.fetchCloudflareSession();
-      this.createPeerConnection(senderId, targetId);
-      if (!this.peerConnection) return;
+            const { sessionId } = await this.fetchCloudflareSession();
+            this.createPeerConnection(senderId, targetId);
+            if (!this.peerConnection) return;
 
       // Push local tracks to Cloudflare
       const tracks = this.localStream?.getTracks().map(track => ({

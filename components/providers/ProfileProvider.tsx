@@ -76,7 +76,7 @@ export const ProfileProvider = ({ children }: { children: React.ReactNode }) => 
         } else {
             refreshProfile();
         }
-    }, [user?.$id]);
+    }, [user?.$id, refreshProfile]);
 
     return (
         <ProfileContext.Provider value={{ profile, isLoading, refreshProfile }}>

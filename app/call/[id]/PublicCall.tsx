@@ -131,13 +131,13 @@ export function PublicCall({ id }: { id: string }) {
                             setJoining(false);
                             toast.success("Host admitted you to the call!");
                         }
-                    } catch (e) {}
+                    } catch (_e) {}
                 }
             }
         );
 
         return () => unsubscribe();
-    }, [localUser, requestStatus]);
+    }, [localUser, requestStatus, id]);
 
     const handleJoinRequest = async () => {
         if (!displayName.trim() && !localUser) {

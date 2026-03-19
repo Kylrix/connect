@@ -12,9 +12,9 @@ export const CallService = {
     async createAnonymousSession() {
         try {
             return await authAccount.createAnonymousSession();
-        } catch (e) {
-            console.error('Failed to create anonymous session:', e);
-            throw e;
+        } catch (_e) {
+            console.error('Failed to create anonymous session');
+            throw _e;
         }
     },
 
@@ -50,9 +50,9 @@ export const CallService = {
                     Permission.delete(Role.user(userId)),
                 ]
             );
-        } catch (e) {
-            console.error('[CallService] createCallLink failed:', e);
-            throw e;
+        } catch (_e) {
+            console.error('[CallService] createCallLink failed');
+            throw _e;
         }
     },
 
@@ -136,9 +136,9 @@ export const CallService = {
                 });
                 return newDoc;
             }
-        } catch (e) {
-            console.error('Signal dispatch failed:', e);
-            throw e;
+        } catch (_e) {
+            console.error('Signal dispatch failed');
+            throw _e;
         }
     },
 
@@ -167,14 +167,14 @@ export const CallService = {
             let meta = {};
             try {
                 if (call.metadata) meta = JSON.parse(call.metadata);
-            } catch (e) {}
+            } catch (_e) {}
 
             return await tablesDB.updateRow(DB_ID, LINKS_TABLE, callId, {
                 metadata: JSON.stringify({ ...meta, status }),
                 expiresAt: new Date().toISOString() // End the call immediately
             });
-        } catch (e) {
-            console.error('Failed to update call status:', e);
+        } catch (_e) {
+            console.error('Failed to update call status');
         }
     },
 

@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Client, Account } from 'appwrite';
-import { UsersService } from '@/lib/services/users';
 import { APPWRITE_CONFIG } from './appwrite/config';
 
 // Initialize Appwrite

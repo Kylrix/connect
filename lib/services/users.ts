@@ -124,7 +124,7 @@ export const UsersService = {
             }
         } else {
             // Should not normally happen if they are calling update, but fallback to creating
-            const base = data.username || (currentUser?.email ? currentUser.email.split('@')[0].replace(/[^a-zA-Z]/g, '') : (currentUser?.name ? currentUser.name.replace(/[^a-zA-Z]/g, '') : 'user'));
+            const base = data.username || (userId.slice(0, 8));
             const candidate = normalizeUsername(base) || 'user';
             return await this.createProfile(userId, candidate, data);
         }

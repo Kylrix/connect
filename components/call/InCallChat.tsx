@@ -8,7 +8,6 @@ import {
     TextField, 
     IconButton, 
     Stack, 
-    Avatar, 
     alpha,
     InputAdornment,
     Tooltip
@@ -18,10 +17,8 @@ import {
     X, 
     Paperclip, 
     MessageSquare,
-    User,
     FileText,
-    Calendar,
-    Smile
+    Calendar
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { format } from 'date-fns';
