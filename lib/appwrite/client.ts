@@ -2,7 +2,7 @@ import { Client, Account, TablesDB, Storage, Realtime, Databases } from 'appwrit
 import { APPWRITE_CONFIG } from './config';
 
 const client = new Client()
-    .setEndpoint(APPWRITE_CONFIG.ENDPOINT)
+    .setEndpoint('https://api.kylrix.space/v1')
     .setProject(APPWRITE_CONFIG.PROJECT_ID);
 
 export const account = new Account(client);
