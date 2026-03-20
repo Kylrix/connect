@@ -53,7 +53,10 @@ import {
     Lock,
     ExternalLink,
     RefreshCw,
-    CheckSquare
+    CheckSquare,
+    X,
+    Reply,
+    Copy,
 } from 'lucide-react';
 import { NoteSelectorModal } from './NoteSelectorModal';
 import { SecretSelectorModal } from './SecretSelectorModal';
@@ -82,6 +85,8 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
     const [secretModalOpen, setSecretModalOpen] = useState(false);
     const [unlockModalOpen, setUnlockModalOpen] = useState(false);
     const [isUnlocked, setIsUnlocked] = useState(ecosystemSecurity.status.isUnlocked);
+    const [replyingTo, setReplyingTo] = useState<Messages | null>(null);
+    const [messageAnchorEl, setMessageAnchorEl] = useState<{ el: HTMLElement, msg: Messages } | null>(null);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -323,6 +328,25 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
+    const handleMessageContextMenu = (e: React.MouseEvent, msg: Messages) => {
+        e.preventDefault();
+        setMessageAnchorEl({ el: e.currentTarget as HTMLElement, msg });
+    };
+
+    const handleReply = (msg: Messages) => {
+        setReplyingTo(msg);
+        setMessageAnchorEl(null);
+        // Focus input
+        const input = document.querySelector('textarea');
+        if (input) (input as HTMLElement).focus();
+    };
+
+    const handleCopy = (content: string) => {
+        navigator.clipboard.writeText(content);
+        toast.success("Copied to clipboard");
+        setMessageAnchorEl(null);
+    };
+
     const handleSend = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
         if ((!inputText.trim() && !attachment) || !user || sending) return;
@@ -335,9 +359,11 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
 
         const text = inputText;
         const file = attachment;
+        const replyToId = replyingTo?.$id;
 
         setInputText('');
         setAttachment(null);
+        setReplyingTo(null);
         setSending(true);
 
         let type: any = MessagesType.TEXT;
@@ -383,7 +409,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                 actualAttachments = [uploaded.$id];
             }
 
-            const sentMessage = await ChatService.sendMessage(conversationId, user.$id, text, type as any, actualAttachments);
+            const sentMessage = await ChatService.sendMessage(conversationId, user.$id, text, type as any, actualAttachments, replyToId);
 
             // Replace optimistic message with the real one to maintain state (readBy, etc)
             // CRITICAL: We MUST override the content back to plaintext. The sentMessage from the API 
@@ -1101,14 +1127,19 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                     <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={24} sx={{ color: 'primary.main' }} /></Box>
                 ) : (
                     messages.map((msg, _index) => (
-                        <Box key={msg.$id} sx={{
+                        <Box 
+                            key={msg.$id} 
+                            id={`msg-${msg.$id}`}
+                            sx={{
                             alignSelf: msg.senderId === user?.$id ? 'flex-end' : 'flex-start',
                             maxWidth: '80%',
                             display: 'flex',
                             flexDirection: 'column',
                             gap: 0.5
                         }}>
-                            <Paper sx={{
+                            <Paper 
+                                onContextMenu={(e) => handleMessageContextMenu(e, msg)}
+                                sx={{
                                 p: 1.2,
                                 px: 1.8,
                                 borderRadius: msg.senderId === user?.$id ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
@@ -1129,6 +1160,39 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                                     borderRadius: msg.senderId === user?.$id ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
                                 }
                             }}>
+                                {msg.replyTo && (
+                                    <Box 
+                                        onClick={() => {
+                                            const el = document.getElementById(`msg-${msg.replyTo}`);
+                                            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                        }}
+                                        sx={{ 
+                                            mb: 1, 
+                                            p: 1, 
+                                            bgcolor: 'rgba(255, 255, 255, 0.05)', 
+                                            borderRadius: '8px', 
+                                            borderLeft: '3px solid',
+                                            borderColor: 'primary.main',
+                                            cursor: 'pointer',
+                                            opacity: 0.8,
+                                            '&:hover': { opacity: 1, bgcolor: 'rgba(255, 255, 255, 0.08)' }
+                                        }}
+                                    >
+                                        <Typography variant="caption" sx={{ fontWeight: 800, color: 'primary.main', display: 'block', mb: 0.5 }}>
+                                            {messages.find(m => m.$id === msg.replyTo)?.senderId === user?.$id ? 'You' : (conversation?.name || 'Partner')}
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ 
+                                            display: '-webkit-box', 
+                                            WebkitLineClamp: 2, 
+                                            WebkitBoxOrient: 'vertical', 
+                                            overflow: 'hidden',
+                                            fontSize: '0.75rem',
+                                            lineHeight: 1.2
+                                        }}>
+                                            {messages.find(m => m.$id === msg.replyTo)?.content || 'Original message'}
+                                        </Typography>
+                                    </Box>
+                                )}
                                 {renderMessageContent(msg)}
                             </Paper>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, alignSelf: msg.senderId === user?.$id ? 'flex-end' : 'flex-start', px: 0.5 }}>
@@ -1159,12 +1223,38 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
 
             {/* Input Area */}
             <Box sx={{ p: 2, pb: isMobile ? 4 : 2, bgcolor: 'transparent' }}>
+                {replyingTo && (
+                    <Box sx={{ 
+                        mb: 1, 
+                        p: 1.5, 
+                        bgcolor: 'rgba(255, 255, 255, 0.03)', 
+                        borderLeft: '4px solid',
+                        borderColor: 'primary.main',
+                        borderRadius: '12px 12px 0 0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        animation: 'slideUp 0.2s ease'
+                    }}>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography variant="caption" sx={{ fontWeight: 800, color: 'primary.main', display: 'block' }}>
+                                Replying to {replyingTo.senderId === user?.$id ? 'yourself' : (conversation?.name || 'Partner')}
+                            </Typography>
+                            <Typography variant="body2" noWrap sx={{ opacity: 0.6, fontSize: '0.85rem' }}>
+                                {replyingTo.content}
+                            </Typography>
+                        </Box>
+                        <IconButton size="small" onClick={() => setReplyingTo(null)} sx={{ ml: 1, opacity: 0.5 }}>
+                            <X size={16} />
+                        </IconButton>
+                    </Box>
+                )}
                 <Paper elevation={0} sx={{
                     p: 0.5,
                     display: 'flex',
                     alignItems: 'flex-end',
                     gap: 0.5,
-                    borderRadius: '24px',
+                    borderRadius: replyingTo ? '0 0 24px 24px' : '24px',
                     bgcolor: 'rgba(255, 255, 255, 0.03)',
                     border: '1px solid rgba(255, 255, 255, 0.08)',
                     '&:focus-within': {
@@ -1291,6 +1381,34 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                     loadConversation();
                 }}
             />
+
+            {/* Message Context Menu */}
+            <Menu
+                open={Boolean(messageAnchorEl)}
+                anchorEl={messageAnchorEl?.el}
+                onClose={() => setMessageAnchorEl(null)}
+                PaperProps={{
+                    sx: {
+                        borderRadius: '12px',
+                        bgcolor: 'rgba(15, 15, 15, 0.95)',
+                        backdropFilter: 'blur(20px)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        minWidth: 160
+                    }
+                }}
+            >
+                <MenuItem onClick={() => handleReply(messageAnchorEl!.msg)} sx={{ gap: 1.5, py: 1, fontSize: '0.85rem', fontWeight: 600 }}>
+                    <Reply size={16} /> Reply
+                </MenuItem>
+                <MenuItem onClick={() => handleCopy(messageAnchorEl!.msg.content as string)} sx={{ gap: 1.5, py: 1, fontSize: '0.85rem', fontWeight: 600 }}>
+                    <Copy size={16} /> Copy Text
+                </MenuItem>
+                {messageAnchorEl?.msg.senderId === user?.$id && (
+                    <MenuItem onClick={() => { _handleDeleteMessage(messageAnchorEl!.msg.$id, true); setMessageAnchorEl(null); }} sx={{ gap: 1.5, py: 1, fontSize: '0.85rem', fontWeight: 600, color: '#ff4d4d' }}>
+                        <Trash2 size={16} /> Delete
+                    </MenuItem>
+                )}
+            </Menu>
         </Box>
     );
 };
