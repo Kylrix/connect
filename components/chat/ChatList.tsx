@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { ChatService } from '@/lib/services/chat';
 import { useAuth } from '@/lib/auth';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { UsersService } from '@/lib/services/users';
 import { KeychainService } from '@/lib/appwrite/keychain';
 import { tablesDB } from '@/lib/appwrite/client';
@@ -19,6 +20,9 @@ import {
     CircularProgress,
     alpha,
     Badge,
+    Paper,
+    ListItemAvatar,
+    Divider,
 } from '@mui/material';
 import GroupIcon from '@mui/icons-material/GroupWorkOutlined';
 import PersonIcon from '@mui/icons-material/PersonOutlined';
@@ -29,18 +33,112 @@ import { fetchProfilePreview } from '@/lib/profile-preview';
 import { ecosystemSecurity } from '@/lib/ecosystem/security';
 import { SudoModal } from '../overlays/SudoModal';
 import { realtime } from '@/lib/appwrite/client';
+import toast from 'react-hot-toast';
+import { useSudo } from '@/context/SudoContext';
+
+const GlobalSearchAvatar = ({ u }: { u: any }) => {
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (u.avatar) {
+            fetchProfilePreview(u.avatar, 64, 64).then(url => setAvatarUrl(url as unknown as string)).catch(() => {});
+        }
+    }, [u.avatar]);
+
+    return (
+        <Avatar
+            src={avatarUrl || undefined}
+            sx={{
+                bgcolor: alpha('#F59E0B', 0.1),
+                color: '#F59E0B',
+                border: '1px solid rgba(255, 255, 255, 0.05)',
+                width: 44,
+                height: 44
+            }}
+        >
+            {!avatarUrl && (u.displayName || u.username || '?').charAt(0).toUpperCase()}
+        </Avatar>
+    );
+};
 
 export const ChatList = () => {
     const { user } = useAuth();
+    const router = useRouter();
+    const { requestSudo } = useSudo();
     const [conversations, setConversations] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [searching, setSearching] = useState(false);
     const [isUnlocked, setIsUnlocked] = useState(ecosystemSecurity.status.isUnlocked);
     const [unlockModalOpen, setUnlockModalOpen] = useState(false);
 
     const isLikelyEncrypted = (val: string) => {
         if (!val) return false;
         return val.length > 40 && !val.includes(' ');
+    };
+
+    const handleGlobalSearch = useCallback(async (query: string) => {
+        if (!query.trim() || query.length < 2) {
+            setSearchResults([]);
+            return;
+        }
+        setSearching(true);
+        try {
+            const res = await UsersService.searchUsers(query);
+            // Hide current user from results
+            const filtered = res.rows.filter((u: any) => (u.userId || u.$id) !== user?.$id);
+            setSearchResults(filtered);
+        } catch (error) {
+            console.error('Global search failed:', error);
+        } finally {
+            setSearching(false);
+        }
+    }, [user?.$id]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (searchQuery.length >= 2) {
+                handleGlobalSearch(searchQuery);
+            } else {
+                setSearchResults([]);
+            }
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchQuery, handleGlobalSearch]);
+
+    const startChat = async (targetUser: any) => {
+        if (!user) return;
+        const targetUserId = targetUser.userId || targetUser.$id;
+
+        if (!targetUser.publicKey) {
+            toast.error(`${targetUser.displayName || targetUser.username} hasn't set up their account for secure chatting yet.`);
+            return;
+        }
+
+        // Check for existing conversation locally
+        const found = conversations.find((c: any) =>
+            c.type === 'direct' && c.participants?.includes(targetUserId)
+        );
+
+        if (found) {
+            router.push(`/chat/${found.$id}`);
+            return;
+        }
+
+        // If not found, ensure Sudo is unlocked before creating
+        requestSudo({
+            onSuccess: async () => {
+                try {
+                    const participants = [user.$id, targetUserId];
+                    const newConv = await ChatService.createConversation(participants, 'direct');
+                    router.push(`/chat/${newConv.$id}`);
+                } catch (error: any) {
+                    console.error('Failed to create chat:', error);
+                    toast.error(`Failed to create chat: ${error?.message || 'Unknown error'}`);
+                }
+            }
+        });
     };
 
     const loadConversations = React.useCallback(async () => {
@@ -245,6 +343,9 @@ export const ChatList = () => {
         c.name?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    const hasNoConversations = filteredConversations.length === 0;
+    const showGlobalResults = searchQuery.length >= 2 && searchResults.length > 0;
+
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: '#0A0908', position: 'relative' }}>
             <Box sx={{ p: 3, pb: 2 }}>
@@ -291,7 +392,7 @@ export const ChatList = () => {
                 >
                     <SearchIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
                     <input
-                        placeholder="Search conversations..."
+                        placeholder="Search conversations or people..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         style={{
@@ -304,6 +405,7 @@ export const ChatList = () => {
                             fontFamily: 'var(--font-satoshi)'
                         }}
                     />
+                    {searching && <CircularProgress size={14} sx={{ color: 'primary.main' }} />}
                 </Box>
             </Box>
 
@@ -312,10 +414,58 @@ export const ChatList = () => {
                 flex: 1,
                 px: 1
             }}>
-                {filteredConversations.length === 0 ? (
+                {showGlobalResults && (
+                    <Box sx={{ mb: 2 }}>
+                        <Typography variant="caption" sx={{ px: 2, mb: 1, display: 'block', fontWeight: 800, opacity: 0.4, textTransform: 'uppercase', letterSpacing: 1 }}>
+                            Global Search
+                        </Typography>
+                        <List sx={{ pt: 0 }}>
+                            {searchResults.map((u) => {
+                                const targetId = u.userId || u.$id;
+                                const hasChat = conversations.some(c => c.type === 'direct' && c.participants?.includes(targetId));
+                                return (
+                                    <ListItem key={u.$id} disablePadding sx={{ mb: 0.5 }}>
+                                        <ListItemButton
+                                            onClick={() => startChat(u)}
+                                            sx={{
+                                                borderRadius: '12px',
+                                                py: 1,
+                                                '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.03)' }
+                                            }}
+                                        >
+                                            <ListItemAvatar sx={{ minWidth: 56 }}>
+                                                <GlobalSearchAvatar u={u} />
+                                            </ListItemAvatar>
+                                            <ListItemText
+                                                primary={u.displayName || u.username}
+                                                secondary={`@${u.username}`}
+                                                primaryTypographyProps={{ fontWeight: 700, fontSize: '0.9rem' }}
+                                                secondaryTypographyProps={{ fontSize: '0.75rem', sx: { opacity: 0.5 } }}
+                                            />
+                                            {!hasChat && (
+                                                <Box sx={{ 
+                                                    px: 1, 
+                                                    py: 0.2, 
+                                                    borderRadius: '4px', 
+                                                    bgcolor: alpha('#6366F1', 0.1), 
+                                                    border: '1px solid rgba(99, 102, 241, 0.2)' 
+                                                }}>
+                                                    <Typography sx={{ fontSize: '9px', fontWeight: 900, color: '#6366F1' }}>NEW</Typography>
+                                                </Box>
+                                            )}
+                                        </ListItemButton>
+                                    </ListItem>
+                                );
+                            })}
+                        </List>
+                        <Divider sx={{ mx: 2, my: 1, opacity: 0.05 }} />
+                    </Box>
+                )}
+
+                {hasNoConversations && !showGlobalResults ? (
                     <Box sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
                         <Typography sx={{ fontWeight: 600, fontSize: '0.9rem' }}>No conversations</Typography>
-                        <Typography variant="caption" sx={{ opacity: 0.6 }}>Start a new chat to begin</Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.6 }}>Search for people to start a chat</Typography>
                     </Box>
                 ) : (
                     <List sx={{ pt: 0 }}>
