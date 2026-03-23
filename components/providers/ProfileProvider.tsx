@@ -23,7 +23,7 @@ export const ProfileProvider = ({ children }: { children: React.ReactNode }) => 
     const [profile, setProfile] = useState<any | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    const refreshProfile = async () => {
+    const refreshProfile = useCallback(async () => {
         if (!user?.$id) {
             setProfile(null);
             setIsLoading(false);
@@ -49,7 +49,7 @@ export const ProfileProvider = ({ children }: { children: React.ReactNode }) => 
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [user]);
 
     useEffect(() => {
         if (!user) {
@@ -79,7 +79,7 @@ export const ProfileProvider = ({ children }: { children: React.ReactNode }) => 
             // First time this session/device - run the full setup
             refreshProfile();
         }
-    }, [user?.$id]); // Removed refreshProfile from dependencies to prevent re-runs
+    }, [user, refreshProfile]);
 
     return (
         <ProfileContext.Provider value={{ profile, isLoading, refreshProfile }}>

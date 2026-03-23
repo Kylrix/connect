@@ -137,7 +137,7 @@ export const Profile = ({ username }: ProfileProps) => {
         } finally {
             setLoading(false);
         }
-    }, [username, currentUser?.$id, myProfile?.$id, myProfile?.username, myProfile?.bio, myProfile?.displayName, myProfile?.avatar]); // Only depend on currentUser.$id, not the whole object
+    }, [username, currentUser, myProfile, profile]); // Added missing dependencies
 
     useEffect(() => {
         loadProfile();

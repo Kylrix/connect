@@ -40,9 +40,9 @@ export function ChatNotificationProvider({ children }: { children: ReactNode }) 
     useEffect(() => {
         if (user?.$id && !hasCheckedSession) {
             if (sessionStorage.getItem(`chat_scan_${user.$id}`)) {
-                setScanComplete(true);
+                setTimeout(() => setScanComplete(true), 0);
             }
-            setHasCheckedSession(true);
+            setTimeout(() => setHasCheckedSession(true), 0);
         }
     }, [user?.$id, hasCheckedSession]);
 
@@ -115,13 +115,20 @@ export function ChatNotificationProvider({ children }: { children: ReactNode }) 
         }
     }, [user, scanComplete]);
 
+    // Effect to trigger proactive scan
     useEffect(() => {
-        if (!user?.$id || !hasCheckedSession) return;
-
-        // Perform proactive scan once per session
-        if (!scanComplete) {
-            performProactiveScan();
+        if (user?.$id && hasCheckedSession && !scanComplete) {
+            if (!sessionStorage.getItem(`chat_scan_${user.$id}`)) {
+                setTimeout(() => performProactiveScan(), 0);
+            } else {
+                setTimeout(() => setScanComplete(true), 0);
+            }
         }
+    }, [user?.$id, hasCheckedSession, scanComplete, performProactiveScan]);
+
+    // Effect for Realtime Subscription
+    useEffect(() => {
+        if (!user?.$id) return;
 
         // Subscribe to NEW messages across all conversations
         const channel = `databases.${APPWRITE_CONFIG.DATABASES.CHAT}.tables.${APPWRITE_CONFIG.TABLES.CHAT.MESSAGES}.rows`;
@@ -144,7 +151,7 @@ export function ChatNotificationProvider({ children }: { children: ReactNode }) 
             if (typeof unsub === 'function') (unsub as any)();
             else (unsub as any)?.unsubscribe?.();
         };
-    }, [user?.$id, scanComplete, hasCheckedSession, performProactiveScan, showDynamicIsland]);
+    }, [user?.$id, showDynamicIsland]);
 
     return (
         <ChatNotificationContext.Provider value={{ unreadConversations, lastMessage, scanComplete }}>

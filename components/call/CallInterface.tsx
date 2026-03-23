@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { WebRTCManager } from '@/lib/webrtc/WebRTCManager';
 import { useAuth } from '@/lib/auth';
 import { CallService } from '@/lib/services/call';
@@ -64,7 +64,7 @@ import { ChatService } from '@/lib/services/chat';
 export const CallInterface = ({ 
     conversationId, 
     isCaller, 
-    callType = 'video',
+    callType: _callType = 'video',
     targetId: initialTargetId,
     callCode,
     initialMediaSettings = { video: true, audio: true, companion: false },
@@ -84,7 +84,7 @@ export const CallInterface = ({
     const [status, setStatus] = useState('Initializing...');
     const [isMuted, setIsMuted] = useState(!initialMediaSettings.audio || initialMediaSettings.companion);
     const [isVideoOff, setIsVideoOff] = useState(!initialMediaSettings.video || initialMediaSettings.companion);
-    const [isCompanion, setIsCompanion] = useState(initialMediaSettings.companion);
+    const [isCompanion, _setIsCompanion] = useState(initialMediaSettings.companion);
     const [targetId, setTargetId] = useState<string | undefined>(initialTargetId);
     const [timeRemaining, setTimeRemaining] = useState<string>('');
     const [copied, setCopied] = useState(false);
@@ -132,8 +132,8 @@ export const CallInterface = ({
             if (localVideoRef.current) {
                 localVideoRef.current.srcObject = stream || (rtcManager.current as any).localStream;
             }
-        } catch (e) {
-            console.error('Screen share failed:', e);
+        } catch (_e) {
+            console.error('Screen share failed:', _e);
             setIsScreenSharing(false);
         }
     };
@@ -170,28 +170,28 @@ export const CallInterface = ({
                 type: 'chat_message',
                 message: msg
             });
-        } catch (e) {
-            console.error('Failed to broadcast message:', e);
+        } catch (_e) {
+            console.error('Failed to broadcast message:', _e);
         }
     };
 
-    const initDirectCall = useCallback(async () => {
-        if (!user || !conversationId || targetId) return;
-        try {
-            const conv = await ChatService.getConversationById(conversationId, user.$id);
-            const other = conv.participants.find((p: string) => p !== user.$id);
-            if (other) {
-                setTargetId(other);
-                if (isCaller) {
-                    rtcManager.current?.createOffer(user.$id, other);
-                }
-            }
-        } catch (_e) {
-            console.error('Failed to init direct call:', _e);
-        }
-    }, [user, conversationId, targetId, isCaller]);
-
     useEffect(() => {
+        const initDirectCall = async () => {
+            if (!user || !conversationId || targetId) return;
+            try {
+                const conv = await ChatService.getConversationById(conversationId, user.$id);
+                const other = conv.participants.find((p: string) => p !== user.$id);
+                if (other) {
+                    setTargetId(other);
+                    if (isCaller) {
+                        rtcManager.current?.createOffer(user.$id, other);
+                    }
+                }
+            } catch (_e) {
+                console.error('Failed to init direct call:', _e);
+            }
+        };
+
         if (conversationId && !targetId) {
             // Use a separate effect or a timeout to avoid synchronous state updates during render
             const timer = setTimeout(() => {
@@ -199,13 +199,7 @@ export const CallInterface = ({
             }, 0);
             return () => clearTimeout(timer);
         }
-    }, [conversationId, targetId, initDirectCall]);
-
-    const cleanupCall = () => {
-        if (rtcManager.current) {
-            rtcManager.current.cleanup();
-        }
-    };
+    }, [conversationId, targetId, user, isCaller]);
 
     useEffect(() => {
         if (!user) return;
@@ -313,7 +307,7 @@ export const CallInterface = ({
         try {
             await CallService.sendSignal(user.$id, request.senderId, { type: 'let_in', callId: callCode || conversationId });
             setStatus('Connecting to guest...');
-        } catch (e) {
+        } catch (_e) {
             toast.error("Failed to admit guest");
         }
     };
@@ -322,10 +316,13 @@ export const CallInterface = ({
         setJoinRequests(prev => prev.filter(r => r.senderId !== request.senderId));
     };
 
-    const endCall = useCallback(() => {
-        cleanupCall();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const endCall = () => {
+        if (rtcManager.current) {
+            rtcManager.current.cleanup();
+        }
         router.back();
-    }, [cleanupCall, router]);
+    };
 
     // Presence & Participant Tracking
     useEffect(() => {
@@ -343,7 +340,7 @@ export const CallInterface = ({
                 // We broadcast this to the host or everyone if we are the host
                 // For now, we update our own activity which others can see
                 await CallService.sendSignal(user.$id, isCaller ? 'broadcast' : (targetId || 'host'), signal);
-            } catch (e) {}
+            } catch (_e) {}
         };
 
         const fetchParticipants = async () => {
