@@ -27,6 +27,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useProfile } from '@/components/providers/ProfileProvider';
 import { EditProfileModal } from './EditProfileModal';
+import { ActorsListDrawer, Actor } from '../social/ActorsListDrawer';
 import { getUserProfilePicId } from '@/lib/user-utils';
 import { fetchProfilePreview, getCachedProfilePreview } from '@/lib/profile-preview';
 
@@ -48,6 +49,10 @@ export const Profile = ({ username }: ProfileProps) => {
     const [moments, setMoments] = useState<any[]>([]);
     const [momentsLoading, setMomentsLoading] = useState(false);
     const [stats, setStats] = useState({ posts: 0, followers: 0, following: 0 });
+
+    const [actorsDrawerOpen, setActorsDrawerOpen] = useState(false);
+    const [actorsTitle, setActorsTitle] = useState('');
+    const [actorsList, setActorsList] = useState<Actor[]>([]);
 
     // Load the profile avatar preview. Prefer the viewed profile's avatar if present;
     // fall back to the logged-in user's profile pic when viewing an identity without an avatar.
@@ -193,6 +198,53 @@ export const Profile = ({ username }: ProfileProps) => {
         }
     };
 
+    const handleOpenFollowers = async () => {
+        const targetId = getTargetId();
+        if (!targetId) return;
+        setActorsTitle('Followers');
+        setActorsDrawerOpen(true);
+        setActorsList([]); // Reset while loading
+        const followers = await SocialService.getFollowers(targetId, currentUser?.$id);
+        setActorsList(followers as unknown as Actor[]);
+    };
+
+    const handleOpenFollowing = async () => {
+        const targetId = getTargetId();
+        if (!targetId) return;
+        setActorsTitle('Following');
+        setActorsDrawerOpen(true);
+        setActorsList([]); // Reset while loading
+        const following = await SocialService.getFollowing(targetId, currentUser?.$id);
+        setActorsList(following as unknown as Actor[]);
+    };
+
+    const handleActorAction = async (actor: Actor, type: 'follow' | 'unfollow') => {
+        if (!currentUser) return;
+        const targetId = actor.userId || actor.$id;
+
+        if (type === 'follow') {
+            await SocialService.followUser(currentUser.$id, targetId);
+        } else {
+            await SocialService.unfollowUser(currentUser.$id, targetId);
+        }
+
+        // Update local list state to reflect the change
+        setActorsList(prev => prev.map(a => 
+            (a.$id === actor.$id || a.userId === actor.userId) 
+            ? { ...a, isFollowing: type === 'follow' } 
+            : a
+        ));
+
+        // If this actor is the one whose profile we are currently viewing, update the follow button too
+        if (getTargetId() === targetId) {
+            setIsFollowing(type === 'follow');
+        }
+
+        // Refresh stats
+        const newStats = await SocialService.getFollowStats(getTargetId());
+        setStats(prev => ({ ...prev, followers: newStats.followers, following: newStats.following }));
+    };
+
     const handleMessage = () => {
         if (!profile) return;
         const targetId = profile.userId || profile.$id;
@@ -214,7 +266,9 @@ export const Profile = ({ username }: ProfileProps) => {
         if (!profile) return;
         const uname = profile.username;
         if (uname) {
-            window.location.href = `/u/${encodeURIComponent(uname)}`;
+            // Use router.push for smooth SPA navigation; avoid redundant navigation
+            if (window.location.pathname === `/u/${uname}`) return;
+            router.push(`/u/${encodeURIComponent(uname)}`);
         }
     };
 
@@ -436,6 +490,12 @@ export const Profile = ({ username }: ProfileProps) => {
                     border: '1px solid rgba(255, 255, 255, 0.05)',
                     boxShadow: '0 1px 0 rgba(0,0,0,0.4)',
                     position: 'relative',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                        bgcolor: 'rgba(255, 255, 255, 0.03)',
+                        borderColor: 'rgba(99, 102, 241, 0.3)'
+                    },
                     '&::before': {
                         content: '""',
                         position: 'absolute',
@@ -446,7 +506,7 @@ export const Profile = ({ username }: ProfileProps) => {
                         background: 'rgba(255,255,255,0.05)',
                         borderRadius: '24px'
                     }
-                }} elevation={0}>
+                }} elevation={0} onClick={handleOpenFollowers}>
                     <Typography variant="h4" sx={{ fontWeight: 900, color: 'var(--color-primary)', fontFamily: 'var(--font-clash)' }}>{stats.followers}</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 700, opacity: 0.4, textTransform: 'uppercase', letterSpacing: '0.1em', mt: 1 }}>Followers</Typography>
                 </Paper>
@@ -459,6 +519,12 @@ export const Profile = ({ username }: ProfileProps) => {
                     border: '1px solid rgba(255, 255, 255, 0.05)',
                     boxShadow: '0 1px 0 rgba(0,0,0,0.4)',
                     position: 'relative',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                        bgcolor: 'rgba(255, 255, 255, 0.03)',
+                        borderColor: 'rgba(245, 158, 11, 0.3)'
+                    },
                     '&::before': {
                         content: '""',
                         position: 'absolute',
@@ -469,7 +535,7 @@ export const Profile = ({ username }: ProfileProps) => {
                         background: 'rgba(255,255,255,0.05)',
                         borderRadius: '24px'
                     }
-                }} elevation={0}>
+                }} elevation={0} onClick={handleOpenFollowing}>
                     <Typography variant="h4" sx={{ fontWeight: 900, color: '#F59E0B', fontFamily: 'var(--font-clash)' }}>{stats.following}</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 700, opacity: 0.4, textTransform: 'uppercase', letterSpacing: '0.1em', mt: 1 }}>Following</Typography>
                 </Paper>
@@ -541,6 +607,15 @@ export const Profile = ({ username }: ProfileProps) => {
                     refreshMyProfile();
                     loadProfile();
                 }}
+            />
+
+            <ActorsListDrawer
+                open={actorsDrawerOpen}
+                onClose={() => setActorsDrawerOpen(false)}
+                title={actorsTitle}
+                actors={actorsList}
+                onSelect={(actor) => { setActorsDrawerOpen(false); router.push(`/u/${actor.username}`); }}
+                onAction={handleActorAction}
             />
         </Box>
     );

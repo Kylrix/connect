@@ -512,11 +512,14 @@ export const SocialService = {
     },
 
     async followUser(followerId: string, followingId: string) {
-        // Prevent duplicate follow rows: check if a follow already exists
+        // Prevent duplicate follow rows: check if a follow already exists using robust check
         try {
+            const followerIds = await this._resolveUserIds(followerId);
+            const followingIds = await this._resolveUserIds(followingId);
+
             const existing = await tablesDB.listRows(DB_ID, FOLLOWS_TABLE, [
-                Query.equal('followerId', followerId),
-                Query.equal('followingId', followingId),
+                Query.equal('followerId', followerIds),
+                Query.equal('followingId', followingIds),
                 Query.limit(1)
             ]);
 
@@ -526,7 +529,7 @@ export const SocialService = {
             }
 
             return await tablesDB.createRow(DB_ID, FOLLOWS_TABLE, ID.unique(), {
-                followerId,
+                followerId, // Store using the passed IDs, but we checked all variants for existence
                 followingId,
                 status: 'accepted',
                 createdAt: new Date().toISOString()
@@ -539,9 +542,12 @@ export const SocialService = {
 
     async unfollowUser(followerId: string, followingId: string) {
         try {
+            const followerIds = await this._resolveUserIds(followerId);
+            const followingIds = await this._resolveUserIds(followingId);
+
             const existing = await tablesDB.listRows(DB_ID, FOLLOWS_TABLE, [
-                Query.equal('followerId', followerId),
-                Query.equal('followingId', followingId),
+                Query.equal('followerId', followerIds),
+                Query.equal('followingId', followingIds),
                 Query.limit(100)
             ]);
 
@@ -559,57 +565,33 @@ export const SocialService = {
         }
     },
 
+    async _resolveUserIds(id: string): Promise<string[]> {
+        const ids = [id];
+        try {
+            const profile = await UsersService.getProfileById(id);
+            if (profile) {
+                if (profile.userId && !ids.includes(profile.userId)) ids.push(profile.userId);
+                if (profile.$id && !ids.includes(profile.$id)) ids.push(profile.$id);
+            }
+        } catch (_e) {
+            // ignore resolution errors, stick with provided ID
+        }
+        return ids;
+    },
+
     async isFollowing(followerId: string, followingId: string) {
         try {
-            // Direct check
+            const followerIds = await this._resolveUserIds(followerId);
+            const followingIds = await this._resolveUserIds(followingId);
+
             const existing = await tablesDB.listRows(DB_ID, FOLLOWS_TABLE, [
-                Query.equal('followerId', followerId),
-                Query.equal('followingId', followingId),
+                Query.equal('followerId', followerIds),
+                Query.equal('followingId', followingIds),
+                Query.equal('status', 'accepted'),
                 Query.limit(1)
             ]);
-            if (existing.total > 0) return true;
-
-            // Fallback: some entries historically mixed document ids vs userIds.
-            // Resolve the target profile and check by its document id.
-            try {
-                const profileRow = await UsersService.getProfileById(followingId);
-                if (profileRow && profileRow.$id && profileRow.$id !== followingId) {
-                    const alt = await tablesDB.listRows(DB_ID, FOLLOWS_TABLE, [
-                        Query.equal('followerId', followerId),
-                        Query.equal('followingId', profileRow.$id),
-                        Query.limit(1)
-                    ]);
-                    if (alt.total > 0) return true;
-                }
-            } catch (_e) {
-                // ignore
-            }
-
-            // Also try resolving the follower side (maybe followerId was stored as profile doc id)
-            try {
-                const followerProfile = await UsersService.getProfileById(followerId);
-                if (followerProfile && followerProfile.$id && followerProfile.$id !== followerId) {
-                    const alt2 = await tablesDB.listRows(DB_ID, FOLLOWS_TABLE, [
-                        Query.equal('followerId', followerProfile.$id),
-                        Query.equal('followingId', followingId),
-                        Query.limit(1)
-                    ]);
-                    if (alt2.total > 0) return true;
-
-                    if (profileRow && profileRow.$id) {
-                        const alt3 = await tablesDB.listRows(DB_ID, FOLLOWS_TABLE, [
-                            Query.equal('followerId', followerProfile.$id),
-                            Query.equal('followingId', profileRow.$id),
-                            Query.limit(1)
-                        ]);
-                        if (alt3.total > 0) return true;
-                    }
-                }
-            } catch (_e) {
-                // ignore
-            }
-
-            return false;
+            
+            return existing.total > 0;
         } catch (e) {
             console.error('[SocialService] isFollowing error', e);
             return false;
@@ -618,15 +600,20 @@ export const SocialService = {
 
     async getFollowStats(userId: string) {
         try {
-            // Count all follower relations where followingId == userId
+            const ids = await this._resolveUserIds(userId);
+
+            // Count all follower relations where followingId matches any of the user's IDs and status is accepted
             const followers = await tablesDB.listRows(DB_ID, FOLLOWS_TABLE, [
-                Query.equal('followingId', userId),
-                Query.limit(1000)
+                Query.equal('followingId', ids),
+                Query.equal('status', 'accepted'),
+                Query.limit(1) // We only need the total
             ]);
-            // Count all following relations where followerId == userId
+            
+            // Count all following relations where followerId matches any of the user's IDs and status is accepted
             const following = await tablesDB.listRows(DB_ID, FOLLOWS_TABLE, [
-                Query.equal('followerId', userId),
-                Query.limit(1000)
+                Query.equal('followerId', ids),
+                Query.equal('status', 'accepted'),
+                Query.limit(1) // We only need the total
             ]);
 
             return {
@@ -636,7 +623,74 @@ export const SocialService = {
                 followingRows: following.rows
             };
         } catch (_e) {
-            return { followers: 0, following: 0 };
+            console.error('[SocialService] getFollowStats error', _e);
+            return { followers: 0, following: 0, followerRows: [], followingRows: [] };
+        }
+    },
+
+    async getFollowers(userId: string, currentUserId?: string) {
+        try {
+            const ids = await this._resolveUserIds(userId);
+            const result = await tablesDB.listRows(DB_ID, FOLLOWS_TABLE, [
+                Query.equal('followingId', ids),
+                Query.equal('status', 'accepted'),
+                Query.limit(100)
+            ]);
+
+            const profiles = await Promise.all(
+                result.rows.map(async (row: any) => {
+                    const profile = await UsersService.getProfileById(row.followerId);
+                    if (!profile) return null;
+                    
+                    let isFollowing = false;
+                    if (currentUserId) {
+                        isFollowing = await this.isFollowing(currentUserId, profile.userId || profile.$id);
+                    }
+                    
+                    return { ...profile, followRowId: row.$id, isFollowing };
+                })
+            );
+
+            return profiles.filter(p => p !== null);
+        } catch (error) {
+            console.error('[SocialService] getFollowers error', error);
+            return [];
+        }
+    },
+
+    async getFollowing(userId: string, currentUserId?: string) {
+        try {
+            const ids = await this._resolveUserIds(userId);
+            const result = await tablesDB.listRows(DB_ID, FOLLOWS_TABLE, [
+                Query.equal('followerId', ids),
+                Query.equal('status', 'accepted'),
+                Query.limit(100)
+            ]);
+
+            const profiles = await Promise.all(
+                result.rows.map(async (row: any) => {
+                    const profile = await UsersService.getProfileById(row.followingId);
+                    if (!profile) return null;
+
+                    let isFollowing = false;
+                    if (currentUserId) {
+                        // For a "following" list of the current user, this is always true.
+                        // For someone else's "following" list, we need to check.
+                        if (currentUserId === userId) {
+                            isFollowing = true;
+                        } else {
+                            isFollowing = await this.isFollowing(currentUserId, profile.userId || profile.$id);
+                        }
+                    }
+
+                    return { ...profile, followRowId: row.$id, isFollowing };
+                })
+            );
+
+            return profiles.filter(p => p !== null);
+        } catch (error) {
+            console.error('[SocialService] getFollowing error', error);
+            return [];
         }
     },
 

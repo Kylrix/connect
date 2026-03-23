@@ -48,6 +48,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 export function PasskeySetup({
   isOpen,
   onClose,
+  onSkip,
   userId,
   onSuccess,
   trustUnlocked = false,

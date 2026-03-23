@@ -85,6 +85,7 @@ const FeedSkeleton = () => (
 );
 
 const NewPostsWidget = ({ pendingMoments, onClick }: { pendingMoments: any[], onClick: () => void }) => {
+    const router = useRouter();
     return (
         <Box 
             onClick={onClick}
