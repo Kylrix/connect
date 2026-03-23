@@ -33,7 +33,7 @@ import {
   Wallet
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useProfile } from '@/components/providers/ProfileProvider';
 import { useNotifications } from '@/components/providers/NotificationProvider';
 import { getUserProfilePicId } from '@/lib/user-utils';
@@ -51,6 +51,21 @@ export const AppHeader = () => {
   const [isPortalOpen, setIsPortalOpen] = useState(false);
   const [isWalletOpen, setIsWalletOpen] = useState(false);
   const [profileUrl, setProfileUrl] = useState<string | null>(null);
+
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (searchParams.get('openWallet') === 'true') {
+      setIsWalletOpen(true);
+      // Optional: Clean up URL
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('openWallet');
+      const newQuery = params.toString();
+      router.replace(pathname + (newQuery ? `?${newQuery}` : ''));
+    }
+  }, [searchParams, router, pathname]);
 
   useEffect(() => {
     let mounted = true;
@@ -87,8 +102,6 @@ export const AppHeader = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
-
-  const router = useRouter();
 
   const { profile: myProfile } = useProfile();
 
@@ -236,6 +249,27 @@ export const AppHeader = () => {
             </IconButton>
           </Tooltip>
 
+          <Tooltip title="Wallet">
+            <IconButton 
+              onClick={() => setIsWalletOpen(true)}
+              sx={{ 
+                color: isWalletOpen ? '#F59E0B' : 'rgba(255, 255, 255, 0.4)',
+                bgcolor: alpha('#F59E0B', 0.03),
+                border: '1px solid',
+                borderColor: isWalletOpen ? alpha('#F59E0B', 0.3) : alpha('#F59E0B', 0.1),
+                borderRadius: '12px',
+                width: { xs: 36, sm: 42 },
+                height: { xs: 36, sm: 42 },
+                '&:hover': { 
+                  bgcolor: alpha('#F59E0B', 0.08), 
+                  boxShadow: '0 0 15px rgba(245, 158, 11, 0.2)' 
+                }
+              }}
+            >
+              <Wallet size={18} strokeWidth={1.5} />
+            </IconButton>
+          </Tooltip>
+
           <Tooltip title="Kylrix Portal (Ctrl+Space)">
             <IconButton 
               onClick={() => setIsPortalOpen(true)}
@@ -364,16 +398,6 @@ export const AppHeader = () => {
             >
               <ListItemIcon><User size={18} strokeWidth={1.5} color="rgba(255, 255, 255, 0.4)" /></ListItemIcon>
               <ListItemText primary="Profile" primaryTypographyProps={{ variant: 'caption', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'white' }} />
-            </MenuItem>
-            <MenuItem 
-              onClick={() => {
-                setIsWalletOpen(true);
-                setAnchorElAccount(null);
-              }}
-              sx={{ py: 1.5, px: 3, '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.05)' } }}
-            >
-              <ListItemIcon><Wallet size={18} strokeWidth={1.5} color="rgba(255, 255, 255, 0.4)" /></ListItemIcon>
-              <ListItemText primary="Wallet" primaryTypographyProps={{ variant: 'caption', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'white' }} />
             </MenuItem>
             <MenuItem 
               onClick={() => {
