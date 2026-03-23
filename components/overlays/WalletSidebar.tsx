@@ -135,12 +135,6 @@ export const WalletSidebar = ({ isOpen, onClose }: WalletSidebarProps) => {
         }
     }, [isOpen, hasMasterpass]);
 
-    useEffect(() => {
-        if (isOpen && !isUnlocked && hasMasterpass !== false && !loading) {
-            handleUnlock();
-        }
-    }, [isOpen, isUnlocked, hasMasterpass, loading]);
-
     const handleUnlock = () => {
         requestSudo({
             onSuccess: async () => {
@@ -149,6 +143,12 @@ export const WalletSidebar = ({ isOpen, onClose }: WalletSidebarProps) => {
             }
         });
     };
+
+    useEffect(() => {
+        if (isOpen && !isUnlocked && hasMasterpass !== false && !loading) {
+            handleUnlock();
+        }
+    }, [isOpen, isUnlocked, hasMasterpass, loading]);
 
     const handleCopyAddress = (address: string) => {
         navigator.clipboard.writeText(address);
@@ -467,6 +467,97 @@ export const WalletSidebar = ({ isOpen, onClose }: WalletSidebarProps) => {
             );
         }
 
+        if (showWalletList) {
+            const mainWallets = allWallets.filter(w => w.type === 'main');
+            const burnerWallets = allWallets.filter(w => w.type === 'burner');
+            const agentWallets = allWallets.filter(w => w.type === 'agent_sub_wallet');
+
+            return (
+                <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 3 }}>
+                    <Stack direction="row" alignItems="center" gap={1} sx={{ mb: 4 }}>
+                        <IconButton 
+                            size="small" 
+                            onClick={() => setShowWalletList(false)}
+                            sx={{ color: 'rgba(255,255,255,0.4)', '&:hover': { color: 'white' } }}
+                        >
+                            <ChevronLeft size={20} />
+                        </IconButton>
+                        <Typography variant="h6" sx={{ fontWeight: 900, fontFamily: 'var(--font-clash)', color: 'white' }}>
+                            Wallets
+                        </Typography>
+                    </Stack>
+
+                    <Box sx={{ flex: 1, overflowY: 'auto', pr: 0.5 }}>
+                        <Stack gap={3}>
+                            {mainWallets.length > 0 && (
+                                <Box>
+                                    <Typography variant="caption" sx={{ fontWeight: 800, color: AMBER, textTransform: 'uppercase', letterSpacing: '0.1em', px: 1, mb: 1, display: 'block' }}>
+                                        Main Identity
+                                    </Typography>
+                                    <Stack gap={1}>
+                                        {/* Group by address for unique wallet identities */}
+                                        {Array.from(new Set(mainWallets.map(w => w.address))).map(addr => {
+                                            return (
+                                                <Paper key={addr} sx={{ p: 2, borderRadius: '18px', bgcolor: SURFACE, border: '1px solid rgba(255,255,255,0.03)', ...rimLight }}>
+                                                    <Typography variant="body2" sx={{ fontWeight: 800, color: 'white' }}>Master Wallet</Typography>
+                                                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'JetBrains Mono' }}>{shortenAddress(addr)}</Typography>
+                                                </Paper>
+                                            );
+                                        })}
+                                    </Stack>
+                                </Box>
+                            )}
+
+                            <Box>
+                                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1, px: 1 }}>
+                                    <Typography variant="caption" sx={{ fontWeight: 800, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                                        Burner Wallets
+                                    </Typography>
+                                    <Button 
+                                        size="small" 
+                                        onClick={handleCreateBurner}
+                                        disabled={isCreatingBurner}
+                                        startIcon={isCreatingBurner ? <CircularProgress size={12} /> : <Plus size={14} />}
+                                        sx={{ color: AMBER, textTransform: 'none', fontWeight: 800, fontSize: '0.7rem' }}
+                                    >
+                                        New Burner
+                                    </Button>
+                                </Stack>
+                                <Stack gap={1}>
+                                    {burnerWallets.length === 0 ? (
+                                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.2)', textAlign: 'center', py: 2 }}>No burner wallets yet</Typography>
+                                    ) : (
+                                        Array.from(new Set(burnerWallets.map(w => w.address))).map(addr => (
+                                            <Paper key={addr} sx={{ p: 2, borderRadius: '18px', bgcolor: SURFACE, border: '1px solid rgba(255,255,255,0.03)', ...rimLight }}>
+                                                <Typography variant="body2" sx={{ fontWeight: 800, color: 'white' }}>Burner</Typography>
+                                                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'JetBrains Mono' }}>{shortenAddress(addr)}</Typography>
+                                            </Paper>
+                                        ))
+                                    )}
+                                </Stack>
+                            </Box>
+
+                            {agentWallets.length > 0 && (
+                                <Box>
+                                    <Typography variant="caption" sx={{ fontWeight: 800, color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', px: 1, mb: 1, display: 'block' }}>
+                                        Agentic Wallets
+                                    </Typography>
+                                    <Stack gap={1}>
+                                        {Array.from(new Set(agentWallets.map(w => w.address))).map(addr => (
+                                            <Paper key={addr} sx={{ p: 2, borderRadius: '18px', bgcolor: SURFACE, border: '1px solid rgba(255,255,255,0.03)', ...rimLight }}>
+                                                <Typography variant="body2" sx={{ fontWeight: 800, color: 'white' }}>Automated Agent</Typography>
+                                                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'JetBrains Mono' }}>{shortenAddress(addr)}</Typography>
+                                            </Paper>
+                                        ))}
+                                    </Stack>
+                                </Box>
+                            )}
+                        </Stack>
+                    </Box>
+                </Box>
+            );
+        }
+
         if (showSettings) {
             return (
                 <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', p: 3 }}>
@@ -484,6 +575,40 @@ export const WalletSidebar = ({ isOpen, onClose }: WalletSidebarProps) => {
                     </Stack>
 
                     <Stack gap={1.5}>
+                        <Paper
+                            onClick={() => {
+                                setShowWalletList(true);
+                                loadAllWallets();
+                            }}
+                            sx={{
+                                p: 2,
+                                borderRadius: '18px',
+                                bgcolor: SURFACE,
+                                border: '1px solid rgba(255,255,255,0.03)',
+                                ...rimLight,
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                '&:hover': { bgcolor: HIGHLIGHT, transform: 'translateX(4px)' }
+                            }}
+                        >
+                            <Stack direction="row" alignItems="center" justifyContent="space-between">
+                                <Stack direction="row" alignItems="center" gap={2}>
+                                    <Box sx={{ p: 1, borderRadius: '10px', bgcolor: alpha(AMBER, 0.1), color: AMBER }}>
+                                        <WalletIcon size={18} />
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="body2" sx={{ fontWeight: 800, color: 'white', fontFamily: 'Satoshi' }}>
+                                            Wallets
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontFamily: 'Satoshi' }}>
+                                            Manage main and burner identities
+                                        </Typography>
+                                    </Box>
+                                </Stack>
+                                <ChevronRight size={18} color="rgba(255,255,255,0.2)" />
+                            </Stack>
+                        </Paper>
+
                         <Paper
                             onClick={() => setShowExportOptions(true)}
                             sx={{
