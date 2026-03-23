@@ -362,9 +362,10 @@ export function PostViewClient() {
                             }}
                         >
                             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                <Avatar 
+                            <Avatar 
+                                    onClick={(e) => { e.stopPropagation(); if (moment.sourceMoment?.creator?.username) router.push(`/u/${moment.sourceMoment.creator.username}`); }}
                                     src={moment.sourceMoment.creator?.avatar} 
-                                    sx={{ width: 32, height: 32, borderRadius: '8px', bgcolor: 'rgba(255,255,255,0.05)' }}
+                                    sx={{ width: 32, height: 32, borderRadius: '8px', bgcolor: 'rgba(255,255,255,0.05)', cursor: 'pointer' }}
                                 />
                                 <Box sx={{ width: '2px', flex: 1, bgcolor: 'rgba(255,255,255,0.15)', mt: 1, mb: -1 }} />
                             </Box>
@@ -404,23 +405,25 @@ export function PostViewClient() {
                 }} elevation={0}>
                     <CardHeader
                         avatar={
-                            <Avatar
-                                src={creatorAvatar}
-                                sx={{ 
-                                    width: 52, 
-                                    height: 52, 
-                                    bgcolor: isOwnPost ? '#F59E0B' : 'rgba(255, 255, 255, 0.05)',
-                                    color: isOwnPost ? '#000' : 'text.secondary',
-                                    borderRadius: '14px',
-                                    fontWeight: 900,
-                                    border: '1px solid rgba(255,255,255,0.1)',
-                                    position: 'relative',
-                                    zIndex: 1,
-                                    boxShadow: '0 8px 16px rgba(0,0,0,0.3)'
-                                }}
-                            >
-                                {creatorName.replace(/^@/, '').charAt(0).toUpperCase()}
-                            </Avatar>
+                                <Avatar 
+                                    onClick={(e) => { e.stopPropagation(); if (!isOwnPost && moment.creator?.username) router.push(`/u/${moment.creator.username}`); if (isOwnPost && moment.creator?.username) router.push(`/u/${moment.creator.username}`); }}
+                                    src={creatorAvatar}
+                                    sx={{ 
+                                        width: 52, 
+                                        height: 52, 
+                                        bgcolor: isOwnPost ? '#F59E0B' : 'rgba(255, 255, 255, 0.05)',
+                                        color: isOwnPost ? '#000' : 'text.secondary',
+                                        borderRadius: '14px',
+                                        fontWeight: 900,
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        position: 'relative',
+                                        zIndex: 1,
+                                        boxShadow: '0 8px 16px rgba(0,0,0,0.3)',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    {creatorName.replace(/^@/, '').charAt(0).toUpperCase()}
+                                </Avatar>
                         }
                         title={
                             <Typography sx={{ fontWeight: 900, fontSize: '1.2rem', color: isOwnPost ? '#F59E0B' : 'text.primary', fontFamily: 'var(--font-clash)', letterSpacing: '-0.01em' }}>

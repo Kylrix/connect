@@ -111,22 +111,24 @@ const NewPostsWidget = ({ pendingMoments, onClick }: { pendingMoments: any[], on
         >
             <Box sx={{ display: 'flex', ml: -0.5 }}>
                 {pendingMoments.slice(0, 3).map((m, i) => (
-                    <Avatar 
-                        key={m.$id} 
-                        src={m.creator?.avatar} 
-                        sx={{ 
-                            width: 24, 
-                            height: 24, 
-                            border: '2px solid #F59E0B', 
-                            ml: i === 0 ? 0 : -1,
-                            zIndex: 3 - i,
-                            fontSize: '0.65rem',
-                            bgcolor: '#161412',
-                            color: '#F59E0B'
-                        }}
-                    >
-                        {m.creator?.username?.charAt(0).toUpperCase()}
-                    </Avatar>
+                                    <Avatar 
+                                        key={m.$id} 
+                                        onClick={(e) => { e.stopPropagation(); if (m.creator?.username) { router.push(`/u/${m.creator.username}`); } }}
+                                        src={m.creator?.avatar} 
+                                        sx={{ 
+                                            width: 24, 
+                                            height: 24, 
+                                            border: '2px solid #F59E0B', 
+                                            ml: i === 0 ? 0 : -1,
+                                            zIndex: 3 - i,
+                                            fontSize: '0.65rem',
+                                            bgcolor: '#161412',
+                                            color: '#F59E0B',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        {m.creator?.username?.charAt(0).toUpperCase()}
+                                    </Avatar>
                 ))}
             </Box>
             <Typography sx={{ fontWeight: 800, fontSize: '0.85rem', letterSpacing: '0.02em' }}>
@@ -747,6 +749,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                                         }}
                                     >
                                         <Avatar 
+                                            onClick={(e) => { e.stopPropagation(); router.push(`/u/${u.username}`); }}
                                             src={u.avatar} 
                                             sx={{ 
                                                 width: 48, 
@@ -754,7 +757,8 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                                                 bgcolor: alpha('#F59E0B', 0.1), 
                                                 color: '#F59E0B', 
                                                 fontWeight: 800,
-                                                border: '1px solid rgba(245, 158, 11, 0.2)'
+                                                border: '1px solid rgba(245, 158, 11, 0.2)',
+                                                cursor: 'pointer'
                                             }}
                                         >
                                             {(u.displayName || u.username)?.charAt(0).toUpperCase()}
@@ -796,7 +800,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                                             elevation={0}
                                         >
                                             <CardHeader
-                                                avatar={<Avatar src={creatorAvatar} sx={{ width: 32, height: 32, borderRadius: '8px' }} />}
+                            avatar={<Avatar onClick={(e) => { e.stopPropagation(); if (moment.creator?.username) router.push(`/u/${moment.creator.username}`); }} src={creatorAvatar} sx={{ width: 32, height: 32, borderRadius: '8px', cursor: 'pointer' }} />}
                                                 title={<Typography variant="subtitle2" sx={{ fontWeight: 800 }}>{creatorName}</Typography>}
                                                 subheader={<Typography variant="caption" sx={{ opacity: 0.5 }}>{new Date(moment.createdAt).toLocaleDateString()}</Typography>}
                                             />

@@ -179,6 +179,15 @@ export const Profile = ({ username }: ProfileProps) => {
         </Box>
     );
 
+    // When rendering the profile avatar/name in other UI, navigating must go to /u/:username
+    const handleNavigateToPublic = () => {
+        if (!profile) return;
+        const uname = profile.username;
+        if (uname) {
+            window.location.href = `/u/${encodeURIComponent(uname)}`;
+        }
+    };
+
     return (
         <Box sx={{ maxWidth: 800, mx: 'auto', p: 2, pt: 4 }}>
                 <Paper sx={{ 
@@ -216,6 +225,7 @@ export const Profile = ({ username }: ProfileProps) => {
 
                 <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: 'center', gap: 4, position: 'relative', zIndex: 1 }}>
                         <Avatar
+                            onClick={handleNavigateToPublic}
                             src={profileUrl || profile.avatar}
                             sx={{ 
                                 width: 140, 
@@ -232,7 +242,7 @@ export const Profile = ({ username }: ProfileProps) => {
                         {(profile.displayName || profile.username || currentUser?.name || 'U').charAt(0).toUpperCase()}
                     </Avatar>
                     <Box sx={{ flex: 1, textAlign: { xs: 'center', sm: 'left' } }}>
-                        <Typography variant="h3" sx={{ 
+                        <Typography onClick={handleNavigateToPublic} variant="h3" sx={{ 
                             fontWeight: 900, 
                             mb: 0.5,
                             fontFamily: 'var(--font-clash)',

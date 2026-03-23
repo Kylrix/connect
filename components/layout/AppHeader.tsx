@@ -330,7 +330,7 @@ export const AppHeader = () => {
             }
           }}
         >
-          <Box sx={{ px: 3, py: 2.5, bgcolor: 'rgba(255, 255, 255, 0.02)', position: 'relative', zIndex: 1 }}>
+            <Box sx={{ px: 3, py: 2.5, bgcolor: 'rgba(255, 255, 255, 0.02)', position: 'relative', zIndex: 1 }}>
             <Typography variant="caption" sx={{ fontWeight: 800, color: 'rgba(255, 255, 255, 0.4)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
               Account Identity
             </Typography>
@@ -340,6 +340,28 @@ export const AppHeader = () => {
           </Box>
           <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.05)' }} />
           <Box sx={{ py: 1 }}>
+            <MenuItem 
+              onClick={() => {
+                // Navigate to the user's public profile page
+                // Use ProfileProvider context to build the username path if available
+                setAnchorElAccount(null);
+                try {
+                  // Friendly fallback: open /u/<username> if profile is available, otherwise open account settings
+                  const profile = (window as any).__KYLRIX_PROFILE__;
+                  if (profile && profile.username) {
+                    window.location.href = `/u/${encodeURIComponent(profile.username)}`;
+                    return;
+                  }
+                } catch (_e) {}
+                const domain = process.env.NEXT_PUBLIC_DOMAIN || 'kylrix.space';
+                const idSubdomain = process.env.NEXT_PUBLIC_AUTH_SUBDOMAIN || 'accounts';
+                window.location.href = `https://${idSubdomain}.${domain}/settings?source=${encodeURIComponent(window.location.origin)}&tab=profile`;
+              }}
+              sx={{ py: 1.5, px: 3, '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.05)' } }}
+            >
+              <ListItemIcon><User size={18} strokeWidth={1.5} color="rgba(255, 255, 255, 0.4)" /></ListItemIcon>
+              <ListItemText primary="Profile" primaryTypographyProps={{ variant: 'caption', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'white' }} />
+            </MenuItem>
             <MenuItem 
               onClick={() => {
                 setIsWalletOpen(true);
@@ -353,23 +375,14 @@ export const AppHeader = () => {
             <MenuItem 
               onClick={() => {
                 const domain = process.env.NEXT_PUBLIC_DOMAIN || 'kylrix.space';
-              const idSubdomain = process.env.NEXT_PUBLIC_AUTH_SUBDOMAIN || 'accounts';
-              window.location.href = `https://${idSubdomain}.${domain}/settings?source=${encodeURIComponent(window.location.origin)}&tab=profile`;
-              setAnchorElAccount(null);
-            }}
-              sx={{ py: 1.5, px: 3, '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.05)' } }}
-            >
-              <ListItemIcon><Settings size={18} strokeWidth={1.5} color="rgba(255, 255, 255, 0.4)" /></ListItemIcon>
-              <ListItemText primary="Settings" primaryTypographyProps={{ variant: 'caption', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'white' }} />
-            </MenuItem>
-            <MenuItem 
-              onClick={() => {
+                const idSubdomain = process.env.NEXT_PUBLIC_AUTH_SUBDOMAIN || 'accounts';
+                window.location.href = `https://${idSubdomain}.${domain}/settings?source=${encodeURIComponent(window.location.origin)}&tab=profile`;
                 setAnchorElAccount(null);
               }}
               sx={{ py: 1.5, px: 3, '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.05)' } }}
             >
-              <ListItemIcon><Download size={18} strokeWidth={1.5} color="rgba(255, 255, 255, 0.4)" /></ListItemIcon>
-              <ListItemText primary="Export Data" primaryTypographyProps={{ variant: 'caption', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'white' }} />
+              <ListItemIcon><Settings size={18} strokeWidth={1.5} color="rgba(255, 255, 255, 0.4)" /></ListItemIcon>
+              <ListItemText primary="Settings" primaryTypographyProps={{ variant: 'caption', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'white' }} />
             </MenuItem>
           </Box>
           <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.05)' }} />

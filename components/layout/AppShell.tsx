@@ -77,7 +77,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
         { label: 'Home', icon: <Home size={24} />, href: '/' },
         { label: 'Chats', icon: <MessageCircle size={24} />, href: '/chats' },
         { label: 'Calls', icon: <Phone size={24} />, href: '/calls' },
-        { label: 'Profile', icon: <User size={24} />, href: '/profile' },
+        // Profile removed from nav — access via account menu -> "Profile"
         { label: 'Settings', icon: <Settings size={24} />, href: '/settings' },
     ];
 

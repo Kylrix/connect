@@ -43,7 +43,7 @@ export const Navigation = () => {
         { label: 'Chats', href: '/chats', icon: <MessageSquare size={20} strokeWidth={1.5} /> },
         { label: 'Calls', href: '/calls', icon: <Phone size={20} strokeWidth={1.5} /> },
         { label: 'Wallet', onClick: () => setIsWalletOpen(true), icon: <Wallet size={20} strokeWidth={1.5} /> },
-        { label: 'Profile', href: '/profile', icon: <User size={20} strokeWidth={1.5} /> },
+        // Profile moved to account menu -> now links to external/account-managed settings; remove from sidebar
     ];
 
     return (
