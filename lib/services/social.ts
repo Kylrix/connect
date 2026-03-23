@@ -185,6 +185,11 @@ export const SocialService = {
 
         if (currentUserId) {
             enriched.isLiked = await this.isLiked(currentUserId, moment.$id);
+            try {
+                enriched.isPulsed = await this.isPulsed(currentUserId, moment.$id);
+            } catch (_e) {
+                enriched.isPulsed = false;
+            }
         }
 
         // Handle Legacy & New Metadata Attachments
@@ -386,6 +391,34 @@ export const SocialService = {
         if (callId) metadata.attachments.push({ type: 'call', id: callId });
 
         const effectiveFileId = JSON.stringify(metadata);
+
+        // Prevent duplicate pulses: if this is a pulse and the user already has a pulse
+        // for the same sourceId, return the existing moment instead of creating another.
+        if (type === 'pulse' && sourceId) {
+            try {
+                const recent = await tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
+                    Query.equal('userId', creatorId),
+                    Query.orderDesc('$createdAt'),
+                    Query.limit(200)
+                ]);
+
+                const existingPulse = recent.rows.find((m: any) => {
+                    try {
+                        if (!m.fileId) return false;
+                        const meta = JSON.parse(m.fileId);
+                        return meta.type === 'pulse' && meta.sourceId === sourceId;
+                    } catch (_e) { return false; }
+                });
+
+                if (existingPulse) {
+                    // Already pulsed by this user; return the existing row to dedupe at the service layer.
+                    return existingPulse;
+                }
+            } catch (dedupeErr) {
+                console.warn('pulse dedupe check failed', dedupeErr);
+                // Fall through and attempt to create the moment if the check fails
+            }
+        }
 
         const moment = await tablesDB.createRow(DB_ID, MOMENTS_TABLE, ID.unique(), {
             userId: creatorId, 

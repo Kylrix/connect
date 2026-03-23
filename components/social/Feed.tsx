@@ -268,22 +268,36 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
             // Phase 1: Update state with fresh data from server
             // We merge fresh data with existing state to preserve any background hydration (like avatars)
             // but we ALWAYS prioritize fresh stats and content from the server.
-            setMoments(prev => {
-                const updated = filteredRows.map((fresh: any) => {
-                    const existing = prev.find(p => p.$id === fresh.$id);
-                    // Preserve hydrated creator/source if they exist, but take everything else from fresh
-                    return {
-                        ...fresh,
-                        creator: existing?.creator || fresh.creator,
-                        sourceMoment: existing?.sourceMoment ? {
-                            ...fresh.sourceMoment,
-                            creator: existing.sourceMoment.creator || fresh.sourceMoment?.creator
-                        } : fresh.sourceMoment
-                    };
-                });
-                saveToCache(updated);
-                return updated;
+            const updated = filteredRows.map((fresh: any) => {
+                const existing = moments.find(p => p.$id === fresh.$id);
+                // Preserve hydrated creator/source if they exist, but take everything else from fresh
+                return {
+                    ...fresh,
+                    creator: existing?.creator || fresh.creator,
+                    sourceMoment: existing?.sourceMoment ? {
+                        ...fresh.sourceMoment,
+                        creator: existing.sourceMoment.creator || fresh.sourceMoment?.creator
+                    } : fresh.sourceMoment
+                };
             });
+
+            // Determine whether the current user has pulsed each moment (background, conservative)
+            if (user?.$id) {
+                try {
+                    const pulsedFlags = await Promise.all(updated.map((m: any) => SocialService.isPulsed(user.$id, m.$id)));
+                    const updatedWithPulse = updated.map((m: any, i: number) => ({ ...m, isPulsed: pulsedFlags[i] }));
+                    setMoments(updatedWithPulse);
+                    saveToCache(updatedWithPulse);
+                } catch (e) {
+                    // fallback: set without pulse flags
+                    setMoments(updated);
+                    saveToCache(updated);
+                }
+            } else {
+                setMoments(updated);
+                saveToCache(updated);
+            }
+
             setLoading(false);
 
             // Phase 2: Background Hydration for missing profiles
@@ -469,19 +483,23 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
     const handlePulse = async (moment: any) => {
         if (!user) return;
         const pulse = moments.find(m => m.metadata?.type === 'pulse' && m.metadata?.sourceId === moment.$id && (m.userId === user.$id || m.creatorId === user.$id));
-        
-        if (pulse) {
+        // Double-check against server state to avoid duplicate pulses
+        const alreadyPulsed = moment.isPulsed || (user?.$id ? await SocialService.isPulsed(user.$id, moment.$id) : false);
+
+        if (pulse || alreadyPulsed) {
             // Undo Pulse (Unpulse)
             try {
                 const success = await SocialService.unpulseMoment(user.$id, moment.$id);
                 if (success) {
                     toast.success('Removed from your feed');
+                    // remove pulse row from feed if present
                     setMoments(prev => prev.filter(m => m.$id !== pulse.$id));
-                    // Update the source moment's count locally
-                    setMoments(prev => prev.map(m => m.$id === moment.$id ? {
+                    // Update the source moment's pulse flag and count locally
+                    setMoments(prev => prev.map(m => m.$id === moment.$id ? ({
                         ...m,
+                        isPulsed: false,
                         stats: { ...m.stats, pulses: Math.max(0, (m.stats?.pulses || 0) - 1) }
-                    } : m));
+                    }) : m));
                 }
             } catch (_e) {
                 toast.error('Failed to remove pulse');
@@ -489,10 +507,18 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
         } else {
             // Create Pulse
             try {
-                // Instant Pulse (Repost) logic - minimal payload
-                await SocialService.createMoment(user.$id, '', 'pulse', [], 'public', undefined, undefined, moment.$id);
-                toast.success('Pulsed to your feed');
-                loadFeed();
+                // Double-check again before creating to avoid race
+                const stillPulsed = user?.$id ? await SocialService.isPulsed(user.$id, moment.$id) : false;
+                if (stillPulsed) {
+                    // Another client already pulsed; mark locally and exit
+                    setMoments(prev => prev.map(m => m.$id === moment.$id ? ({ ...m, isPulsed: true }) : m));
+                    toast('Already pulsed');
+                } else {
+                    await SocialService.createMoment(user.$id, '', 'pulse', [], 'public', undefined, undefined, moment.$id);
+                    toast.success('Pulsed to your feed');
+                    // Optimistically mark this moment as pulsed
+                    setMoments(prev => prev.map(m => m.$id === moment.$id ? ({ ...m, isPulsed: true, stats: { ...m.stats, pulses: (m.stats?.pulses || 0) + 1 } }) : m));
+                }
             } catch (_e) {
                 toast.error('Failed to pulse');
             }
@@ -1702,11 +1728,12 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                                     }}
                                     sx={{ 
                                         p: 1,
-                                        color: moments.some(m => m.metadata?.type === 'pulse' && m.metadata?.sourceId === moment.$id && (m.userId === user?.$id || m.creatorId === user?.$id)) ? '#10B981' : 'inherit',
-                                        '&:hover': { color: '#10B981', bgcolor: alpha('#10B981', 0.1) } 
+                                        color: moment.isPulsed ? '#10B981' : 'inherit',
+                                        bgcolor: moment.isPulsed ? 'rgba(16,185,129,0.06)' : 'transparent',
+                                        '&:hover': { color: '#10B981', bgcolor: alpha('#10B981', 0.12) } 
                                     }}
                                 >
-                                    <Repeat2 size={19} strokeWidth={1.5} />
+                                    <Repeat2 size={19} strokeWidth={moment.isPulsed ? 2 : 1.5} />
                                 </IconButton>
                                 <Typography variant="caption" sx={{ fontWeight: 700, opacity: 0.5 }}>{moment.stats?.pulses || 0}</Typography>
                             </Box>

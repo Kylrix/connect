@@ -21,7 +21,9 @@ import {
     Container,
     alpha,
     Stack,
-    Tooltip
+    Tooltip,
+    useMediaQuery,
+    useTheme
 } from '@mui/material';
 import ActorsListDrawer from '@/components/social/ActorsListDrawer';
 import {
@@ -61,6 +63,8 @@ export function PostViewClient() {
     const [actorsDrawerOpen, setActorsDrawerOpen] = useState(false);
     const [actorsList, setActorsList] = useState<any[]>([]);
     const [actorsTitle, setActorsTitle] = useState('');
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
     const fetchActorsForLikes = async (momentId: string) => {
         try {
@@ -233,7 +237,10 @@ export function PostViewClient() {
         try {
             await SocialService.createMoment(user.$id, '', 'pulse', [], 'public', undefined, undefined, moment.$id);
             toast.success('Pulsed to your feed');
+            // optimistically mark pulsed on the current moment
+            setMoment((prev: any) => prev ? ({ ...prev, isPulsed: true, stats: { ...prev.stats, pulses: (prev.stats?.pulses || 0) + 1 } }) : prev);
             setPulseMenuAnchorEl(null);
+            // reload replies/related data in background
             loadMoment();
         } catch (_e) {
             toast.error('Failed to pulse');
@@ -584,10 +591,11 @@ export function PostViewClient() {
                                 </IconButton>
                             </Tooltip>
                             <Tooltip title="Pulse">
-                                <IconButton 
+                            <IconButton 
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        handlePulse();
+                                        // Open the pulse menu so user can choose Pulse / Unpulse / Quote
+                                        setPulseMenuAnchorEl(e.currentTarget);
                                     }}
                                     onContextMenu={(e) => {
                                         e.preventDefault();
@@ -770,7 +778,7 @@ export function PostViewClient() {
                     onClose={() => setActorsDrawerOpen(false)}
                     title={actorsTitle}
                     actors={actorsList}
-                    mobile={false}
+                    mobile={isMobile}
                     onSelect={(actor) => { setActorsDrawerOpen(false); router.push(`/@${actor.username || actor.$id}`); }}
                 />
             </Container>
