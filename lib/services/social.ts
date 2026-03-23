@@ -47,12 +47,60 @@ export const SocialService = {
         });
 
         return { likes, replies, pulses };
-    } catch (_e) {
-        return { likes: 0, replies: 0, pulses: 0 };
-    }
-},
+        } catch (_e) {
+            return { likes: 0, replies: 0, pulses: 0 };
+        }
+    },
 
-async toggleLike(userId: string, momentId: string, creatorId?: string, contentSnippet?: string) {
+    // Lightweight helpers to list interactions or pulses without bloat
+    async _listInteractionsFor(momentId: string, emoji: string) {
+        try {
+            const rows = await tablesDB.listRows(DB_ID, INTERACTIONS_TABLE, [
+                Query.equal('messageId', momentId),
+                Query.equal('emoji', emoji),
+                Query.orderDesc('$createdAt'),
+                Query.limit(100)
+            ]);
+            // return minimal footprint
+            return rows.rows.map((r: any) => ({ userId: r.userId, createdAt: r.createdAt || r.$createdAt }));
+        } catch (e) {
+            console.error('_listInteractionsFor error', e);
+            return [];
+        }
+    },
+
+    async _listPulsesFor(sourceId: string) {
+        try {
+            // We must scan recent moments and filter pulses referencing sourceId
+            const moments = await tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
+                Query.orderDesc('$createdAt'),
+                Query.limit(200)
+            ]);
+
+            return moments.rows.filter((m: any) => {
+                try {
+                    if (!m.fileId) return false;
+                    const meta = JSON.parse(m.fileId);
+                    return meta.type === 'pulse' && meta.sourceId === sourceId;
+                } catch (_e) { return false; }
+            }).map((m: any) => ({ userId: m.userId || m.creatorId, createdAt: m.$createdAt || m.createdAt }));
+        } catch (e) {
+            console.error('_listPulsesFor error', e);
+            return [];
+        }
+    },
+
+    async isPulsed(userId: string, sourceId: string) {
+        try {
+            const pulses = await this._listPulsesFor(sourceId);
+            return pulses.some((p: any) => p.userId === userId);
+        } catch (e) {
+            console.error('isPulsed error', e);
+            return false;
+        }
+    },
+
+    async toggleLike(userId: string, momentId: string, creatorId?: string, contentSnippet?: string) {
     try {
         const existing = await tablesDB.listRows(DB_ID, INTERACTIONS_TABLE, [
             Query.equal('userId', userId),

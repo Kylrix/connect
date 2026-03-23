@@ -23,6 +23,7 @@ import {
     Stack,
     Tooltip
 } from '@mui/material';
+import ActorsListDrawer from '@/components/social/ActorsListDrawer';
 import {
     Heart,
     MessageCircle,
@@ -57,6 +58,57 @@ export function PostViewClient() {
     const [replyContent, setReplyContent] = useState('');
     const [pulseMenuAnchorEl, setPulseMenuAnchorEl] = useState<null | HTMLElement>(null);
     const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
+    const [actorsDrawerOpen, setActorsDrawerOpen] = useState(false);
+    const [actorsList, setActorsList] = useState<any[]>([]);
+    const [actorsTitle, setActorsTitle] = useState('');
+
+    const fetchActorsForLikes = async (momentId: string) => {
+        try {
+            const interactions = await SocialService._listInteractionsFor(momentId, 'like');
+            const actors = await Promise.all(interactions.map(async (i: any) => {
+                try {
+                    const p = await UsersService.getProfileById(i.userId);
+                    let avatar = null;
+                    if (p?.avatar) {
+                        try { avatar = await fetchProfilePreview(p.avatar, 64, 64) as unknown as string; } catch (_e) {}
+                    }
+                    return { $id: i.userId, username: p?.username, displayName: p?.displayName, avatar };
+                } catch (_e) { return { $id: i.userId }; }
+            }));
+            return actors;
+        } catch (e) {
+            console.error('Failed to fetch like actors', e);
+            return [];
+        }
+    };
+
+    const fetchActorsForPulses = async (momentId: string) => {
+        try {
+            const pulses = await SocialService._listPulsesFor(momentId);
+            const actors = await Promise.all(pulses.map(async (p: any) => {
+                try {
+                    const prof = await UsersService.getProfileById(p.userId);
+                    let avatar = null;
+                    if (prof?.avatar) {
+                        try { avatar = await fetchProfilePreview(prof.avatar, 64, 64) as unknown as string; } catch (_e) {}
+                    }
+                    return { $id: p.userId, username: prof?.username, displayName: prof?.displayName, avatar };
+                } catch (_e) { return { $id: p.userId }; }
+            }));
+            return actors;
+        } catch (e) {
+            console.error('Failed to fetch pulse actors', e);
+            return [];
+        }
+    };
+
+    const openActorsList = async (title: string, fetcher: () => Promise<any[]>) => {
+        setActorsTitle(title);
+        setActorsDrawerOpen(true);
+        setActorsList([]);
+        const data = await fetcher();
+        setActorsList(data);
+    };
 
     const fetchUserAvatar = useCallback(async () => {
         const picId = getUserProfilePicId(user);
@@ -507,12 +559,18 @@ export function PostViewClient() {
                                 <Typography sx={{ fontWeight: 900, fontSize: '1rem' }}>{moment.stats?.replies || 0}</Typography>
                                 <Typography variant="caption" sx={{ opacity: 0.7, fontWeight: 900, letterSpacing: '0.05em' }}>REPLIES</Typography>
                             </Box>
-                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', color: '#10B981' }}>
-                                <Typography sx={{ fontWeight: 900, fontSize: '1rem' }}>{moment.stats?.pulses || 0}</Typography>
-                                <Typography variant="caption" sx={{ opacity: 0.7, fontWeight: 900, letterSpacing: '0.05em' }}>PULSES</Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', color: '#F59E0B' }}>
-                                <Typography sx={{ fontWeight: 900, fontSize: '1rem' }}>{moment.stats?.likes || 0}</Typography>
+                        <Box
+                            onClick={(e) => { e.stopPropagation(); openActorsList('Pulsed by', async () => await fetchActorsForPulses(moment.$id)); }}
+                            sx={{ display: 'flex', gap: 1, alignItems: 'center', color: '#10B981', cursor: 'pointer' }}
+                        >
+                            <Typography sx={{ fontWeight: 900 }}>{moment.stats?.pulses || 0}</Typography>
+                            <Typography variant="caption" sx={{ opacity: 0.7, fontWeight: 900, letterSpacing: '0.05em' }}>PULSES</Typography>
+                        </Box>
+                            <Box
+                                onClick={(e) => { e.stopPropagation(); openActorsList('Likes', async () => await fetchActorsForLikes(moment.$id)); }}
+                                sx={{ display: 'flex', gap: 1, alignItems: 'center', color: '#F59E0B', cursor: 'pointer' }}
+                            >
+                                <Typography sx={{ fontWeight: 900 }}>{moment.stats?.likes || 0}</Typography>
                                 <Typography variant="caption" sx={{ opacity: 0.7, fontWeight: 900, letterSpacing: '0.05em' }}>LIKES</Typography>
                             </Box>
                         </Stack>
@@ -707,6 +765,14 @@ export function PostViewClient() {
                         );
                     })}
                 </Stack>
+                <ActorsListDrawer
+                    open={actorsDrawerOpen}
+                    onClose={() => setActorsDrawerOpen(false)}
+                    title={actorsTitle}
+                    actors={actorsList}
+                    mobile={false}
+                    onSelect={(actor) => { setActorsDrawerOpen(false); router.push(`/@${actor.username || actor.$id}`); }}
+                />
             </Container>
         </AppShell>
     );

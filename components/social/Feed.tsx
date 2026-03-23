@@ -60,6 +60,7 @@ import { NoteViewDrawer } from './NoteViewDrawer';
 import { EventSelectorModal } from './EventSelectorModal';
 import { EventViewDrawer } from './EventViewDrawer';
 import { CallSelectorModal } from './CallSelectorModal';
+import ActorsListDrawer from './ActorsListDrawer';
 
 import toast from 'react-hot-toast';
 
@@ -170,6 +171,9 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
     const [shareAnchorEl, setShareAnchorEl] = useState<null | HTMLElement>(null);
     const [menuMoment, setMenuMoment] = useState<any>(null);
     const [selectedMoment, setSelectedMoment] = useState<any>(null);
+    const [actorsDrawerOpen, setActorsDrawerOpen] = useState(false);
+    const [actorsList, setActorsList] = useState<any[]>([]);
+    const [actorsTitle, setActorsTitle] = useState('');
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isComposerOpen, setIsComposerOpen] = useState(false);
     const [editingMoment, setEditingMoment] = useState<any>(null);
@@ -494,6 +498,53 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
             }
         }
         setPulseMenuAnchorEl(null);
+    };
+
+    // Fetch minimal actor list for likes
+    const fetchActorsForLikes = async (momentId: string) => {
+        try {
+            // Query interactions table for likes (non-bloated)
+            const interactions = await SocialService._listInteractionsFor(momentId, 'like');
+            const actors = await Promise.all(interactions.map(async (i: any) => {
+                try {
+                    const p = profileRegistry.get(i.userId) || await UsersService.getProfileById(i.userId);
+                    let avatar = p?.avatar ? await fetchProfilePreview(p.avatar, 64, 64) as unknown as string : null;
+                    return { $id: i.userId, username: p?.username, displayName: p?.displayName, avatar };
+                } catch (_e) {
+                    return { $id: i.userId };
+                }
+            }));
+            return actors;
+        } catch (e) {
+            console.error('Failed to fetch like actors', e);
+            return [];
+        }
+    };
+
+    // Fetch actors for pulses (who pulsed this moment)
+    const fetchActorsForPulses = async (momentId: string) => {
+        try {
+            const pulses = await SocialService._listPulsesFor(momentId);
+            const actors = await Promise.all(pulses.map(async (p: any) => {
+                try {
+                    const profile = profileRegistry.get(p.userId) || await UsersService.getProfileById(p.userId);
+                    let avatar = profile?.avatar ? await fetchProfilePreview(profile.avatar, 64, 64) as unknown as string : null;
+                    return { $id: p.userId, username: profile?.username, displayName: profile?.displayName, avatar };
+                } catch (_e) { return { $id: p.userId }; }
+            }));
+            return actors;
+        } catch (e) {
+            console.error('Failed to fetch pulse actors', e);
+            return [];
+        }
+    };
+
+    const openActorsList = async (title: string, fetcher: () => Promise<any[]>) => {
+        setActorsTitle(title);
+        setActorsDrawerOpen(true);
+        setActorsList([]);
+        const data = await fetcher();
+        setActorsList(data);
     };
 
     const handleOpenNote = (note: any) => {
@@ -1635,7 +1686,13 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                         </Tooltip>
 
                         <Tooltip title="Pulse or Quote">
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Box
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    openActorsList('Pulsed by', async () => await fetchActorsForPulses(moment.$id));
+                                }}
+                                sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                            >
                                 <IconButton 
                                     size="small"
                                     onClick={(e) => {
@@ -1655,22 +1712,37 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                             </Box>
                         </Tooltip>
 
-                        <Tooltip title="Heart">
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <IconButton 
-                                    size="small"
-                                    onClick={(e) => handleToggleLike(e, moment)}
-                                    sx={{ 
-                                        p: 1,
-                                        color: moment.isLiked ? '#F59E0B' : 'inherit',
-                                        '&:hover': { color: '#F59E0B', bgcolor: alpha('#F59E0B', 0.1) } 
-                                    }}
-                                >
-                                    <Heart size={19} fill={moment.isLiked ? '#F59E0B' : 'none'} strokeWidth={1.5} />
-                                </IconButton>
-                                <Typography variant="caption" sx={{ fontWeight: 700, opacity: 0.5 }}>{moment.stats?.likes || 0}</Typography>
-                            </Box>
-                        </Tooltip>
+                <Tooltip title="Heart">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <IconButton 
+                            size="small"
+                            onClick={(e) => handleToggleLike(e, moment)}
+                            sx={{ 
+                                p: 1,
+                                color: moment.isLiked ? '#F59E0B' : 'inherit',
+                                '&:hover': { color: '#F59E0B', bgcolor: alpha('#F59E0B', 0.1) } 
+                            }}
+                        >
+                            <Heart size={19} fill={moment.isLiked ? '#F59E0B' : 'none'} strokeWidth={1.5} />
+                        </IconButton>
+                        <Box
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                openActorsList('Likes', async () => await fetchActorsForLikes(moment.$id));
+                            }}
+                            sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+                        >
+                            <IconButton 
+                                size="small"
+                                onClick={(e) => handleToggleLike(e, moment)}
+                                sx={{ p: 0, mr: 0.5 }}
+                            >
+                                <Heart size={14} fill={moment.isLiked ? '#F59E0B' : 'none'} strokeWidth={1.5} />
+                            </IconButton>
+                            <Typography sx={{ fontWeight: 700, opacity: 0.5 }} variant="caption">{moment.stats?.likes || 0}</Typography>
+                        </Box>
+                    </Box>
+                </Tooltip>
 
                         <Tooltip title="Bookmark">
                             <IconButton 
@@ -1841,6 +1913,14 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                 open={isEventDrawerOpen}
                 onClose={() => setIsEventDrawerOpen(false)}
                 event={viewingEvent}
+            />
+            <ActorsListDrawer
+                open={actorsDrawerOpen}
+                onClose={() => setActorsDrawerOpen(false)}
+                title={actorsTitle}
+                actors={actorsList}
+                mobile={isMobile}
+                onSelect={(actor) => { setActorsDrawerOpen(false); router.push(`/@${actor.username || actor.$id}`); }}
             />
         </Box>
     );
