@@ -253,12 +253,19 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                 await SocialService.getFeed(user?.$id);
                 
             const freshRows = response?.rows || [];
+            // Filter out current user's own direct posts from the feed source
+            const filteredRows = freshRows.filter((m: any) => {
+                const creatorId = m.userId || m.creatorId;
+                const type = m.metadata?.type || 'post';
+                if (user?.$id && creatorId === user.$id && type === 'post') return false;
+                return true;
+            });
             
             // Phase 1: Update state with fresh data from server
             // We merge fresh data with existing state to preserve any background hydration (like avatars)
             // but we ALWAYS prioritize fresh stats and content from the server.
             setMoments(prev => {
-                const updated = freshRows.map((fresh: any) => {
+                const updated = filteredRows.map((fresh: any) => {
                     const existing = prev.find(p => p.$id === fresh.$id);
                     // Preserve hydrated creator/source if they exist, but take everything else from fresh
                     return {
@@ -276,7 +283,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
             setLoading(false);
 
             // Phase 2: Background Hydration for missing profiles
-            const uniqueCreatorIds = Array.from(new Set(freshRows.map((m: any) => m.userId || m.creatorId)));
+            const uniqueCreatorIds = Array.from(new Set(filteredRows.map((m: any) => m.userId || m.creatorId)));
             
             await Promise.all(uniqueCreatorIds.map(async (id: any) => {
                 if (profileRegistry.has(id)) return;
@@ -746,8 +753,13 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
     return (
         <Box sx={{ maxWidth: 600, mx: 'auto', p: { xs: 1, sm: 2 }, position: 'relative' }}>
             {showNewPosts && pendingMoments.length > 0 && (
+                // Exclude user's own direct posts from the new posts widget
                 <NewPostsWidget 
-                    pendingMoments={pendingMoments} 
+                    pendingMoments={pendingMoments.filter(m => {
+                        const creatorId = m.userId || m.creatorId;
+                        const type = m.metadata?.type || 'post';
+                        return !(user?.$id === creatorId && type === 'post');
+                    })} 
                     onClick={handleNewPostsClick} 
                 />
             )}
@@ -1074,8 +1086,17 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
 
             {/* Feed */}
             {moments.length === 0 && loading && <FeedSkeleton />}
-            
-            {moments.map((moment) => {
+
+            {/* Filter out the current user's direct posts (type 'post') from the feed. */}
+            {moments
+                .filter((m) => {
+                    const creatorId = m.userId || m.creatorId;
+                    const type = m.metadata?.type || 'post';
+                    // Hide if it's the current user's own direct post
+                    if (user?.$id && creatorId === user.$id && type === 'post') return false;
+                    return true;
+                })
+                .map((moment) => {
                 const isOwnPost = user?.$id === (moment.userId || moment.creatorId);
                 const creatorName = isOwnPost ? (user?.name || 'You') : (moment.creator?.displayName || moment.creator?.username || 'Unknown');
                 const creatorAvatar = isOwnPost ? userAvatarUrl : (moment.creator?.avatar || undefined);
