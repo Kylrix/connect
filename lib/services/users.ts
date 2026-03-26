@@ -141,7 +141,7 @@ export const UsersService = {
                         prefs = typeof currentProfile.preferences === 'string' 
                             ? JSON.parse(currentProfile.preferences || '{}') 
                             : (currentProfile.preferences || {});
-                    } catch (e) { prefs = {}; }
+                    } catch (_e) { prefs = {}; }
 
                     const history = prefs.usernameHistory || [];
                     const now = new Date().toISOString();

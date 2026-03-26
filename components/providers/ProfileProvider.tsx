@@ -21,7 +21,7 @@ const PROFILE_SETUP_KEY = 'kylrix_profile_initialized';
 
 export const ProfileProvider = ({ children }: { children: React.ReactNode }) => {
     const { user } = useAuth();
-    const { fetchOptimized, setCachedData, invalidate } = useDataNexus();
+    const { fetchOptimized, invalidate } = useDataNexus();
     const [profile, setProfile] = useState<any | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 

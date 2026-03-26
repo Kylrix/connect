@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { UsersService } from '@/lib/services/users';
-import { Users } from '@/types/appwrite';
+import { User, Profiles } from '@/types/appwrite';
 import { ChatService } from '@/lib/services/chat';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
@@ -42,7 +42,7 @@ const SearchResultAvatar = ({ u }: { u: any }) => {
 
 export const UserSearch = () => {
     const [query, setQuery] = useState('');
-    const [results, setResults] = useState<Users[]>([]);
+    const [results, setResults] = useState<Profiles[]>([]);
     const [loading, setLoading] = useState(false);
     const { user } = useAuth();
     const router = useRouter();
