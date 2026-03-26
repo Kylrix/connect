@@ -38,6 +38,7 @@ import { EcosystemClient } from '@/components/ecosystem/EcosystemClient';
 import { IslandProvider } from '@/components/common/DynamicIsland';
 import { SudoProvider } from '@/context/SudoContext';
 import { SubscriptionProvider } from '@/context/subscription/SubscriptionContext';
+import { DataNexusProvider } from '@/context/DataNexusContext';
 import { Suspense } from 'react';
 
 export default function RootLayout({
@@ -57,37 +58,39 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <EcosystemClient nodeId="connect" />
-        <SubscriptionProvider>
-          <ThemeProvider>
-            <IslandProvider>
-              <NotificationProvider>
-                <SudoProvider>
-                  <ProfileProvider>
-                    <PresenceProvider>
-                      <ChatNotificationProvider>
-                        <AuthOverlay />
-                      <Toaster 
-                        position="bottom-right"
-                        toastOptions={{
-                          style: {
-                            background: '#1A1A1A',
-                            color: '#fff',
-                            borderRadius: '12px',
-                            border: '1px solid rgba(255,255,255,0.1)'
-                          }
-                        }}
-                      />
-                      <Suspense fallback={null}>
-                        {children}
-                      </Suspense>
-                      </ChatNotificationProvider>
-                    </PresenceProvider>
-                  </ProfileProvider>
-                </SudoProvider>
-              </NotificationProvider>
-            </IslandProvider>
-          </ThemeProvider>
-        </SubscriptionProvider>
+        <DataNexusProvider>
+          <SubscriptionProvider>
+            <ThemeProvider>
+              <IslandProvider>
+                <NotificationProvider>
+                  <SudoProvider>
+                    <ProfileProvider>
+                      <PresenceProvider>
+                        <ChatNotificationProvider>
+                          <AuthOverlay />
+                        <Toaster 
+                          position="bottom-right"
+                          toastOptions={{
+                            style: {
+                              background: '#1A1A1A',
+                              color: '#fff',
+                              borderRadius: '12px',
+                              border: '1px solid rgba(255,255,255,0.1)'
+                            }
+                          }}
+                        />
+                        <Suspense fallback={null}>
+                          {children}
+                        </Suspense>
+                        </ChatNotificationProvider>
+                      </PresenceProvider>
+                    </ProfileProvider>
+                  </SudoProvider>
+                </NotificationProvider>
+              </IslandProvider>
+            </ThemeProvider>
+          </SubscriptionProvider>
+        </DataNexusProvider>
       </body>
     </html>
   );

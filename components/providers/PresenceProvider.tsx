@@ -1,35 +1,41 @@
 'use client';
 
-import React, { createContext, useContext, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { ActivityService } from '@/lib/services/activity';
 import { realtime } from '@/lib/appwrite/client';
 import { APPWRITE_CONFIG } from '@/lib/appwrite/config';
+import { useDataNexus } from '@/context/DataNexusContext';
 
 const PresenceContext = createContext<{
-    getPresence: (userId: string) => any;
+    getPresence: (userId: string) => Promise<any>;
     presence: Record<string, any>;
 }>({
-    getPresence: () => null,
+    getPresence: async () => null,
     presence: {}
 });
 
 export const PresenceProvider = ({ children }: { children: React.ReactNode }) => {
     const { user } = useAuth();
+    const { fetchOptimized, setCachedData } = useDataNexus();
     const [presence, setPresence] = React.useState<Record<string, any>>({});
 
     useEffect(() => {
         if (!user) return;
 
         // Subscribe to presence updates
-        const unsub = realtime.subscribe(
+        const unsub = (realtime as any).subscribe(
             [`databases.${APPWRITE_CONFIG.DATABASES.CHAT}.tables.${APPWRITE_CONFIG.TABLES.CHAT.APP_ACTIVITY}.rows`],
-            (response) => {
+            (response: any) => {
                 const payload = response.payload as any;
-                setPresence(prev => ({
-                    ...prev,
-                    [payload.userId]: payload
-                }));
+                if (payload.userId) {
+                    setPresence(prev => ({
+                        ...prev,
+                        [payload.userId]: payload
+                    }));
+                    // Update cache as well to keep it fresh
+                    setCachedData(`presence_${payload.userId}`, payload, 1000 * 60 * 5);
+                }
             }
         );
 
@@ -60,16 +66,20 @@ export const PresenceProvider = ({ children }: { children: React.ReactNode }) =>
             if (typeof unsub === 'function') (unsub as any)();
             else (unsub as any)?.unsubscribe?.();
         };
-    }, [user]);
+    }, [user, setCachedData]);
 
-    const getPresence = React.useCallback(async (userId: string) => {
+    const getPresence = useCallback(async (userId: string) => {
         if (presence[userId]) return presence[userId];
-        const p = await ActivityService.getUserPresence(userId);
-        if (p) {
-            setPresence(prev => ({ ...prev, [userId]: p }));
-        }
-        return p;
-    }, [presence]);
+        
+        // Use DataNexus to deduplicate and cache presence lookups
+        return await fetchOptimized(`presence_${userId}`, async () => {
+            const p = await ActivityService.getUserPresence(userId);
+            if (p) {
+                setPresence(prev => ({ ...prev, [userId]: p }));
+            }
+            return p;
+        }, 1000 * 60 * 5); // 5 minutes TTL for presence
+    }, [presence, fetchOptimized]);
 
     return (
         <PresenceContext.Provider value={{ getPresence, presence }}>

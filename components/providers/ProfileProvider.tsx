@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { UsersService } from '@/lib/services/users';
+import { useDataNexus } from '@/context/DataNexusContext';
 
 interface ProfileContextType {
     profile: any | null;
@@ -20,6 +21,7 @@ const PROFILE_SETUP_KEY = 'kylrix_profile_initialized';
 
 export const ProfileProvider = ({ children }: { children: React.ReactNode }) => {
     const { user } = useAuth();
+    const { fetchOptimized, setCachedData, invalidate } = useDataNexus();
     const [profile, setProfile] = useState<any | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -31,25 +33,26 @@ export const ProfileProvider = ({ children }: { children: React.ReactNode }) => 
         }
 
         try {
-            const data = await UsersService.getProfileById(user.$id);
+            // Use DataNexus for high-performance retrieval and deduplication
+            const data = await fetchOptimized(`profile_${user.$id}`, async () => {
+                const fetched = await UsersService.getProfileById(user.$id);
+                if (!fetched) {
+                    console.log('[ProfileProvider] Profile not found, initiating auto-setup...');
+                    return await UsersService.ensureProfileForUser(user);
+                }
+                return fetched;
+            }, 1000 * 60 * 60); // 1 hour TTL for own profile
+
             if (data) {
                 setProfile(data);
                 localStorage.setItem(`${PROFILE_SETUP_KEY}_${user.$id}`, 'true');
-            } else {
-                // Auto-setup if not found
-                console.log('[ProfileProvider] Profile not found, initiating auto-setup...');
-                const newProfile = await UsersService.ensureProfileForUser(user);
-                setProfile(newProfile);
-                if (newProfile) {
-                    localStorage.setItem(`${PROFILE_SETUP_KEY}_${user.$id}`, 'true');
-                }
             }
         } catch (error) {
             console.error('[ProfileProvider] Failed to load/setup profile:', error);
         } finally {
             setIsLoading(false);
         }
-    }, [user]);
+    }, [user, fetchOptimized]);
 
     useEffect(() => {
         if (!user) {
@@ -58,31 +61,15 @@ export const ProfileProvider = ({ children }: { children: React.ReactNode }) => 
             return;
         }
 
-        const isInitialized = localStorage.getItem(`${PROFILE_SETUP_KEY}_${user.$id}`);
-        
-        if (isInitialized) {
-            // We have a cached initialization signal.
-            // Just fetch the profile once to hydrate the context.
-            // No need to run the full ensureProfileForUser logic which checks/heals.
-            UsersService.getProfileById(user.$id).then(data => {
-                if (data) {
-                    setProfile(data);
-                    setIsLoading(false);
-                } else {
-                    // If local says initialized but DB is empty (e.g. manually deleted), re-run setup
-                    refreshProfile();
-                }
-            }).catch(() => {
-                setIsLoading(false);
-            });
-        } else {
-            // First time this session/device - run the full setup
-            refreshProfile();
-        }
+        // Hybrid load strategy: First hit cache, then refresh if needed
+        refreshProfile();
     }, [user, refreshProfile]);
 
     return (
-        <ProfileContext.Provider value={{ profile, isLoading, refreshProfile }}>
+        <ProfileContext.Provider value={{ profile, isLoading, refreshProfile: async () => {
+            if (user?.$id) invalidate(`profile_${user.$id}`);
+            await refreshProfile();
+        } }}>
             {children}
         </ProfileContext.Provider>
     );
