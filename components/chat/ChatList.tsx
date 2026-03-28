@@ -30,7 +30,6 @@ import SearchIcon from '@mui/icons-material/Search';
 import LockIcon from '@mui/icons-material/LockOutlined';
 import { fetchProfilePreview } from '@/lib/profile-preview';
 import { ecosystemSecurity } from '@/lib/ecosystem/security';
-import { SudoModal } from '../overlays/SudoModal';
 import { realtime } from '@/lib/appwrite/client';
 import toast from 'react-hot-toast';
 import { useSudo } from '@/context/SudoContext';
@@ -70,7 +69,6 @@ export const ChatList = () => {
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [searching, setSearching] = useState(false);
     const [isUnlocked, setIsUnlocked] = useState(ecosystemSecurity.status.isUnlocked);
-    const [unlockModalOpen, setUnlockModalOpen] = useState(false);
 
     const isLikelyEncrypted = (val: string) => {
         if (!val) return false;
@@ -148,9 +146,7 @@ export const ChatList = () => {
 
             // Check if we need to prompt for unlock
             const hasEncrypted = rows.some(c => c.isEncrypted);
-            if (hasEncrypted && !ecosystemSecurity.status.isUnlocked) {
-                setUnlockModalOpen(true);
-            }
+            if (hasEncrypted && !ecosystemSecurity.status.isUnlocked) return;
 
             console.log('[ChatList] Fetched rows count:', rows.length);
 
@@ -200,7 +196,6 @@ export const ChatList = () => {
                     // If they have Tier 2 but are locked, we wait (to ensure it's created as E2E)
                     if (hasTier2 && !ecosystemSecurity.status.isUnlocked) {
                         console.log('[ChatList] Vault is locked. Self chat auto-creation deferred until unlock.');
-                        setUnlockModalOpen(true);
                         setLoading(false);
                         return;
                     }
@@ -543,15 +538,6 @@ export const ChatList = () => {
                 )}
             </Box>
 
-            <SudoModal
-                isOpen={unlockModalOpen}
-                onCancel={() => setUnlockModalOpen(false)}
-                onSuccess={() => {
-                    setUnlockModalOpen(false);
-                    setIsUnlocked(true);
-                    loadConversations();
-                }}
-            />
         </Box>
     );
 };
