@@ -16,18 +16,25 @@ import {
     Avatar,
     Typography,
     Paper,
-    CircularProgress
+    CircularProgress,
+    Skeleton,
+    Stack
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import PersonIcon from '@mui/icons-material/Person';
 import toast from 'react-hot-toast';
 
 import { useSudo } from '@/context/SudoContext';
+import { getCachedIdentityById, getCachedIdentityByUsername, seedIdentityCache } from '@/lib/identity-cache';
 
 const SearchResultAvatar = ({ u }: { u: any }) => {
+    const cachedById = getCachedIdentityById(u.userId || u.$id);
+    const cachedByUsername = getCachedIdentityByUsername(u.username);
+    const avatar = u.avatar || cachedById?.avatar || cachedByUsername?.avatar;
+
     return (
         <Avatar
-            src={u.avatar}
+            src={avatar || undefined}
             sx={{
                 bgcolor: 'rgba(255, 255, 255, 0.05)',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -35,7 +42,7 @@ const SearchResultAvatar = ({ u }: { u: any }) => {
                 height: 44
             }}
         >
-            {!u.avatar && <PersonIcon sx={{ color: 'rgba(255, 255, 255, 0.3)' }} />}
+            {!avatar && <PersonIcon sx={{ color: 'rgba(255, 255, 255, 0.3)' }} />}
         </Avatar>
     );
 };
@@ -55,7 +62,9 @@ export const UserSearch = () => {
         setLoading(true);
         try {
             const res = await UsersService.searchUsers(query);
-            setResults(res.rows as any);
+            const nextRows = res.rows as any;
+            nextRows.forEach((u: any) => seedIdentityCache(u));
+            setResults(nextRows);
         } catch (error) {
             console.error('Search failed:', error);
         } finally {
@@ -155,6 +164,22 @@ export const UserSearch = () => {
                 {loading && <CircularProgress size={20} sx={{ ml: 1 }} />}
             </Paper>
 
+            {loading && results.length === 0 && (
+                <Stack spacing={1.5} sx={{ mb: 2 }}>
+                    {[1, 2, 3].map((i) => (
+                        <Paper key={i} sx={{ p: 2, borderRadius: '20px', bgcolor: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)' }} elevation={0}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                <Skeleton variant="circular" width={44} height={44} sx={{ bgcolor: 'rgba(255,255,255,0.05)' }} />
+                                <Box sx={{ flex: 1 }}>
+                                    <Skeleton width="40%" sx={{ bgcolor: 'rgba(255,255,255,0.05)' }} />
+                                    <Skeleton width="25%" sx={{ bgcolor: 'rgba(255,255,255,0.05)' }} />
+                                </Box>
+                            </Box>
+                        </Paper>
+                    ))}
+                </Stack>
+            )}
+
             <List sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {(results as any[]).map((u) => (
                     <Paper
@@ -187,12 +212,12 @@ export const UserSearch = () => {
                             <ListItemText
                                 primary={
                                     <Typography sx={{ fontWeight: 800, color: 'white', fontSize: '1rem' }}>
-                                        {u.displayName || u.username}
+                                        {u.displayName || u.username || `@${(u.userId || u.$id || '').slice(0, 7)}`}
                                     </Typography>
                                 }
                                 secondary={
                                     <Typography sx={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '0.85rem', fontWeight: 600 }}>
-                                        @{u.username}
+                                        @{u.username || (u.userId || u.$id || '').slice(0, 7)}
                                     </Typography>
                                 }
                             />

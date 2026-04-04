@@ -42,6 +42,7 @@ import Logo from '../common/Logo';
 import { WalletSidebar } from '../overlays/WalletSidebar';
 import { getEcosystemUrl } from '@/lib/constants';
 import { UsersService } from '@/lib/services/users';
+import { getCachedIdentityById, seedIdentityCache, subscribeIdentityCache } from '@/lib/identity-cache';
 
 export const AppHeader = () => {
   const { user, logout } = useAuth();
@@ -80,7 +81,9 @@ export const AppHeader = () => {
 
     const fetchPreview = async () => {
       try {
-        if (profilePicId) {
+        if (profilePicId?.startsWith('http')) {
+          if (mounted) setProfileUrl(profilePicId);
+        } else if (profilePicId) {
           const url = await fetchProfilePreview(profilePicId, 64, 64);
           if (mounted) setProfileUrl(url as unknown as string);
         } else if (mounted) setProfileUrl(null);
@@ -98,8 +101,13 @@ export const AppHeader = () => {
     const loadProfileRecord = async () => {
       if (!user?.$id) return;
       try {
+        const cached = getCachedIdentityById(user.$id);
+        if (cached && mounted) {
+          setProfileRecord(cached);
+        }
         const profile = await UsersService.getProfileById(user.$id);
         if (!mounted) return;
+        seedIdentityCache(profile);
         setProfileRecord(profile || null);
       } catch (error) {
         console.warn('[Connect Header] Failed to load profile record:', error);
@@ -109,6 +117,15 @@ export const AppHeader = () => {
     return () => {
       mounted = false;
     };
+  }, [user?.$id]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeIdentityCache((identity) => {
+      if (identity.userId === user?.$id) {
+        setProfileRecord(identity);
+      }
+    });
+    return unsubscribe;
   }, [user?.$id]);
 
   useEffect(() => {

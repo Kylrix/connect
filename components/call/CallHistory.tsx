@@ -21,7 +21,8 @@ import {
     Tooltip,
     Stack,
     Divider,
-    Badge
+    Badge,
+    Skeleton
 } from '@mui/material';
 import CallIcon from '@mui/icons-material/Call';
 import VideocamIcon from '@mui/icons-material/Videocam';
@@ -34,6 +35,7 @@ import StopIcon from '@mui/icons-material/Stop';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import HistoryIcon from '@mui/icons-material/History';
 import toast from 'react-hot-toast';
+import { seedIdentityCache } from '@/lib/identity-cache';
 
 export const CallHistory = ({ onNewCall }: { onNewCall?: () => void }) => {
     const { user } = useAuth();
@@ -61,6 +63,7 @@ export const CallHistory = ({ onNewCall }: { onNewCall?: () => void }) => {
                     
                     try {
                         const profile = otherId ? await UsersService.getProfileById(otherId) : null;
+                        if (profile) seedIdentityCache(profile);
                         return {
                             ...call,
                             otherUser: profile || { 
@@ -137,7 +140,23 @@ export const CallHistory = ({ onNewCall }: { onNewCall?: () => void }) => {
         window.open(`/chat/${call.otherUser.$id}`, '_blank');
     };
 
-    if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>;
+    if (loading) {
+        return (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {[1, 2, 3].map((i) => (
+                    <Paper key={i} sx={{ p: 2, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }} elevation={0}>
+                        <Stack direction="row" spacing={2} alignItems="center">
+                            <Skeleton variant="circular" width={44} height={44} sx={{ bgcolor: 'rgba(255,255,255,0.05)' }} />
+                            <Box sx={{ flex: 1 }}>
+                                <Skeleton width="40%" sx={{ bgcolor: 'rgba(255,255,255,0.05)' }} />
+                                <Skeleton width="22%" sx={{ bgcolor: 'rgba(255,255,255,0.05)' }} />
+                            </Box>
+                        </Stack>
+                    </Paper>
+                ))}
+            </Box>
+        );
+    }
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, position: 'relative', minHeight: '50vh' }}>

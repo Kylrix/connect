@@ -10,6 +10,7 @@ import { ecosystemSecurity } from '@/lib/ecosystem/security';
 import { Box, Typography, alpha, Avatar, Badge } from '@mui/material';
 import { MessageCircle, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getCachedIdentityById, seedIdentityCache } from '@/lib/identity-cache';
 
 interface ChatNotification {
     id: string;
@@ -50,7 +51,9 @@ export function ChatNotificationProvider({ children }: { children: ReactNode }) 
         if (!user || message.senderId === user.$id) return;
 
         try {
-            const profile = await UsersService.getProfileById(message.senderId);
+            const cached = getCachedIdentityById(message.senderId);
+            const profile = cached || await UsersService.getProfileById(message.senderId);
+            if (profile) seedIdentityCache(profile);
             const senderName = profile ? (profile.displayName || profile.username) : 'Someone';
             
             let content = message.content;
