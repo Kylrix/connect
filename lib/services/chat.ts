@@ -315,16 +315,8 @@ export const ChatService = {
                 }
                 return conv;
             }
-
-            // Fallback for legacy MasterPass encryption
-            if (conv.name && conv.name.length > 40) {
-                conv.name = await ecosystemSecurity.decrypt(conv.name);
-            }
-            if (conv.lastMessageText && conv.lastMessageText.length > 40) {
-                conv.lastMessageText = await ecosystemSecurity.decrypt(conv.lastMessageText);
-            }
         } catch (_e: unknown) {
-            // Might not be encrypted or key missing
+            throw _e;
         }
         return conv;
     },
