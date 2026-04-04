@@ -31,6 +31,7 @@ import { EditProfileModal } from './EditProfileModal';
 import { ActorsListDrawer, Actor } from '../social/ActorsListDrawer';
 import { getUserProfilePicId } from '@/lib/user-utils';
 import { fetchProfilePreview, getCachedProfilePreview } from '@/lib/profile-preview';
+import { IdentityAvatar, IdentityName, computeIdentityFlags } from '../common/IdentityBadge';
 import ReportUserDialog from './ReportUserDialog';
 
 interface ProfileProps {
@@ -100,6 +101,15 @@ export const Profile = ({ username }: ProfileProps) => {
     // accidental "Edit Profile" controls from appearing when viewing other
     // users that happen to share a username or when context usernames collide.
     const isOwnProfile = Boolean(currentUser && profile && profile.userId && currentUser.$id && profile.userId === currentUser.$id);
+    const identityFlags = computeIdentityFlags({
+        createdAt: profile?.$createdAt || profile?.createdAt || null,
+        lastUsernameEdit: profile?.last_username_edit || profile?.preferences?.last_username_edit || null,
+        profilePicId: profile?.avatar || profile?.profilePicId || null,
+        username: profile?.username || null,
+        bio: profile?.bio || null,
+        tier: profile?.tier || null,
+        publicKey: profile?.publicKey || null,
+    });
 
     const loadProfile = useCallback(async () => {
         // Only show global loading on first load
@@ -311,23 +321,16 @@ export const Profile = ({ username }: ProfileProps) => {
                 }} />
 
                 <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: 'center', gap: 4, position: 'relative', zIndex: 1 }}>
-                    <Avatar
-                            onClick={handleNavigateToPublic}
-                            src={profileUrl || profile.avatar}
-                            sx={{ 
-                                width: 140, 
-                                height: 140, 
-                                fontSize: 48, 
-                                bgcolor: '#F59E0B',
-                                color: 'black',
-                                fontWeight: 900,
-                                border: '4px solid rgba(255, 255, 255, 0.05)',
-                                boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
-                                fontFamily: 'var(--font-clash)'
-                            }}
-                        >
-                        {(profile.displayName || profile.username || 'U').charAt(0).toUpperCase()}
-                    </Avatar>
+                    <IdentityAvatar
+                        src={profileUrl || profile.avatar}
+                        alt={profile.displayName || profile.username || 'profile'}
+                        fallback={(profile.displayName || profile.username || 'U').charAt(0).toUpperCase()}
+                        verified={identityFlags.verified}
+                        pro={identityFlags.pro}
+                        size={140}
+                        verifiedSize={22}
+                        borderRadius="28px"
+                    />
                     <Box sx={{ flex: 1, textAlign: { xs: 'center', sm: 'left' } }}>
                         <Typography onClick={handleNavigateToPublic} variant="h3" sx={{ 
                             fontWeight: 900, 
@@ -335,7 +338,9 @@ export const Profile = ({ username }: ProfileProps) => {
                             fontFamily: 'var(--font-clash)',
                             letterSpacing: '-0.04em'
                         }}>
-                            {profile.displayName || profile.username || 'Anonymous'}
+                            <IdentityName verified={identityFlags.verified} sx={{ fontWeight: 900 }}>
+                                {profile.displayName || profile.username || 'Anonymous'}
+                            </IdentityName>
                         </Typography>
                         <Typography variant="body1" sx={{ 
                             opacity: 0.5, 
