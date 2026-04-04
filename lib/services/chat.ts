@@ -274,8 +274,10 @@ async function resolveConversationKey(
     }
 
     const directKey = await fetchConversationKeyFromLockbox(conversation.$id, userId, conversation.creatorId);
-    if (directKey && !messageCreatedAt) {
-        conversationKeyCache.set(conversation.$id, directKey);
+    if (directKey) {
+        if (!messageCreatedAt) {
+            conversationKeyCache.set(conversation.$id, directKey);
+        }
         return directKey;
     }
 
@@ -555,6 +557,7 @@ export const ChatService = {
         }
 
         const conversationPermissions = [
+            Permission.read(Role.user(creatorId)),
             Permission.update(Role.user(creatorId)),
             Permission.delete(Role.user(creatorId))
         ];
@@ -929,7 +932,7 @@ export const ChatService = {
             resourceId: conversationId,
         });
 
-        if (conv?.type === 'group' && String(conv?.encryptionVersion || '').toUpperCase() === 'T4' && ecosystemSecurity.status.isUnlocked && ecosystemSecurity.status.hasIdentity) {
+        if (conv?.type === 'group' && String(conv?.encryptionVersion || '').toUpperCase() === 'T4' && participants.length > 0 && ecosystemSecurity.status.isUnlocked && ecosystemSecurity.status.hasIdentity) {
             const newKey = await ecosystemSecurity.generateConversationKey();
             ecosystemSecurity.setConversationKey(conversationId, newKey);
             conversationKeyCache.set(conversationId, newKey);
