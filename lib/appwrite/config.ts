@@ -8,6 +8,17 @@ export const APPWRITE_CONFIG = {
         KYLRIXFLOW: 'whisperrflow'
     },
     TABLES: {
+        KYLRIXNOTE: {
+            USERS: '67ff05c900247b5673d3',
+            ACTIVITY_LOG: 'activityLog',
+            WALLET_MAP: 'walletMap'
+        },
+        PASSWORD_MANAGER: {
+            KEYCHAIN: 'keychain',
+            IDENTITIES: 'identities',
+            WALLETS: 'wallets',
+            KEY_MAPPING: 'key_mapping'
+        },
         CHAT: {
             CONVERSATIONS: 'conversations',
             MESSAGES: 'messages',
@@ -19,17 +30,8 @@ export const APPWRITE_CONFIG = {
             INTERACTIONS: 'interactions',
             PROFILES: 'profiles',
             USERS: 'profiles',
-            CONTACTS: 'contacts'
-        },
-        KYLRIXNOTE: {
-            USERS: '67ff05c900247b5673d3',
-            ACTIVITY_LOG: 'activityLog',
-            WALLET_MAP: 'walletMap'
-        },
-        PASSWORD_MANAGER: {
-            KEYCHAIN: 'keychain',
-            IDENTITIES: 'identities',
-            WALLETS: 'wallets'
+            CONTACTS: 'contacts',
+            EPOCHS: 'epochs'
         }
     },
     BUCKETS: {

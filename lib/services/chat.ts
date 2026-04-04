@@ -9,8 +9,12 @@ import { UsersService } from './users';
 const DB_ID = APPWRITE_CONFIG.DATABASES.CHAT;
 const CONV_TABLE = APPWRITE_CONFIG.TABLES.CHAT.CONVERSATIONS;
 const MSG_TABLE = APPWRITE_CONFIG.TABLES.CHAT.MESSAGES;
+const EPOCHS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.EPOCHS;
+const KEY_MAPPING_DB = APPWRITE_CONFIG.DATABASES.PASSWORD_MANAGER;
+const KEY_MAPPING_TABLE = APPWRITE_CONFIG.TABLES.PASSWORD_MANAGER.KEY_MAPPING;
 const ACCOUNTS_API_URL = `${getEcosystemUrl('accounts')}/api/permissions`;
 const participantIdCache = new Map<string, string>();
+const conversationKeyCache = new Map<string, CryptoKey>();
 
 const arraysEqual = (left: string[], right: string[]) =>
     left.length === right.length && left.every((value, index) => value === right[index]);
@@ -22,6 +26,17 @@ const hasSharedReadAccess = (row: any) =>
     Array.isArray(row?.$permissions) && row.$permissions.some((permission: string) =>
         permission === 'read("users")' || permission === 'read("any")'
     );
+
+const hasParticipantReadAccess = (row: any, participantIds: string[], creatorId: string) => {
+    if (!Array.isArray(row?.$permissions)) return false;
+    const requiredIds = Array.from(new Set([...participantIds, creatorId].filter(Boolean)));
+    return requiredIds.every((participantId) => {
+        if (!participantId) return true;
+        return row.$permissions.some((permission: string) =>
+            permission.startsWith('read(') && permission.includes(`user:${participantId}`)
+        );
+    });
+};
 
 const getConversationActivityAt = (row: any) =>
     row?.lastMessageAt || row?.updatedAt || row?.createdAt || row?.$updatedAt || row?.$createdAt || null;
@@ -43,41 +58,13 @@ const syncMessagePermissions = async (
 ) => {
     const targets = Array.from(new Set(recipientIds.filter(Boolean)));
     if (!rowId || targets.length === 0) return;
-
-    let jwt: string | null = auth?.jwt || null;
-    if (!jwt && !auth?.cookie) {
-        try {
-            const session = await account.createJWT();
-            jwt = session?.jwt || null;
-        } catch (_err) {
-            jwt = null;
-        }
-    }
-
-    if (!jwt && !auth?.cookie) {
-        throw new Error('Unable to authenticate permission update request');
-    }
-
-    const response = await fetch(ACCOUNTS_API_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
-            ...(auth?.cookie ? { Cookie: auth.cookie } : {}),
-        },
-        body: JSON.stringify({
-            databaseId: APPWRITE_CONFIG.DATABASES.CHAT,
-            tableId: MSG_TABLE,
-            rowId,
-            targetUserIds: targets,
-            permission,
-        }),
-    });
-
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to update message permissions');
-    }
+    await callPermissionsApi('POST', {
+        databaseId: APPWRITE_CONFIG.DATABASES.CHAT,
+        tableId: MSG_TABLE,
+        rowId,
+        targetUserIds: targets,
+        permission,
+    }, auth);
 };
 
 const resolveParticipantId = async (participantId: string) => {
@@ -142,6 +129,188 @@ const getMessagePreview = async (message: any, conversationId: string) => {
     }
 };
 
+type LockboxEntry = {
+    resourceType: string;
+    resourceId: string;
+    grantee: string;
+    wrappedKey: string;
+    metadata?: string | Record<string, unknown> | null;
+};
+
+const buildLockboxMetadata = (payload: Record<string, unknown>) => JSON.stringify(payload);
+
+async function getPermissionUpdateAuth(auth?: { jwt?: string; cookie?: string }) {
+    let jwt = auth?.jwt || null;
+    if (!jwt && !auth?.cookie) {
+        const session = await account.createJWT().catch(() => null);
+        jwt = session?.jwt || null;
+    }
+
+    if (!jwt && !auth?.cookie) {
+        throw new Error('Unable to authenticate permission update request');
+    }
+
+    return {
+        ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+        ...(auth?.cookie ? { Cookie: auth.cookie } : {}),
+    };
+}
+
+async function callPermissionsApi(
+    method: 'POST' | 'DELETE',
+    payload: Record<string, unknown>,
+    auth?: { jwt?: string; cookie?: string }
+) {
+    const headers = await getPermissionUpdateAuth(auth);
+    const response = await fetch(ACCOUNTS_API_URL, {
+        method,
+        headers: {
+            'Content-Type': 'application/json',
+            ...headers,
+        },
+        body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Permission update failed');
+    }
+
+    return response.json().catch(() => ({}));
+}
+
+async function fetchKeyMapping(resourceType: string, resourceId: string, grantee: string) {
+    const res = await tablesDB.listRows(KEY_MAPPING_DB, KEY_MAPPING_TABLE, [
+        Query.equal('resourceType', resourceType),
+        Query.equal('resourceId', resourceId),
+        Query.equal('grantee', grantee),
+        Query.limit(1),
+    ]);
+
+    return res.rows[0] || null;
+}
+
+async function fetchProfilePublicKey(userId: string) {
+    try {
+        const profile = await UsersService.getProfileById(userId);
+        return profile?.publicKey || null;
+    } catch {
+        return null;
+    }
+}
+
+async function unwrapKeyMapping(row: any, fallbackUserId?: string) {
+    if (!row?.wrappedKey || !row?.grantee) return null;
+
+    let metadata: Record<string, any> = {};
+    try {
+        metadata = row.metadata ? JSON.parse(row.metadata) : {};
+    } catch {
+        metadata = {};
+    }
+
+    const wrappedByPublicKey = metadata.wrappedByPublicKey
+        || (metadata.wrappedBy ? await fetchProfilePublicKey(metadata.wrappedBy) : null)
+        || (fallbackUserId ? await fetchProfilePublicKey(fallbackUserId) : null);
+
+    if (!wrappedByPublicKey) {
+        return null;
+    }
+
+    const key = await ecosystemSecurity.unwrapKeyWithECDH(row.wrappedKey, wrappedByPublicKey);
+    return key || null;
+}
+
+async function fetchConversationKeyFromLockbox(conversationId: string, userId: string, creatorId?: string) {
+    const row = await fetchKeyMapping('chat', conversationId, userId);
+    if (!row) return null;
+    return unwrapKeyMapping(row, creatorId || userId);
+}
+
+async function fetchEpochKeyForConversation(conversationId: string, userId: string, messageCreatedAt?: string | null) {
+    const epochsRes = await tablesDB.listRows(APPWRITE_CONFIG.DATABASES.CHAT, EPOCHS_TABLE, [
+        Query.equal('resourceId', conversationId),
+        Query.orderDesc('epochNumber'),
+        Query.limit(50),
+    ]);
+
+    const epochs = epochsRes.rows || [];
+    const messageTime = messageCreatedAt ? new Date(messageCreatedAt).getTime() : Number.NaN;
+
+    for (const epoch of epochs) {
+        if (Number.isFinite(messageTime)) {
+            const epochTime = new Date(epoch.$createdAt || epoch.createdAt || 0).getTime();
+            if (epochTime > messageTime) {
+                continue;
+            }
+        }
+
+        const row = await fetchKeyMapping('epoch', epoch.$id, userId);
+        const key = await unwrapKeyMapping(row, epoch.createdBy || userId);
+        if (key) return key;
+    }
+
+    return null;
+}
+
+async function resolveConversationKey(
+    conversation: any,
+    userId: string,
+    messageCreatedAt?: string | null
+) {
+    if (!conversation?.$id || !userId) return null;
+
+    const cached = conversationKeyCache.get(conversation.$id);
+    if (cached && !messageCreatedAt) {
+        return cached;
+    }
+
+    if (conversation.type === 'group' && String(conversation.encryptionVersion || '').toUpperCase() === 'T4') {
+        const epochKey = await fetchEpochKeyForConversation(conversation.$id, userId, messageCreatedAt);
+        if (epochKey && !messageCreatedAt) {
+            conversationKeyCache.set(conversation.$id, epochKey);
+        }
+        return epochKey;
+    }
+
+    const directKey = await fetchConversationKeyFromLockbox(conversation.$id, userId, conversation.creatorId);
+    if (directKey && !messageCreatedAt) {
+        conversationKeyCache.set(conversation.$id, directKey);
+        return directKey;
+    }
+
+    if (conversation.encryptionKey) {
+        try {
+            const keyMap = JSON.parse(conversation.encryptionKey);
+            const myWrappedKey = keyMap[userId];
+            if (myWrappedKey) {
+                const creatorPubKey = await fetchProfilePublicKey(conversation.creatorId);
+                if (creatorPubKey) {
+                    const key = await ecosystemSecurity.unwrapKeyWithECDH(myWrappedKey, creatorPubKey);
+                    if (key && !messageCreatedAt) {
+                        conversationKeyCache.set(conversation.$id, key);
+                    }
+                    return key;
+                }
+            }
+        } catch (_e) {
+            // Legacy fallback continues below.
+        }
+    }
+
+    return null;
+}
+
+async function syncLockboxRows(entries: LockboxEntry[], auth?: { jwt?: string; cookie?: string }) {
+    if (!entries.length) return [];
+    return callPermissionsApi('POST', { action: 'grant', keyMappings: entries }, auth);
+}
+
+async function revokeLockboxRows(resourceType: string, resourceId: string, grantees: string[], auth?: { jwt?: string; cookie?: string }) {
+    if (!resourceType || !resourceId || grantees.length === 0) return [];
+    return callPermissionsApi('DELETE', { resourceType, resourceId, targetUserIds: grantees }, auth);
+}
+
 export const ChatService = {
     /**
      * Internal: Wraps a symmetric conversation key for a list of participants.
@@ -173,49 +342,11 @@ export const ChatService = {
     },
 
     async _unwrapConversationKey(conv: any, myUserId: string): Promise<CryptoKey | null> {
-        let key = ecosystemSecurity.getConversationKey(conv.$id);
-        if (key) return key;
-
-        if (!conv.encryptionKey) return null;
-
-        try {
-            const keyMap = JSON.parse(conv.encryptionKey);
-            const myWrappedKey = keyMap[myUserId];
-
-            // If we don't have a wrapped key, but we have a valid identity, we might need a re-wrap
-            // This happens after a Master Password reset where the user has a new public key.
-            if (!myWrappedKey) {
-                console.warn(`No wrapped key found for user ${myUserId} in conversation ${conv.$id}. Re-wrap required.`);
-                return null;
-            }
-
-            // We need the creator's public key (the one who wrapped it) to do ECDH
-            const CHAT_DB = APPWRITE_CONFIG.DATABASES.CHAT;
-            const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.PROFILES;
-
-            try {
-                const creatorRes = await tablesDB.listRows(CHAT_DB, USERS_TABLE, [
-                    Query.equal('userId', conv.creatorId),
-                    Query.limit(1)
-                ]);
-                const creatorPubKey = creatorRes.rows[0]?.publicKey;
-                if (!creatorPubKey) throw new Error("Creator public key not found");
-
-                key = await ecosystemSecurity.unwrapKeyWithECDH(myWrappedKey, creatorPubKey);
-                if (key) {
-                    ecosystemSecurity.setConversationKey(conv.$id, key);
-                }
-            } catch (_e) {
-                // If unwrapping fails, it might be because the creator rotated their key too
-                // or we are using a new identity that doesn't match this wrapped key.
-                console.error("Could not unwrap key with creator's public key", _e);
-                throw new Error("Could not retrieve creator public key or decryption failed");
-            }
-            return key;
-        } catch (_e) {
-            console.error("Failed to unwrap conversation key", _e);
-            return null;
+        const key = await resolveConversationKey(conv, myUserId);
+        if (key) {
+            conversationKeyCache.set(conv.$id, key);
         }
+        return key;
     },
 
     /**
@@ -229,6 +360,7 @@ export const ChatService = {
         if (!convKey) return; // We need the key to wrap it!
 
         const conv = await tablesDB.getRow(DB_ID, CONV_TABLE, conversationId);
+        if (String(conv?.encryptionVersion || '').toUpperCase() === 'T4') return;
         const participants = conv.participants || [];
         const currentKeyMap = JSON.parse(conv.encryptionKey || '{}');
 
@@ -272,9 +404,9 @@ export const ChatService = {
         try {
             let convKey: CryptoKey | null = null;
             if (userId) {
-                convKey = await this._unwrapConversationKey(conv, userId);
+                convKey = await resolveConversationKey(conv, userId);
             } else {
-                convKey = ecosystemSecurity.getConversationKey(conv.$id);
+                convKey = conversationKeyCache.get(conv.$id) || ecosystemSecurity.getConversationKey(conv.$id);
             }
 
             if (convKey) {
@@ -398,7 +530,7 @@ export const ChatService = {
                 const existingParticipantSet = canonicalizeParticipantsForMatch(normalizedConversation?.participants || []);
 
                 if (arraysEqual(existingParticipantSet, targetParticipantSet)) {
-                    if (hasSharedReadAccess(normalizedConversation)) {
+                    if (hasSharedReadAccess(normalizedConversation) || hasParticipantReadAccess(normalizedConversation, uniqueParticipants, creatorId)) {
                         console.log('[ChatService] Direct chat already exists, returning existing:', normalizedConversation.$id);
                         return normalizedConversation;
                     }
@@ -408,16 +540,12 @@ export const ChatService = {
             }
         }
 
-        let encryptionKeyMap: string | undefined;
         let convKey: CryptoKey | null = null;
 
         // E2E Layer: Only if vault is unlocked and identity is ready
         if (ecosystemSecurity.status.isUnlocked && ecosystemSecurity.status.hasIdentity) {
             // 1. Generate unique Group/Conversation Key
             convKey = await ecosystemSecurity.generateConversationKey();
-
-            // 2. Wrap specifically for each participant
-            encryptionKeyMap = await this._wrapConversationKey(convKey, uniqueParticipants);
         }
 
         // 3. Encrypt name and metadata if it's a group
@@ -427,7 +555,6 @@ export const ChatService = {
         }
 
         const conversationPermissions = [
-            Permission.read(Role.users()),
             Permission.update(Role.user(creatorId)),
             Permission.delete(Role.user(creatorId))
         ];
@@ -443,9 +570,9 @@ export const ChatService = {
             isMuted: [],
             isArchived: [],
             tags: [],
-            isEncrypted: !!encryptionKeyMap,
-            encryptionKey: encryptionKeyMap || '',
-            encryptionVersion: '1.0',
+            isEncrypted: !!convKey,
+            encryptionKey: '',
+            encryptionVersion: convKey ? 'T4' : '1.0',
             createdAt: now,
             updatedAt: now
         }, conversationPermissions);
@@ -453,6 +580,62 @@ export const ChatService = {
         // Cache the local key for this session
         if (convKey) {
             ecosystemSecurity.setConversationKey(newConv.$id, convKey);
+            conversationKeyCache.set(newConv.$id, convKey);
+            try {
+                const creatorProfile = await UsersService.getProfileById(creatorId);
+                const creatorPublicKey = creatorProfile?.publicKey || null;
+
+                if (creatorPublicKey) {
+                    const directLockboxRows: LockboxEntry[] = await Promise.all(uniqueParticipants.map(async (participantId) => {
+                        const profile = await UsersService.getProfileById(participantId);
+                        if (!profile?.publicKey) return null;
+
+                        return {
+                            resourceType: 'chat',
+                            resourceId: newConv.$id,
+                            grantee: participantId,
+                            wrappedKey: await ecosystemSecurity.wrapKeyWithECDH(convKey, profile.publicKey),
+                            metadata: buildLockboxMetadata({
+                                wrappedBy: creatorId,
+                                wrappedByPublicKey: creatorPublicKey,
+                                conversationId: newConv.$id,
+                                conversationType: type,
+                                version: 't4',
+                            }),
+                        };
+                    })).then((rows) => rows.filter(Boolean) as LockboxEntry[]);
+
+                    if (type === 'group') {
+                        await callPermissionsApi('POST', {
+                            action: 'rotate_epoch',
+                            resourceId: newConv.$id,
+                            participantUserIds: uniqueParticipants,
+                            epochNumber: 1,
+                            keyMappings: directLockboxRows.map((entry) => ({
+                                ...entry,
+                                resourceType: 'epoch',
+                                resourceId: newConv.$id,
+                            })),
+                        });
+                    } else if (directLockboxRows.length > 0) {
+                        await syncLockboxRows(directLockboxRows);
+                    }
+
+                    const recipientIds = uniqueParticipants.filter((id) => id !== creatorId);
+                    if (recipientIds.length > 0) {
+                        await callPermissionsApi('POST', {
+                            databaseId: APPWRITE_CONFIG.DATABASES.CHAT,
+                            tableId: CONV_TABLE,
+                            rowId: newConv.$id,
+                            targetUserIds: recipientIds,
+                            permission: 'read',
+                            action: 'grant',
+                        });
+                    }
+                }
+            } catch (lockboxErr) {
+                console.error('[ChatService] Failed to persist lockbox rows:', lockboxErr);
+            }
         }
 
         return newConv;
@@ -475,8 +658,19 @@ export const ChatService = {
         let finalContent = content;
         let finalMetadata = metadata;
 
+        try {
+            const rawConversation = await tablesDB.getRow(DB_ID, CONV_TABLE, conversationId);
+            conversation = await normalizeConversationRow(rawConversation);
+        } catch (_e) {
+            conversation = null;
+        }
+
+        if (conversation?.participants?.length && !conversation.participants.includes(senderId)) {
+            throw new Error('You are not a participant in this conversation');
+        }
+
         if ((type === 'text' || type === 'attachment') && ecosystemSecurity.status.isUnlocked) {
-            const convKey = ecosystemSecurity.getConversationKey(conversationId);
+            const convKey = conversation ? await resolveConversationKey(conversation, senderId) : null;
             if (convKey) {
                 finalContent = await ecosystemSecurity.encryptWithKey(content, convKey);
                 if (metadata) {
@@ -490,17 +684,6 @@ export const ChatService = {
                     finalMetadata = await ecosystemSecurity.encrypt(metaStr);
                 }
             }
-        }
-
-        try {
-            const rawConversation = await tablesDB.getRow(DB_ID, CONV_TABLE, conversationId);
-            conversation = await normalizeConversationRow(rawConversation);
-        } catch (_e) {
-            conversation = null;
-        }
-
-        if (conversation?.participants?.length && !conversation.participants.includes(senderId)) {
-            throw new Error('You are not a participant in this conversation');
         }
 
         const permissions = buildMessagePermissions(senderId);
@@ -556,7 +739,7 @@ export const ChatService = {
     async getMessages(conversationId: string, limit = 50, offset = 0, userId?: string) {
         // Ensure UI has explicitly unwrapped the Conversation Key before fetching messages
         const _conv = await this.getConversationById(conversationId, userId);
-        const convKey = ecosystemSecurity.getConversationKey(conversationId);
+        const convKey = userId ? await resolveConversationKey(_conv, userId) : conversationKeyCache.get(conversationId) || ecosystemSecurity.getConversationKey(conversationId);
 
         const res = await tablesDB.listRows(DB_ID, MSG_TABLE, [
             Query.equal('conversationId', conversationId),
@@ -574,8 +757,12 @@ export const ChatService = {
 
             if (isEncrypted) {
                 try {
+                    const messageKey = _conv?.type === 'group' && String(_conv?.encryptionVersion || '').toUpperCase() === 'T4' && userId
+                        ? await resolveConversationKey(_conv, userId, msg.createdAt)
+                        : convKey;
+
                     const decrypt = async (val: string) => {
-                        if (convKey) return await ecosystemSecurity.decryptWithKey(val, convKey);
+                        if (messageKey) return await ecosystemSecurity.decryptWithKey(val, messageKey);
                         return await ecosystemSecurity.decrypt(val);
                     };
 
@@ -704,21 +891,84 @@ export const ChatService = {
         const conv = await this.getConversationById(conversationId);
         const participants = conv.participants || [];
         if (!participants.includes(userId)) {
-            return await this.updateConversation(conversationId, {
+            const updated = await this.updateConversation(conversationId, {
                 participants: [...participants, userId]
             });
+            await callPermissionsApi('POST', {
+                databaseId: APPWRITE_CONFIG.DATABASES.CHAT,
+                tableId: CONV_TABLE,
+                rowId: conversationId,
+                targetUserIds: [userId],
+                permission: 'read',
+                action: 'grant',
+            });
+            return updated;
         }
         return conv;
     },
 
     async removeParticipant(conversationId: string, userId: string) {
         const conv = await this.getConversationById(conversationId);
+        const requiresRotation = conv?.type === 'group' && String(conv?.encryptionVersion || '').toUpperCase() === 'T4';
+        if (requiresRotation && (!ecosystemSecurity.status.isUnlocked || !ecosystemSecurity.status.hasIdentity)) {
+            throw new Error('Security vault is locked; cannot rotate group epoch');
+        }
+
         const participants = (conv.participants || []).filter((id: string) => id !== userId);
         const admins = (conv.admins || []).filter((id: string) => id !== userId);
-        return await this.updateConversation(conversationId, {
+        const updated = await this.updateConversation(conversationId, {
             participants,
             admins
         });
+        await callPermissionsApi('DELETE', {
+            databaseId: APPWRITE_CONFIG.DATABASES.CHAT,
+            tableId: CONV_TABLE,
+            rowId: conversationId,
+            targetUserIds: [userId],
+            resourceType: 'chat',
+            resourceId: conversationId,
+        });
+
+        if (conv?.type === 'group' && String(conv?.encryptionVersion || '').toUpperCase() === 'T4' && ecosystemSecurity.status.isUnlocked && ecosystemSecurity.status.hasIdentity) {
+            const newKey = await ecosystemSecurity.generateConversationKey();
+            ecosystemSecurity.setConversationKey(conversationId, newKey);
+            conversationKeyCache.set(conversationId, newKey);
+
+            const creatorProfile = await UsersService.getProfileById(conv.creatorId);
+            const creatorPublicKey = creatorProfile?.publicKey || null;
+            if (creatorPublicKey) {
+                const keyMappings: LockboxEntry[] = [];
+                for (const participantId of participants) {
+                    const profile = await UsersService.getProfileById(participantId);
+                    if (!profile?.publicKey) continue;
+                    keyMappings.push({
+                        resourceType: 'epoch',
+                        resourceId: conversationId,
+                        grantee: participantId,
+                        wrappedKey: await ecosystemSecurity.wrapKeyWithECDH(newKey, profile.publicKey),
+                        metadata: buildLockboxMetadata({
+                            wrappedBy: conv.creatorId,
+                            wrappedByPublicKey: creatorPublicKey,
+                            conversationId,
+                            conversationType: 'group',
+                            version: 't4',
+                            rotation: 'member-removal',
+                        }),
+                    });
+                }
+
+                if (keyMappings.length > 0) {
+                    await callPermissionsApi('POST', {
+                        action: 'rotate_epoch',
+                        resourceId: conversationId,
+                        participantUserIds: participants,
+                        keyMappings,
+                    });
+                }
+            }
+        }
+
+        return updated;
     },
 
     async deleteMessage(messageId: string) {
