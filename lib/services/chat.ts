@@ -400,6 +400,14 @@ export const ChatService = {
     },
 
     async createConversation(participants: string[], type: 'direct' | 'group' = 'direct', name?: string) {
+        if (!ecosystemSecurity.status.isUnlocked) {
+            throw new Error('Vault must be unlocked before creating conversations');
+        }
+
+        if (!ecosystemSecurity.status.hasIdentity) {
+            throw new Error('E2E identity must be initialized before creating conversations');
+        }
+
         const now = new Date().toISOString();
         const creatorId = participants[0];
         const isSelf = type === 'direct' && participants.length === 1 && participants[0] === participants[participants.length - 1];

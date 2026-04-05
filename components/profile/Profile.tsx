@@ -148,6 +148,15 @@ export const Profile = ({ username }: ProfileProps) => {
                 } else {
                     data = await UsersService.getProfileById(currentUser.$id);
                 }
+
+                if (!data) {
+                    data = await UsersService.ensureProfileForUser(currentUser);
+                }
+
+                if (data && data.userId === currentUser.$id) {
+                    const synced = await UsersService.syncProfileWithIdentity(currentUser);
+                    if (synced) data = synced;
+                }
             }
 
             if (data) {

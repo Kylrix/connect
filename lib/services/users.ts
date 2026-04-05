@@ -445,6 +445,27 @@ export const UsersService = {
         }
     },
 
+    async syncProfileWithIdentity(user: { $id: string; email?: string; name?: string; prefs?: Record<string, any> }) {
+        if (!user?.$id) return null;
+
+        const profile = await this.ensureProfileForUser(user);
+        if (!profile) return null;
+
+        try {
+            const { ecosystemSecurity } = await import('../ecosystem/security');
+            if (ecosystemSecurity.status.isUnlocked) {
+                const publicKey = await ecosystemSecurity.ensureE2EIdentity(user.$id);
+                if (publicKey && profile.publicKey !== publicKey) {
+                    return await this.updateProfile(user.$id, { publicKey });
+                }
+            }
+        } catch (error) {
+            console.error('[UsersService] syncProfileWithIdentity failed:', error);
+        }
+
+        return await this.getProfileById(user.$id);
+    },
+
     async searchUsers(query: string) {
         const cleaned = query.trim().replace(/^@/, '');
         const queries = [

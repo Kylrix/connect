@@ -6,7 +6,6 @@ import { useAuth } from '@/lib/auth';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { UsersService } from '@/lib/services/users';
-import { KeychainService } from '@/lib/appwrite/keychain';
 import { tablesDB } from '@/lib/appwrite/client';
 import { APPWRITE_CONFIG } from '@/lib/appwrite/config';
 import {
@@ -134,6 +133,7 @@ export const ChatList = () => {
         requestSudo({
             onSuccess: async () => {
                 try {
+                    await ecosystemSecurity.ensureE2EIdentity(user.$id);
                     const participants = [user.$id, targetUserId];
                     const newConv = await ChatService.createConversation(participants, 'direct');
                     router.push(`/chat/${newConv.$id}`);
@@ -147,6 +147,12 @@ export const ChatList = () => {
 
     const loadConversations = React.useCallback(async () => {
         try {
+            if (!ecosystemSecurity.status.isUnlocked) {
+                setConversations([]);
+                setLoading(false);
+                return;
+            }
+
             console.log('[ChatList] Loading conversations for user:', user!.$id);
             const response = await ChatService.getConversations(user!.$id);
             let rows = [...response.rows];
@@ -197,22 +203,9 @@ export const ChatList = () => {
             const selfChat = rows.find(isSelfChat);
 
             if (!selfChat) {
-                const hasTier2 = await KeychainService.hasMasterpass(user!.$id);
-                console.log('[ChatList] Self chat not found, auto-initializing... hasTier2:', hasTier2);
+                console.log('[ChatList] Self chat not found, auto-initializing...');
                 try {
-                    // If they have Tier 2 but are locked, we wait (to ensure it's created as E2E)
-                    if (hasTier2 && !ecosystemSecurity.status.isUnlocked) {
-                        console.log('[ChatList] Vault is locked. Self chat auto-creation deferred until unlock.');
-                        setLoading(false);
-                        return;
-                    }
-
-                    // CRITICAL: Ensure E2E identity is ready before creating conversation.
-                    if (ecosystemSecurity.status.isUnlocked) {
-                        console.log('[ChatList] Ensuring E2E identity before self-chat creation...');
-                        await ecosystemSecurity.ensureE2EIdentity(user!.$id);
-                    }
-
+                    await ecosystemSecurity.ensureE2EIdentity(user!.$id);
                     const newSelfChat = await ChatService.createConversation([user!.$id], 'direct');
                     console.log('[ChatList] Self chat created:', newSelfChat.$id);
                     rows = [newSelfChat, ...rows];

@@ -27,6 +27,7 @@ import Logo from "../common/Logo";
 import { ecosystemSecurity } from "@/lib/ecosystem/security";
 import { KeychainService } from "@/lib/appwrite/keychain";
 import { useAuth } from "@/lib/auth";
+import { UsersService } from "@/lib/services/users";
 import { unlockWithPasskey } from "@/lib/passkey";
 import { PasskeySetup } from "./PasskeySetup";
 import { toast } from "react-hot-toast";
@@ -56,16 +57,12 @@ export function SudoModal({
     const [showPasskeyIncentive, setShowPasskeyIncentive] = useState(false);
 
     const handleSuccessWithSync = useCallback(async () => {
-        onSuccess();
-        
         if (user?.$id) {
             try {
-                // Sudo Hook: Ensure E2E Identity is created and published upon successful MasterPass unlock
-                console.log("[Connect] Synchronizing Identity...");
-                await ecosystemSecurity.ensureE2EIdentity(user.$id);
-
-                if (intent === "reset") {
-                    return;
+                if (intent !== "reset") {
+                    // Sudo Hook: Ensure the profile exists and the E2E key is mirrored after unlock.
+                    console.log("[Connect] Synchronizing profile and identity...");
+                    await UsersService.syncProfileWithIdentity(user);
                 }
 
                 // Passkey Incentive
@@ -77,6 +74,7 @@ export function SudoModal({
                     const sevenDays = 7 * 24 * 60 * 60 * 1000;
                     if (!skipTimestamp || (Date.now() - parseInt(skipTimestamp)) > sevenDays) {
                         setShowPasskeyIncentive(true);
+                        onSuccess();
                         return;
                     }
                 }
@@ -84,6 +82,8 @@ export function SudoModal({
                 console.error("[Connect] Failed to sync identity on unlock", e);
             }
         }
+
+        onSuccess();
     }, [user, onSuccess, intent]);
 
     const handleRedirectToVaultSetup = useCallback(() => {

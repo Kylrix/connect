@@ -73,7 +73,7 @@ export const ProfileProvider = ({ children }: { children: React.ReactNode }) => 
         const unsubscribe = ecosystemSecurity.onStatusChange((status) => {
             if (!status.isUnlocked) return;
 
-            void ecosystemSecurity.ensureE2EIdentity(user.$id)
+            void UsersService.syncProfileWithIdentity(user)
                 .then(async () => {
                     invalidate(`profile_${user.$id}`);
                     await refreshProfile();

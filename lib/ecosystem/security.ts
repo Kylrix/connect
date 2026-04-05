@@ -251,6 +251,10 @@ export class EcosystemSecurity {
   }
 
   async syncIdentity(userId: string) {
+    if (!this.status.isUnlocked) {
+      throw new Error('Vault must be unlocked before syncing E2E identity');
+    }
+
     const PW_DB_ID = APPWRITE_CONFIG.DATABASES.PASSWORD_MANAGER;
     const IDENTITIES_TABLE_ID = APPWRITE_CONFIG.TABLES.PASSWORD_MANAGER.IDENTITIES;
 

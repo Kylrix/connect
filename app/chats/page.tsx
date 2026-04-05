@@ -3,7 +3,7 @@
 import { AppShell } from '@/components/layout/AppShell';
 import { UserSearch } from '@/components/search/UserSearch';
 import { ChatList } from '@/components/chat/ChatList';
-import { Box, Typography, useMediaQuery, useTheme } from '@mui/material';
+import { Box, Button, Stack, Typography, useMediaQuery, useTheme } from '@mui/material';
 import { useEffect, Suspense, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { ChatService } from '@/lib/services/chat';
@@ -48,46 +48,48 @@ function ChatHandler() {
           }
 
           const existing = await ChatService.getConversations(user.$id);
-          const found = existing.rows.find((c: any) => 
-            c.type === 'direct' && c.participants.includes(actualTargetUserId)
+          const found = existing.rows.find(
+            (c: any) => c.type === 'direct' && c.participants.includes(actualTargetUserId)
           );
+
           if (found) {
             router.push(`/chat/${found.$id}`);
+            return;
+          }
+
+          // Ensure Sudo is unlocked before creating (needed for E2E keys)
+          // Additionally: if the vault is locked and there is no masterpass yet,
+          // requestSudo should open in 'initialize' intent so the modal redirects
+          // to the vault setup flow.
+          if (ecosystemSecurity.status.isUnlocked) {
+            try {
+              await ecosystemSecurity.ensureE2EIdentity(user.$id);
+              const newConv = await ChatService.createConversation([user.$id, actualTargetUserId], 'direct');
+              router.push(`/chat/${newConv.$id}`);
+            } catch (err: any) {
+              console.error("Failed to create chat:", err);
+              toast.error(`Failed to create chat: ${err?.message || 'Unknown error'}`);
+              router.replace('/chats');
+            }
           } else {
-            // Ensure Sudo is unlocked before creating (needed for E2E keys)
-            // Additionally: if the vault is locked and there is no masterpass yet,
-            // requestSudo should open in 'initialize' intent so the modal redirects
-            // to the vault setup flow. We detect masterpass presence via KeychainService.hasMasterpass
-            // and use ecosystemSecurity.status.isUnlocked to short-circuit when unlocked.
-            if (ecosystemSecurity.status.isUnlocked) {
-              // If already unlocked, proceed directly
-              try {
-                const newConv = await ChatService.createConversation([user.$id, actualTargetUserId], 'direct');
-                router.push(`/chat/${newConv.$id}`);
-              } catch (err: any) {
-                console.error("Failed to create chat:", err);
-                toast.error(`Failed to create chat: ${err?.message || 'Unknown error'}`);
-                router.replace('/chats');
-              }
-            } else {
-              const hasMaster = await KeychainService.hasMasterpass(user.$id);
-              requestSudo({
-                intent: hasMaster ? undefined : 'initialize',
-                onSuccess: async () => {
-                  try {
-                    const newConv = await ChatService.createConversation([user.$id, actualTargetUserId], 'direct');
-                    router.push(`/chat/${newConv.$id}`);
-                  } catch (err: any) {
-                    console.error("Failed to create chat:", err);
-                    toast.error(`Failed to create chat: ${err?.message || 'Unknown error'}`);
-                    router.replace('/chats');
-                  }
-                },
-                onCancel: () => {
+            const hasMaster = await KeychainService.hasMasterpass(user.$id);
+            requestSudo({
+              intent: hasMaster ? undefined : 'initialize',
+              onSuccess: async () => {
+                try {
+                  await ecosystemSecurity.ensureE2EIdentity(user.$id);
+                  const newConv = await ChatService.createConversation([user.$id, actualTargetUserId], 'direct');
+                  router.push(`/chat/${newConv.$id}`);
+                } catch (err: any) {
+                  console.error("Failed to create chat:", err);
+                  toast.error(`Failed to create chat: ${err?.message || 'Unknown error'}`);
                   router.replace('/chats');
                 }
-              });
-            }
+              },
+              onCancel: () => {
+                router.replace('/chats');
+              }
+            });
           }
         } catch (e) {
           console.error("Failed to auto-init chat", e);
@@ -144,7 +146,16 @@ function ChatHandler() {
 export default function Home() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const { isUnlocked } = useSudo();
+  const { requestSudo } = useSudo();
+  const [isUnlocked, setIsUnlocked] = useState(ecosystemSecurity.status.isUnlocked);
+
+  useEffect(() => {
+    const unsubscribe = ecosystemSecurity.onStatusChange((status) => {
+      setIsUnlocked(status.isUnlocked);
+    });
+
+    return unsubscribe;
+  }, []);
 
   return (
     <AppShell>
@@ -152,34 +163,50 @@ export default function Home() {
         <ChatHandler />
       </Suspense>
       <Box sx={{ position: 'relative', height: '100%' }}>
-        <Box
-          sx={{
-            display: 'flex',
-            height: '100%',
-            filter: isUnlocked ? 'none' : 'blur(8px)',
-            transform: isUnlocked ? 'none' : 'scale(1.01)',
-            transition: 'filter 180ms ease, transform 180ms ease',
-            pointerEvents: isUnlocked ? 'auto' : 'none',
-            userSelect: isUnlocked ? 'auto' : 'none',
-          }}
-        >
-          {isMobile && (
-              <Box sx={{
-                  width: '100%',
-                  borderRight: 0,
-                  display: 'flex',
-                  flexDirection: 'column'
-              }}>
-                  <ChatList />
-              </Box>
-          )}
-          {!isMobile && (
-              <Box sx={{ flex: 1, p: 3 }}>
-                <Typography variant="h5" fontWeight="bold" mb={3}>Find People</Typography>
-                <UserSearch />
-              </Box>
-          )}
-        </Box>
+        {isUnlocked ? (
+          <Box
+            sx={{
+              display: 'flex',
+              height: '100%',
+            }}
+          >
+            {isMobile && (
+                <Box sx={{
+                    width: '100%',
+                    borderRight: 0,
+                    display: 'flex',
+                    flexDirection: 'column'
+                }}>
+                    <ChatList />
+                </Box>
+            )}
+            {!isMobile && (
+                <Box sx={{ flex: 1, p: 3 }}>
+                  <Typography variant="h5" fontWeight="bold" mb={3}>Find People</Typography>
+                  <UserSearch />
+                </Box>
+            )}
+          </Box>
+        ) : (
+          <Box
+            sx={{
+              minHeight: '70vh',
+              display: 'grid',
+              placeItems: 'center',
+              px: 3,
+            }}
+          >
+            <Stack spacing={2} alignItems="center" sx={{ maxWidth: 420, textAlign: 'center' }}>
+              <Typography variant="h4" fontWeight={900}>Vault Locked</Typography>
+              <Typography sx={{ opacity: 0.7 }}>
+                Unlock the Vault before chats, identities, or self-chat can initialize.
+              </Typography>
+              <Button variant="contained" onClick={() => requestSudo({ onSuccess: () => undefined })}>
+                Unlock Vault
+              </Button>
+            </Stack>
+          </Box>
+        )}
         {!isUnlocked && (
           <Box
             aria-hidden
