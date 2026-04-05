@@ -37,17 +37,23 @@ import toast from 'react-hot-toast';
 import { useSudo } from '@/context/SudoContext';
 
 const GlobalSearchAvatar = ({ u }: { u: any }) => {
-    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+    const [fetchedAvatarUrl, setFetchedAvatarUrl] = useState<string | null>(null);
 
     useEffect(() => {
-        if (u.avatar) {
-            if (String(u.avatar).startsWith('http')) {
-                setAvatarUrl(u.avatar);
-            } else {
-                fetchProfilePreview(u.avatar, 64, 64).then(url => setAvatarUrl(url as unknown as string)).catch(() => {});
-            }
+        if (!u.avatar || String(u.avatar).startsWith('http')) return;
+
+        let active = true;
+        fetchProfilePreview(u.avatar, 64, 64)
+            .then(url => {
+                if (active) setFetchedAvatarUrl(url as unknown as string);
+            })
+            .catch(() => {});
+
+        return () => {
+            active = false;
         }
     }, [u.avatar]);
+    const avatarUrl = u.avatar && String(u.avatar).startsWith('http') ? u.avatar : fetchedAvatarUrl;
 
     return (
         <Avatar
@@ -75,6 +81,7 @@ export const ChatList = () => {
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [searching, setSearching] = useState(false);
     const [isUnlocked, setIsUnlocked] = useState(ecosystemSecurity.status.isUnlocked);
+    const conversationsRef = React.useRef<any[]>([]);
 
     const isLikelyEncrypted = (val: string) => {
         if (!val) return false;
@@ -283,6 +290,7 @@ export const ChatList = () => {
 
             console.log('[ChatList] Final sorted list count:', sorted.length);
             setConversations(sorted);
+            conversationsRef.current = sorted;
         } catch (error: unknown) {
             console.error('Failed to load chats:', error);
         } finally {
@@ -291,16 +299,18 @@ export const ChatList = () => {
     }, [user]);
 
     useEffect(() => {
-        const checkUnlock = setInterval(() => {
-            if (ecosystemSecurity.status.isUnlocked !== isUnlocked) {
-                const newStatus = ecosystemSecurity.status.isUnlocked;
-                setIsUnlocked(newStatus);
-                if (newStatus) {
-                    loadConversations();
-                }
+        const unsubscribe = ecosystemSecurity.onStatusChange((status) => {
+            if (status.isUnlocked === isUnlocked) return;
+            setIsUnlocked(status.isUnlocked);
+            if (status.isUnlocked) {
+                loadConversations();
+            } else {
+                setConversations([]);
+                setLoading(false);
             }
-        }, 1000);
-        return () => clearInterval(checkUnlock);
+        });
+
+        return unsubscribe;
     }, [isUnlocked, loadConversations]);
 
     useEffect(() => {
@@ -318,17 +328,41 @@ export const ChatList = () => {
 
             if (!relatedConversationId) return;
 
-            try {
-                const conversation = await ChatService.getConversationById(relatedConversationId, user.$id);
-                if (!conversation?.participants?.includes(user.$id)) return;
-
-                console.log('[ChatList] Real-time update for conversation:', relatedConversationId);
-                loadConversations();
-            } catch (_e) {
-                if (isConversationEvent && response.events.some(e => e.includes('.delete'))) {
+            if (isConversationEvent) {
+                if (response.events.some(e => e.includes('.delete'))) {
                     setConversations(prev => prev.filter(c => c.$id !== relatedConversationId));
+                    return;
                 }
+                loadConversations();
+                return;
             }
+
+            if (response.events.some(e => e.includes('.delete'))) {
+                setConversations(prev => prev.filter(c => c.$id !== relatedConversationId));
+                conversationsRef.current = conversationsRef.current.filter(c => c.$id !== relatedConversationId);
+                return;
+            }
+
+            const existingIndex = conversationsRef.current.findIndex(c => c.$id === relatedConversationId);
+            if (existingIndex === -1) {
+                loadConversations();
+                return;
+            }
+
+            setConversations(prev => {
+                const next = [...prev];
+                const current = next[existingIndex];
+                next[existingIndex] = {
+                    ...current,
+                    lastMessageAt: payload.$createdAt || payload.createdAt || current.lastMessageAt,
+                    lastMessageSenderId: payload.senderId || current.lastMessageSenderId,
+                    lastMessageText: payload.type === 'text' && payload.content ? payload.content : current.lastMessageText,
+                };
+
+                next.sort((a, b) => new Date(b.lastMessageAt || b.createdAt || 0).getTime() - new Date(a.lastMessageAt || a.createdAt || 0).getTime());
+                conversationsRef.current = next;
+                return next;
+            });
         });
 
         return () => {

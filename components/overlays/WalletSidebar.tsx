@@ -82,13 +82,13 @@ export const WalletSidebar = ({ isOpen, onClose }: WalletSidebarProps) => {
     };
 
     useEffect(() => {
-        const interval = setInterval(() => {
-            if (ecosystemSecurity.status.isUnlocked !== isUnlocked) {
-                setIsUnlocked(ecosystemSecurity.status.isUnlocked);
+        const unsubscribe = ecosystemSecurity.onStatusChange((status) => {
+            if (status.isUnlocked !== isUnlocked) {
+                setIsUnlocked(status.isUnlocked);
             }
-        }, 1000);
+        });
 
-        return () => clearInterval(interval);
+        return unsubscribe;
     }, [isUnlocked]);
 
     const refreshWallets = useCallback(async () => {

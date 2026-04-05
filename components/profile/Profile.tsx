@@ -142,20 +142,11 @@ export const Profile = ({ username }: ProfileProps) => {
                 // the logged-in user's profile. Showing someone else's page must
                 // always reflect that target owner's data or show Not Found.
             } else if (currentUser) {
-                // Use the profile from context if it's our own profile
-                if (myProfile && myProfile.userId === currentUser.$id) {
-                    data = myProfile;
-                } else {
-                    data = await UsersService.getProfileById(currentUser.$id);
-                }
+                const synced = await UsersService.forceSyncProfileWithIdentity(currentUser);
+                data = synced || (myProfile && myProfile.userId === currentUser.$id ? myProfile : null);
 
                 if (!data) {
                     data = await UsersService.ensureProfileForUser(currentUser);
-                }
-
-                if (data && data.userId === currentUser.$id) {
-                    const synced = await UsersService.syncProfileWithIdentity(currentUser);
-                    if (synced) data = synced;
                 }
             }
 

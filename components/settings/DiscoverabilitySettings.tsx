@@ -94,9 +94,8 @@ export const DiscoverabilitySettings = () => {
 
         setSavingDiscoverable(true);
         try {
-            await UsersService.setProfileDiscoverable(user.$id, checked);
-            const p = await UsersService.getProfileById(user.$id);
-            setProfile(p);
+            const p = await UsersService.setProfileDiscoverable(user.$id, checked);
+            setProfile(p || profile);
             toast.success(checked ? "Profile is now discoverable to everyone" : "Profile is now private");
         } catch (e: any) {
             toast.error(e.message || "Failed to toggle profile discoverability");
@@ -116,9 +115,8 @@ export const DiscoverabilitySettings = () => {
 
         setSavingAvatar(true);
         try {
-            await UsersService.setAvatarVisible(user.$id, fileId, checked);
-            const p = await UsersService.getProfileById(user.$id);
-            setProfile(p);
+            const p = await UsersService.setAvatarVisible(user.$id, fileId, checked);
+            setProfile(p || profile);
             toast.success(checked ? "Profile image is now public" : "Profile image visibility disabled");
         } catch (e: any) {
             toast.error(e.message || "Failed to toggle avatar visibility");
@@ -141,9 +139,8 @@ export const DiscoverabilitySettings = () => {
             try {
                 const pub = await ecosystemSecurity.ensureE2EIdentity(user.$id);
                 if (pub) {
-                    await UsersService.updateProfile(user.$id, { publicKey: pub });
-                    const p = await UsersService.getProfileById(user.$id);
-                    setProfile(p);
+                    const p = await UsersService.updateProfile(user.$id, { publicKey: pub });
+                    setProfile(p || { ...profile, publicKey: pub });
                     toast.success("People can now contact you securely");
                 }
             } catch (e: any) {
@@ -155,9 +152,8 @@ export const DiscoverabilitySettings = () => {
             // Turning OFF just deletes the publicKey
             setSavingContact(true);
             try {
-                await UsersService.updateProfile(user.$id, { publicKey: "" });
-                const p = await UsersService.getProfileById(user.$id);
-                setProfile(p);
+                const p = await UsersService.updateProfile(user.$id, { publicKey: "" });
+                setProfile(p || { ...profile, publicKey: "" });
                 toast.success("Secure contact disabled");
             } catch (e: any) {
                 toast.error("Failed to disable contact: " + e.message);
@@ -217,9 +213,9 @@ export const DiscoverabilitySettings = () => {
             }
 
             if (profile) {
-                await UsersService.updateProfile(user.$id, { username: normalized, publicKey });
+                const updated = await UsersService.updateProfile(user.$id, { username: normalized, publicKey });
                 setUsername(normalized);
-                setProfile({ ...profile, username: normalized, publicKey });
+                setProfile(updated || { ...profile, username: normalized, publicKey });
                 toast.success("Handle updated");
             } else {
                 // Ensure profile for user handles creation with safe defaults

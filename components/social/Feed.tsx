@@ -182,15 +182,19 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isComposerOpen, setIsComposerOpen] = useState(false);
     const [editingMoment, setEditingMoment] = useState<any>(null);
+    const momentsRef = React.useRef<any[]>([]);
 
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
     useEffect(() => {
         // Hydrate from localStorage immediately on mount
+        momentsRef.current = [];
         const cached = localStorage.getItem(`${CACHE_KEY}_${view}`);
         if (cached) {
-            setMoments(JSON.parse(cached));
+            const parsed = JSON.parse(cached);
+            momentsRef.current = parsed;
+            setMoments(parsed);
         }
     }, [view]);
 
@@ -228,11 +232,15 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
             const { liked } = await SocialService.toggleLike(user.$id, moment.$id, creatorId, contentSnippet);
             
             // Update local state
-            setMoments((prev: any[]) => prev.map((m: any) => m.$id === moment.$id ? {
-                ...m,
-                isLiked: liked,
-                stats: { ...m.stats, likes: Math.max(0, (m.stats?.likes || 0) + (liked ? 1 : -1)) }
-            } : m));
+            setMoments((prev: any[]) => {
+                const next = prev.map((m: any) => m.$id === moment.$id ? {
+                    ...m,
+                    isLiked: liked,
+                    stats: { ...m.stats, likes: Math.max(0, (m.stats?.likes || 0) + (liked ? 1 : -1)) }
+                } : m);
+                momentsRef.current = next;
+                return next;
+            });
         } catch (_e) {
             toast.error('Failed to update like');
         }
@@ -242,7 +250,11 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
         if (!confirm('Are you sure you want to delete this moment?')) return;
         try {
             await SocialService.deleteMoment(momentId);
-            setMoments(prev => prev.filter(m => m.$id !== momentId));
+            setMoments(prev => {
+                const next = prev.filter(m => m.$id !== momentId);
+                momentsRef.current = next;
+                return next;
+            });
             toast.success('Moment deleted');
             setPostMenuAnchorEl(null);
         } catch (_e) {
@@ -252,11 +264,12 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
 
     const loadFeed = useCallback(async () => {
         // Phase 0: Show cached content immediately if available
-        if (moments.length === 0) {
+        if (momentsRef.current.length === 0) {
             const cached = localStorage.getItem(`${CACHE_KEY}_${view}`);
             if (cached) {
                 setMoments(JSON.parse(cached));
             } else {
+                momentsRef.current = [];
                 setLoading(true);
             }
         }
@@ -279,7 +292,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
             // We merge fresh data with existing state to preserve any background hydration (like avatars)
             // but we ALWAYS prioritize fresh stats and content from the server.
             const updated = filteredRows.map((fresh: any) => {
-                const existing = moments.find(p => p.$id === fresh.$id);
+                const existing = momentsRef.current.find(p => p.$id === fresh.$id);
                 const creatorId = fresh.userId || fresh.creatorId;
                 const cachedCreator = getCachedIdentityById(creatorId);
                 // Preserve hydrated creator/source if they exist, but take everything else from fresh
@@ -293,22 +306,9 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                 };
             });
 
-            // Determine whether the current user has pulsed each moment (background, conservative)
-            if (user?.$id) {
-                try {
-                    const pulsedFlags = await Promise.all(updated.map((m: any) => SocialService.isPulsed(user.$id, m.$id)));
-                    const updatedWithPulse = updated.map((m: any, i: number) => ({ ...m, isPulsed: pulsedFlags[i] }));
-                    setMoments(updatedWithPulse);
-                    saveToCache(updatedWithPulse);
-                } catch (_e) {
-                    // fallback: set without pulse flags
-                    setMoments(updated);
-                    saveToCache(updated);
-                }
-            } else {
-                setMoments(updated);
-                saveToCache(updated);
-            }
+            momentsRef.current = updated;
+            setMoments(updated);
+            saveToCache(updated);
 
             setLoading(false);
 
@@ -331,13 +331,13 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                     seedIdentityCache(hydratedProfile);
                     
             // Trigger a single state update for all posts by this creator
-                    setMoments(prev => {
-                        return prev.map(m => {
-                            let updated = m;
-                            const mCreatorId = m.userId || m.creatorId;
-                            if (mCreatorId === id) {
-                                updated = { ...updated, creator: profileRegistry.get(id) };
-                            }
+            setMoments(prev => {
+                const next = prev.map(m => {
+                    let updated = m;
+                    const mCreatorId = m.userId || m.creatorId;
+                    if (mCreatorId === id) {
+                        updated = { ...updated, creator: profileRegistry.get(id) };
+                    }
                             // Also hydrate sourceMoment creators if they match this ID
                             if (updated.sourceMoment) {
                                 const sCreatorId = updated.sourceMoment.userId || updated.sourceMoment.creatorId;
@@ -347,10 +347,12 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                                         sourceMoment: { ...updated.sourceMoment, creator: profileRegistry.get(id) } 
                                     };
                                 }
-                            }
-                            return updated;
-                        });
-                    });
+                    }
+                    return updated;
+                });
+                momentsRef.current = next;
+                return next;
+            });
                 } catch (_e) {
                     const fallbackProfile = {
                         username: id.slice(0, 7),
@@ -366,17 +368,21 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
             
             // Final Cache Save
             setMoments(prev => {
+                momentsRef.current = prev;
                 saveToCache(prev);
                 return prev;
             });
 
         } catch (error: unknown) {
             console.error('Failed to load feed:', error);
-            if (moments.length === 0) setMoments([]);
+            if (momentsRef.current.length === 0) {
+                momentsRef.current = [];
+                setMoments([]);
+            }
         } finally {
             setLoading(false);
         }
-    }, [user, view, moments, saveToCache]);
+    }, [user, view, saveToCache]);
 
 
     useEffect(() => {
@@ -386,24 +392,28 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
     useEffect(() => {
         const unsubscribe = subscribeIdentityCache((identity) => {
             profileRegistry.set(identity.userId, identity);
-            setMoments(prev => prev.map((m) => {
-                const creatorId = m.userId || m.creatorId;
-                if (creatorId === identity.userId) {
-                    return { ...m, creator: identity };
-                }
-
-                if (m.sourceMoment) {
-                    const sourceCreatorId = m.sourceMoment.userId || m.sourceMoment.creatorId;
-                    if (sourceCreatorId === identity.userId) {
-                        return {
-                            ...m,
-                            sourceMoment: { ...m.sourceMoment, creator: identity }
-                        };
+            setMoments(prev => {
+                const next = prev.map((m) => {
+                    const creatorId = m.userId || m.creatorId;
+                    if (creatorId === identity.userId) {
+                        return { ...m, creator: identity };
                     }
-                }
 
-                return m;
-            }));
+                    if (m.sourceMoment) {
+                        const sourceCreatorId = m.sourceMoment.userId || m.sourceMoment.creatorId;
+                        if (sourceCreatorId === identity.userId) {
+                            return {
+                                ...m,
+                                sourceMoment: { ...m.sourceMoment, creator: identity }
+                            };
+                        }
+                    }
+
+                    return m;
+                });
+                momentsRef.current = next;
+                return next;
+            });
         });
 
         return unsubscribe;
@@ -423,7 +433,11 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
             if (event.type === 'create') {
                 // ... create logic ...
             } else if (event.type === 'delete') {
-                setMoments(prev => prev.filter(m => m.$id !== event.payload.$id));
+                setMoments(prev => {
+                    const next = prev.filter(m => m.$id !== event.payload.$id);
+                    momentsRef.current = next;
+                    return next;
+                });
             } else if (event.type === 'update') {
                 const payload = event.payload as any;
                 
@@ -432,16 +446,24 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                     const momentId = payload.messageId || payload.$id;
                     const updatedStats = await SocialService.getInteractionCounts(momentId);
                     const isLiked = user?.$id ? await SocialService.isLiked(user.$id, momentId) : false;
-                    
-                    setMoments(prev => prev.map(m => m.$id === momentId ? { 
-                        ...m, 
-                        stats: updatedStats, 
-                        isLiked 
-                    } : m));
+
+                    setMoments(prev => {
+                        const next = prev.map(m => m.$id === momentId ? {
+                            ...m,
+                            stats: updatedStats,
+                            isLiked
+                        } : m);
+                        momentsRef.current = next;
+                        return next;
+                    });
                 } else {
                     // Standard update (e.g. caption changed)
                     const enriched = await SocialService.enrichMoment(payload, user?.$id);
-                    setMoments(prev => prev.map(m => m.$id === enriched.$id ? { ...m, ...enriched } : m));
+                    setMoments(prev => {
+                        const next = prev.map(m => m.$id === enriched.$id ? { ...m, ...enriched } : m);
+                        momentsRef.current = next;
+                        return next;
+                    });
                 }
             }
         });
@@ -472,7 +494,12 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                 // Update existing moment
                 const updated = await SocialService.updateMoment(editingMoment.$id, newMoment);
                 const enriched = await SocialService.enrichMoment(updated, user!.$id);
-                setMoments(prev => prev.map(m => m.$id === enriched.$id ? { ...m, ...enriched } : m));
+                setMoments(prev => {
+                    const next = prev.map(m => m.$id === enriched.$id ? { ...m, ...enriched } : m);
+                    momentsRef.current = next;
+                    saveToCache(next);
+                    return next;
+                });
                 toast.success('Moment updated');
             } else {
                 // Upload files first
@@ -492,6 +519,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                 setMoments(prev => {
                     if (prev.some(m => m.$id === enriched.$id)) return prev;
                     const updated = [enriched, ...prev];
+                    momentsRef.current = updated;
                     saveToCache(updated);
                     return updated;
                 });
@@ -532,7 +560,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
 
     const handlePulse = async (moment: any) => {
         if (!user) return;
-        const pulse = moments.find(m => m.metadata?.type === 'pulse' && m.metadata?.sourceId === moment.$id && (m.userId === user.$id || m.creatorId === user.$id));
+        const pulse = momentsRef.current.find(m => m.metadata?.type === 'pulse' && m.metadata?.sourceId === moment.$id && (m.userId === user.$id || m.creatorId === user.$id));
         // Double-check against server state to avoid duplicate pulses
         const alreadyPulsed = moment.isPulsed || (user?.$id ? await SocialService.isPulsed(user.$id, moment.$id) : false);
 
@@ -543,13 +571,21 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                 if (success) {
                     toast.success('Removed from your feed');
                     // remove pulse row from feed if present
-                    setMoments(prev => prev.filter(m => m.$id !== pulse.$id));
+                    setMoments(prev => {
+                        const next = prev.filter(m => m.$id !== pulse.$id);
+                        momentsRef.current = next;
+                        return next;
+                    });
                     // Update the source moment's pulse flag and count locally
-                    setMoments(prev => prev.map(m => m.$id === moment.$id ? ({
-                        ...m,
-                        isPulsed: false,
-                        stats: { ...m.stats, pulses: Math.max(0, (m.stats?.pulses || 0) - 1) }
-                    }) : m));
+                    setMoments(prev => {
+                        const next = prev.map(m => m.$id === moment.$id ? ({
+                            ...m,
+                            isPulsed: false,
+                            stats: { ...m.stats, pulses: Math.max(0, (m.stats?.pulses || 0) - 1) }
+                        }) : m);
+                        momentsRef.current = next;
+                        return next;
+                    });
                 }
             } catch (_e) {
                 toast.error('Failed to remove pulse');
@@ -561,13 +597,21 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                 const stillPulsed = user?.$id ? await SocialService.isPulsed(user.$id, moment.$id) : false;
                 if (stillPulsed) {
                     // Another client already pulsed; mark locally and exit
-                    setMoments(prev => prev.map(m => m.$id === moment.$id ? ({ ...m, isPulsed: true }) : m));
+                    setMoments(prev => {
+                        const next = prev.map(m => m.$id === moment.$id ? ({ ...m, isPulsed: true }) : m);
+                        momentsRef.current = next;
+                        return next;
+                    });
                     toast('Already pulsed');
                 } else {
                     await SocialService.createMoment(user.$id, '', 'pulse', [], 'public', undefined, undefined, moment.$id);
                     toast.success('Pulsed to your feed');
                     // Optimistically mark this moment as pulsed
-                    setMoments(prev => prev.map(m => m.$id === moment.$id ? ({ ...m, isPulsed: true, stats: { ...m.stats, pulses: (m.stats?.pulses || 0) + 1 } }) : m));
+                    setMoments(prev => {
+                        const next = prev.map(m => m.$id === moment.$id ? ({ ...m, isPulsed: true, stats: { ...m.stats, pulses: (m.stats?.pulses || 0) + 1 } }) : m);
+                        momentsRef.current = next;
+                        return next;
+                    });
                 }
             } catch (_e) {
                 toast.error('Failed to pulse');

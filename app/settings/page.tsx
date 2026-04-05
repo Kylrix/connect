@@ -63,12 +63,11 @@ export default function SettingsPage() {
     }, [user?.$id]);
 
     useEffect(() => {
-        
-        const interval = setInterval(() => {
-            if (ecosystemSecurity.status.isUnlocked !== isUnlocked) {
-                setIsUnlocked(ecosystemSecurity.status.isUnlocked);
+        const unsubscribe = ecosystemSecurity.onStatusChange((status) => {
+            if (status.isUnlocked !== isUnlocked) {
+                setIsUnlocked(status.isUnlocked);
             }
-        }, 1000);
+        });
 
         if (user?.$id) {
             loadPasskeys();
@@ -84,7 +83,7 @@ export default function SettingsPage() {
             })();
         }
 
-        return () => clearInterval(interval);
+        return unsubscribe;
     }, [isUnlocked, user, loadPasskeys]);
 
     const handleRemovePasskey = async (id: string) => {

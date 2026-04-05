@@ -13,6 +13,9 @@ export const realtime = new Realtime(client);
 
 export { client };
 
+let currentUserCache: any | null | undefined = undefined;
+let currentUserRequest: Promise<any | null> | null = null;
+
 export function getFilePreview(bucketId: string, fileId: string, width: number = 64, height: number = 64) {
     return storage.getFilePreview(bucketId, fileId, width, height);
 }
@@ -23,9 +26,31 @@ export function getProfilePicturePreview(fileId: string, width: number = 64, hei
 
 // --- USER SESSION ---
 
-export async function getCurrentUser(): Promise<any | null> {
+export function invalidateCurrentUserCache(nextValue?: any | null) {
+    currentUserCache = nextValue;
+}
+
+export async function getCurrentUser(forceRefresh = false): Promise<any | null> {
     try {
-        return await account.get();
+        if (!forceRefresh) {
+            if (currentUserCache !== undefined) return currentUserCache;
+            if (currentUserRequest) return currentUserRequest;
+        }
+
+        currentUserRequest = account.get()
+            .then((user) => {
+                currentUserCache = user;
+                return user;
+            })
+            .catch(() => {
+                currentUserCache = null;
+                return null;
+            })
+            .finally(() => {
+                currentUserRequest = null;
+            });
+
+        return await currentUserRequest;
     } catch {
         return null;
     }

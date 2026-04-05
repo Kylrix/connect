@@ -35,15 +35,16 @@ export const ProfileProvider = ({ children }: { children: React.ReactNode }) => 
         }
 
         try {
-            // Use DataNexus for high-performance retrieval and deduplication
-            const data = await fetchOptimized(`profile_${user.$id}`, async () => {
-                const fetched = await UsersService.getProfileById(user.$id);
-                if (!fetched) {
-                    console.log('[ProfileProvider] Profile not found, initiating auto-setup...');
-                    return await UsersService.ensureProfileForUser(user);
-                }
-                return fetched;
-            }, 1000 * 60 * 60); // 1 hour TTL for own profile
+            const data = ecosystemSecurity.status.isUnlocked
+                ? await UsersService.forceSyncProfileWithIdentity(user)
+                : await fetchOptimized(`profile_${user.$id}`, async () => {
+                    const fetched = await UsersService.getProfileById(user.$id);
+                    if (!fetched) {
+                        console.log('[ProfileProvider] Profile not found, initiating auto-setup...');
+                        return await UsersService.ensureProfileForUser(user);
+                    }
+                    return fetched;
+                }, 1000 * 60 * 60); // 1 hour TTL for own profile
 
             if (data) {
                 let resolvedProfile = data;
@@ -73,7 +74,7 @@ export const ProfileProvider = ({ children }: { children: React.ReactNode }) => 
         const unsubscribe = ecosystemSecurity.onStatusChange((status) => {
             if (!status.isUnlocked) return;
 
-            void UsersService.syncProfileWithIdentity(user)
+            void UsersService.forceSyncProfileWithIdentity(user)
                 .then(async () => {
                     invalidate(`profile_${user.$id}`);
                     await refreshProfile();

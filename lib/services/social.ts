@@ -17,6 +17,33 @@ export interface MomentMetadata {
     }[];
 }
 
+const parseMomentMetadata = (moment: any): MomentMetadata | null => {
+    try {
+        if (moment?.fileId && (moment.fileId.startsWith('{') || moment.fileId.startsWith('['))) {
+            return JSON.parse(moment.fileId);
+        }
+    } catch (_e) {
+        // Legacy moments can keep using the raw fileId path.
+    }
+    return null;
+};
+
+const fetchRowsByIds = async (databaseId: string, tableId: string, ids: string[]) => {
+    const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
+    if (!uniqueIds.length) return [];
+
+    try {
+        const result = await tablesDB.listRows(databaseId, tableId, [
+            Query.equal('$id', uniqueIds),
+            Query.limit(uniqueIds.length),
+        ]);
+        return result.rows || [];
+    } catch (_e) {
+        return await Promise.all(uniqueIds.map((id) => tablesDB.getRow(databaseId, tableId, id).catch(() => null)))
+            .then((rows) => rows.filter(Boolean));
+    }
+};
+
 export const SocialService = {
     async getInteractionCounts(momentId: string) {
         try {
@@ -264,23 +291,82 @@ export const SocialService = {
         }
 
         const moments = await tablesDB.listRows(DB_ID, MOMENTS_TABLE, queries);
+        const rawRows = moments.rows || [];
+        const momentIds = rawRows.map((moment: any) => moment.$id);
 
-        // Enrich moments
-        const enrichedRows = await Promise.all(moments.rows.map(async (moment: any) => {
-            return this.enrichMoment(moment, userId);
-        }));
+        const [interactionRows, recentMomentRows, userPulseRows] = await Promise.all([
+            momentIds.length
+                ? tablesDB.listRows(DB_ID, INTERACTIONS_TABLE, [
+                    Query.equal('messageId', momentIds),
+                    Query.limit(1000)
+                ]).then((res) => res.rows || []).catch(() => [])
+                : Promise.resolve([]),
+            tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
+                Query.orderDesc('$createdAt'),
+                Query.limit(200)
+            ]).then((res) => res.rows || []).catch(() => []),
+            userId
+                ? tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
+                    Query.equal('userId', userId),
+                    Query.orderDesc('$createdAt'),
+                    Query.limit(200)
+                ]).then((res) => res.rows || []).catch(() => [])
+                : Promise.resolve([]),
+        ]);
 
-        // Algorithmic Feed Ranking Logic
-        // Weights: Post (1.0), Quote (1.0), Pulse/Repost (0.75), Reply (0.5)
-        // High engagement (likes/replies) can boost lower-weight types into the feed
-        const rankedRows = enrichedRows.map((m: any) => {
+        const likesByMoment = new Map<string, number>();
+        const likedMomentIds = new Set<string>();
+        interactionRows.forEach((row: any) => {
+            if (!row?.messageId) return;
+            if (row.emoji === 'like') {
+                likesByMoment.set(row.messageId, (likesByMoment.get(row.messageId) || 0) + 1);
+                if (userId && row.userId === userId) likedMomentIds.add(row.messageId);
+            }
+        });
+
+        const engagementBySource = new Map<string, { replies: number; pulses: number }>();
+        recentMomentRows.forEach((moment: any) => {
+            const metadata = parseMomentMetadata(moment);
+            if (!metadata?.sourceId) return;
+            const counts = engagementBySource.get(metadata.sourceId) || { replies: 0, pulses: 0 };
+            if (metadata.type === 'reply') counts.replies += 1;
+            if (metadata.type === 'pulse') counts.pulses += 1;
+            engagementBySource.set(metadata.sourceId, counts);
+        });
+
+        const pulsedMomentIds = new Set<string>();
+        userPulseRows.forEach((moment: any) => {
+            const metadata = parseMomentMetadata(moment);
+            if (metadata?.type === 'pulse' && metadata.sourceId) {
+                pulsedMomentIds.add(metadata.sourceId);
+            }
+        });
+
+        const baseRows = rawRows.map((moment: any) => {
+            const metadata = parseMomentMetadata(moment);
+            const counts = engagementBySource.get(moment.$id) || { replies: 0, pulses: 0 };
+            const likes = likesByMoment.get(moment.$id) || 0;
+
+            return {
+                ...moment,
+                metadata,
+                stats: {
+                    likes,
+                    replies: counts.replies,
+                    pulses: counts.pulses,
+                },
+                isLiked: Boolean(userId && likedMomentIds.has(moment.$id)),
+                isPulsed: Boolean(userId && pulsedMomentIds.has(moment.$id)),
+            };
+        });
+
+        const rankedRows = baseRows.map((m: any) => {
             let baseWeight = 1.0;
             const type = m.metadata?.type || 'post';
 
             if (type === 'pulse') baseWeight = 0.75;
             if (type === 'reply') baseWeight = 0.5;
-            
-            // Engagement Boost: Each like/reply adds to the "importance" score
+
             const engagementScore = (m.stats?.likes || 0) * 0.2 + (m.stats?.replies || 0) * 0.4;
             const finalScore = baseWeight + engagementScore;
 
@@ -307,7 +393,52 @@ export const SocialService = {
             return new Date(b.$createdAt).getTime() - new Date(a.$createdAt).getTime();
         });
 
-        return { ...moments, rows: sortedRows.slice(0, 50), total: sortedRows.length };
+        const topRows = sortedRows.slice(0, 50);
+        const sourceIds = Array.from(new Set(topRows.map((moment: any) => moment.metadata?.sourceId).filter(Boolean)));
+        const attachmentGroups = {
+            note: new Set<string>(),
+            event: new Set<string>(),
+            call: new Set<string>(),
+        };
+
+        topRows.forEach((moment: any) => {
+            const attachments = moment.metadata?.attachments || [];
+            attachments.forEach((attachment: any) => {
+                if (!attachment?.id) return;
+                if (attachment.type === 'note') attachmentGroups.note.add(attachment.id);
+                if (attachment.type === 'event') attachmentGroups.event.add(attachment.id);
+                if (attachment.type === 'call') attachmentGroups.call.add(attachment.id);
+            });
+        });
+
+        const [sourceMoments, noteRows, eventRows, callRows] = await Promise.all([
+            fetchRowsByIds(DB_ID, MOMENTS_TABLE, sourceIds),
+            fetchRowsByIds(APPWRITE_CONFIG.DATABASES.KYLRIXNOTE, APPWRITE_CONFIG.TABLES.KYLRIXNOTE.USERS === '67ff05c900247b5673d3' ? '67ff05f3002502ef239e' : 'notes', Array.from(attachmentGroups.note)),
+            fetchRowsByIds(APPWRITE_CONFIG.DATABASES.KYLRIXFLOW, 'events', Array.from(attachmentGroups.event)),
+            fetchRowsByIds(APPWRITE_CONFIG.DATABASES.CHAT, APPWRITE_CONFIG.TABLES.CHAT.CALL_LINKS, Array.from(attachmentGroups.call)),
+        ]);
+
+        const sourceMomentMap = new Map<string, any>(sourceMoments.map((row: any) => [row.$id, row]));
+        const noteMap = new Map<string, any>(noteRows.map((row: any) => [row.$id, row]));
+        const eventMap = new Map<string, any>(eventRows.map((row: any) => [row.$id, row]));
+        const callMap = new Map<string, any>(callRows.map((row: any) => [row.$id, row]));
+
+        const hydratedRows = topRows.map((moment: any) => {
+            const attachments = moment.metadata?.attachments || [];
+            const attachedNote = attachments.find((attachment: any) => attachment.type === 'note' && noteMap.has(attachment.id));
+            const attachedEvent = attachments.find((attachment: any) => attachment.type === 'event' && eventMap.has(attachment.id));
+            const attachedCall = attachments.find((attachment: any) => attachment.type === 'call' && callMap.has(attachment.id));
+
+            return {
+                ...moment,
+                sourceMoment: moment.metadata?.sourceId ? sourceMomentMap.get(moment.metadata.sourceId) || null : null,
+                attachedNote: attachedNote ? noteMap.get(attachedNote.id) : undefined,
+                attachedEvent: attachedEvent ? eventMap.get(attachedEvent.id) : undefined,
+                attachedCall: attachedCall ? callMap.get(attachedCall.id) : undefined,
+            };
+        });
+
+        return { ...moments, rows: hydratedRows, total: sortedRows.length };
     },
 
     async getTrendingFeed(userId?: string) {
@@ -371,7 +502,7 @@ export const SocialService = {
         return storage.getFilePreview(APPWRITE_CONFIG.BUCKETS.MESSAGES, fileId, width, height).toString();
     },
 
-    async createMoment(creatorId: string, content: string, type: 'post' | 'reply' | 'pulse' | 'quote' = 'post', mediaIds: string[] = [], visibility: 'public' | 'private' | 'followers' = 'public', noteId?: string, eventId?: string, sourceId?: string, callId?: string) {
+    async createMoment(creatorId: string, content: string, type: 'post' | 'reply' | 'pulse' | 'quote' = 'post', mediaIds: string[] = [], _visibility: 'public' | 'private' | 'followers' = 'public', noteId?: string, eventId?: string, sourceId?: string, callId?: string) {
         const permissions = [
             `read("user:${creatorId}")`,
             `update("user:${creatorId}")`,
@@ -488,8 +619,8 @@ export const SocialService = {
         return false;
     },
 
-    async updateMomentVisibility(momentId: string, visibility: 'public' | 'private' | 'followers') {
-        return await tablesDB.updateRow(DB_ID, MOMENTS_TABLE, momentId, { visibility });
+    async updateMomentVisibility(momentId: string, _visibility: 'public' | 'private' | 'followers') {
+        return await tablesDB.updateRow(DB_ID, MOMENTS_TABLE, momentId, { visibility: _visibility });
     },
 
     async updateMoment(momentId: string, content: string) {

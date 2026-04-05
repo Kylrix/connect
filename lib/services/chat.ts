@@ -642,10 +642,16 @@ export const ChatService = {
             );
 
             if (isEncrypted) {
-                const messageKey = _conv?.type === 'group' && String(_conv?.encryptionVersion || '').toUpperCase() === 'T4' && userId
+                let messageKey = _conv?.type === 'group' && String(_conv?.encryptionVersion || '').toUpperCase() === 'T4' && userId
                     ? await resolveConversationKey(_conv, userId, msg.createdAt)
                     : convKey;
-                if (!messageKey) throw new Error('Conversation key not available');
+                if (!messageKey && userId) {
+                    await UsersService.forceSyncProfileWithIdentity({ $id: userId });
+                    messageKey = _conv?.type === 'group' && String(_conv?.encryptionVersion || '').toUpperCase() === 'T4'
+                        ? await resolveConversationKey(_conv, userId, msg.createdAt)
+                        : await resolveConversationKey(_conv, userId);
+                }
+                if (!messageKey) return msg;
 
                 if (msg.type === 'text' && msg.content && msg.content.length > 40) {
                     msg.content = await ecosystemSecurity.decryptWithKey(msg.content, messageKey);

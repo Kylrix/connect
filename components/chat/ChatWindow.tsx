@@ -114,6 +114,9 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
     const loadConversation = React.useCallback(async () => {
         if (!user?.$id) return;
         try {
+            if (ecosystemSecurity.status.isUnlocked) {
+                await UsersService.forceSyncProfileWithIdentity(user);
+            }
             const conv = await ChatService.getConversationById(conversationId, user.$id);
             if (conv.type === 'direct') {
                 const otherId = conv.participants.find((p: string) => p !== user.$id);
@@ -171,6 +174,9 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
 
     const loadMessages = React.useCallback(async () => {
         try {
+            if (user?.$id && ecosystemSecurity.status.isUnlocked) {
+                await UsersService.forceSyncProfileWithIdentity(user);
+            }
             const response = await ChatService.getMessages(conversationId, 50, 0, user?.$id);
             const conv = await ChatService.getConversationById(conversationId, user?.$id);
 
@@ -200,7 +206,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
         const unsubscribe = ecosystemSecurity.onStatusChange((status) => {
             setIsUnlocked(status.isUnlocked);
 
-            if (status.isUnlocked) {
+            if (status.isUnlocked && status.hasIdentity) {
                 loadMessages();
                 loadConversation();
             }

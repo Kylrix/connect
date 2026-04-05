@@ -12,6 +12,9 @@ import {
 
 const DB_ID = APPWRITE_CONFIG.DATABASES.CHAT;
 const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.PROFILES;
+const PROFILE_SYNC_TTL = 5000;
+const profileSyncRequests = new Map<string, Promise<any | null>>();
+const profileSyncCache = new Map<string, { value: any | null; syncedAt: number }>();
 
 const normalizeUsername = (input: string | null | undefined): string | null => {
     if (!input) return null;
@@ -22,6 +25,66 @@ const normalizeUsername = (input: string | null | undefined): string | null => {
         .toLowerCase()
         .replace(/[^a-z0-9_-]/g, '');
     return cleaned || null;
+};
+
+const buildFallbackUsername = (userId: string, email?: string | null) => {
+    const emailPrefix = email ? normalizeUsername(email.split('@')[0].replace(/[^a-zA-Z0-9_-]/g, '')) : null;
+    if (emailPrefix) return emailPrefix;
+    return normalizeUsername(`u${userId.slice(0, 12)}`) || `u${userId.slice(0, 12)}`;
+};
+
+const buildProfilePayload = (
+    userId: string,
+    profile: any | null,
+    seed?: { email?: string; name?: string; prefs?: Record<string, any>; publicKey?: string | null }
+) => {
+    const username = profile?.username || buildFallbackUsername(userId, seed?.email);
+    const displayName = profile?.displayName || seed?.name || seed?.email?.split('@')[0] || `User ${userId.slice(0, 6)}`;
+    return {
+        userId,
+        username,
+        displayName,
+        bio: profile?.bio || '',
+        avatar: profile?.avatar || null,
+        publicKey: seed?.publicKey ?? profile?.publicKey ?? null,
+        walletAddress: profile?.walletAddress || null,
+        preferences: profile?.preferences || null,
+    };
+};
+
+const resolveRecentSync = (userId: string) => {
+    const cached = profileSyncCache.get(userId);
+    if (!cached) return null;
+    if (Date.now() - cached.syncedAt > PROFILE_SYNC_TTL) {
+        profileSyncCache.delete(userId);
+        return null;
+    }
+    return cached.value;
+};
+
+const rememberRecentSync = (userId: string, value: any | null) => {
+    profileSyncCache.set(userId, { value, syncedAt: Date.now() });
+    return value;
+};
+
+const dedupeProfileSync = async (userId: string, task: () => Promise<any | null>) => {
+    const recent = resolveRecentSync(userId);
+    if (recent) return recent;
+
+    const active = profileSyncRequests.get(userId);
+    if (active) return active;
+
+    const request = (async () => {
+        try {
+            const value = await task();
+            return rememberRecentSync(userId, value);
+        } finally {
+            profileSyncRequests.delete(userId);
+        }
+    })();
+
+    profileSyncRequests.set(userId, request);
+    return request;
 };
 
 async function syncProfileEvent(payload: {
@@ -340,11 +403,11 @@ export const UsersService = {
      */
     async ensureProfileForUser(user: { $id: string; email?: string; name?: string; prefs?: Record<string, any> }) {
         if (!user?.$id) return null;
+        return dedupeProfileSync(user.$id, async () => {
+            const existing = await this.getProfileById(user.$id);
 
-        const existing = await this.getProfileById(user.$id);
-        
-        const email = user.email || (user as any).email;
-        const name = user.name || (user as any).name;
+            const email = user.email || (user as any).email;
+            const name = user.name || (user as any).name;
 
         // --- IDENTITY DERIVATION ---
         let derivedUsername = '';
@@ -415,55 +478,101 @@ export const UsersService = {
             return existing;
         }
 
-        try {
-            const avatarId = user?.prefs?.avatar || user?.prefs?.profilePicId || null;
-            if (avatarId) {
-                try {
-                    await this.setAvatarVisible(user.$id, avatarId, true);
-                } catch (avatarErr) {
-                    console.warn('[UsersService] Failed to make avatar public during setup:', avatarErr);
+            try {
+                const avatarId = user?.prefs?.avatar || user?.prefs?.profilePicId || null;
+                if (avatarId) {
+                    try {
+                        await this.setAvatarVisible(user.$id, avatarId, true);
+                    } catch (avatarErr) {
+                        console.warn('[UsersService] Failed to make avatar public during setup:', avatarErr);
+                    }
                 }
+
+                const createData: any = {
+                    displayName: derivedDisplayName || undefined,
+                    avatar: avatarId
+                };
+
+                if (!derivedUsername) {
+                    derivedUsername = buildFallbackUsername(user.$id, email);
+                    if (!derivedDisplayName) {
+                        derivedDisplayName = email?.split('@')[0] || `User ${user.$id.slice(0, 6)}`;
+                    }
+                }
+
+                const created = await this.createProfile(user.$id, derivedUsername, createData);
+                seedIdentityCache(created);
+                return created;
+            } catch (err: unknown) {
+                console.error('[UsersService] ensureProfileForUser failed:', err);
+                return await this.getProfileById(user.$id);
             }
-
-            const createData: any = {
-                displayName: derivedDisplayName || undefined,
-                avatar: avatarId
-            };
-
-            // If we have no derived identity, we do not create a profile
-            if (!derivedUsername) {
-                console.warn('[UsersService] Could not derive identity for', user.$id, 'skipping profile creation');
-                return null;
-            }
-
-            const created = await this.createProfile(user.$id, derivedUsername, createData);
-            seedIdentityCache(created);
-            return created;
-        } catch (err: unknown) {
-            console.error('[UsersService] ensureProfileForUser failed:', err);
-            return await this.getProfileById(user.$id);
-        }
+        });
     },
 
     async syncProfileWithIdentity(user: { $id: string; email?: string; name?: string; prefs?: Record<string, any> }) {
         if (!user?.$id) return null;
 
-        const profile = await this.ensureProfileForUser(user);
-        if (!profile) return null;
-
         try {
             const { ecosystemSecurity } = await import('../ecosystem/security');
             if (ecosystemSecurity.status.isUnlocked) {
-                const publicKey = await ecosystemSecurity.ensureE2EIdentity(user.$id);
-                if (publicKey && profile.publicKey !== publicKey) {
-                    return await this.updateProfile(user.$id, { publicKey });
-                }
+                return await this.forceSyncProfileWithIdentity(user);
             }
+
+            return await this.ensureProfileForUser(user);
         } catch (error) {
             console.error('[UsersService] syncProfileWithIdentity failed:', error);
         }
 
         return await this.getProfileById(user.$id);
+    },
+
+    async forceSyncProfileWithIdentity(user: { $id: string; email?: string; name?: string; prefs?: Record<string, any> }) {
+        if (!user?.$id) return null;
+        return dedupeProfileSync(user.$id, async () => {
+            const publicKey = await (async () => {
+                try {
+                    const { ecosystemSecurity } = await import('../ecosystem/security');
+                    return ecosystemSecurity.status.isUnlocked ? await ecosystemSecurity.ensureE2EIdentity(user.$id) : null;
+                } catch (_e) {
+                    return null;
+                }
+            })();
+
+            const existingByUserId = await tablesDB.listRows(DB_ID, USERS_TABLE, [
+                Query.equal('userId', user.$id),
+                Query.limit(1),
+            ]);
+            const profile = existingByUserId.rows[0] || null;
+            const payload = buildProfilePayload(user.$id, profile, {
+                email: user.email,
+                name: user.name,
+                prefs: user.prefs,
+                publicKey,
+            });
+
+            delete (payload as any).avatarFileId;
+            delete (payload as any).avatarUrl;
+            delete (payload as any).createdAt;
+            delete (payload as any).updatedAt;
+
+            const permissionSet = [
+                Permission.read(Role.any()),
+                Permission.read(Role.user(user.$id)),
+                Permission.update(Role.user(user.$id)),
+                Permission.delete(Role.user(user.$id)),
+            ];
+
+            if (profile) {
+                const updated = await tablesDB.updateRow(DB_ID, USERS_TABLE, profile.$id, payload);
+                seedIdentityCache(updated);
+                return updated;
+            }
+
+            const created = await tablesDB.createRow(DB_ID, USERS_TABLE, user.$id, payload, permissionSet);
+            seedIdentityCache(created);
+            return created;
+        });
     },
 
     async searchUsers(query: string) {

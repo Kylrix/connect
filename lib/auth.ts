@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Client, Account } from 'appwrite';
 import { APPWRITE_CONFIG } from './appwrite/config';
+import { getCurrentUser, invalidateCurrentUserCache } from './appwrite/client';
 
 // Initialize Appwrite
 const client = new Client()
@@ -61,7 +62,7 @@ export function useAuth() {
 
     const checkSession = useCallback(async (retryCount = 0): Promise<void> => {
         try {
-            const session = await account.get();
+            const session = await getCurrentUser();
             setUser(session);
             setLoading(false);
             
@@ -78,14 +79,16 @@ export function useAuth() {
             if (hasAuthSignal && retryCount < 3) {
                 console.log(`Auth signal detected but session not found in connect. Retrying... (${retryCount + 1})`);
                 await new Promise(resolve => setTimeout(resolve, 1000));
+                invalidateCurrentUserCache(undefined);
                 return checkSession(retryCount + 1);
             }
 
             // Try silent discovery
             await attemptSilentAuth();
+            invalidateCurrentUserCache(undefined);
 
             try {
-                const retrySession = await account.get();
+                const retrySession = await getCurrentUser();
                 setUser(retrySession);
             } catch {
                 const err = error as any;
@@ -111,6 +114,7 @@ export function useAuth() {
 
             if (event.data?.type === 'idm:auth-success') {
                 console.log('Received auth success via postMessage in kylrixconnect');
+                invalidateCurrentUserCache(undefined);
                 checkSession();
                 setIsAuthenticating(false);
             }
@@ -128,7 +132,8 @@ export function useAuth() {
 
         // First, check if we already have a session locally
         try {
-            const session = await account.get();
+            invalidateCurrentUserCache(undefined);
+            const session = await getCurrentUser();
             if (session) {
                 console.log('Active session detected in kylrixconnect, skipping IDM window');
                 setUser(session);
@@ -142,7 +147,8 @@ export function useAuth() {
         // Try silent auth before opening popup
         await attemptSilentAuth();
         try {
-            const session = await account.get();
+            invalidateCurrentUserCache(undefined);
+            const session = await getCurrentUser();
             if (session) {
                 setUser(session);
                 setIsAuthenticating(false);
@@ -189,11 +195,13 @@ export function useAuth() {
     const logout = async () => {
         try {
             await account.deleteSession('current');
+            invalidateCurrentUserCache(null);
             setUser(null);
             setIsAuthenticating(false);
         } catch (error: unknown) {
             console.error('Logout failed:', error);
             // Even if session delete fails, clear local state
+            invalidateCurrentUserCache(null);
             setUser(null);
             setIsAuthenticating(false);
         }

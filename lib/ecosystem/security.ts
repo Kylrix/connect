@@ -293,6 +293,7 @@ export class EcosystemSecurity {
 
       this.identityKeyPair = { publicKey: pubKey, privateKey: privKey };
       await this.publishIdentityKey(userId, doc.publicKey);
+      this.emitStatusChange();
       return doc.publicKey;
     }
 
@@ -314,6 +315,7 @@ export class EcosystemSecurity {
 
     this.identityKeyPair = pair;
     await this.publishIdentityKey(userId, pubBase64);
+    this.emitStatusChange();
     return pubBase64;
   }
 
