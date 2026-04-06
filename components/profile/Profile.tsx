@@ -127,8 +127,7 @@ export const Profile = ({ username }: ProfileProps) => {
     });
 
     const loadProfile = useCallback(async () => {
-        // Only show global loading on first load
-        if (!profile) setLoading(true);
+        setLoading(true);
         
         try {
             let data;

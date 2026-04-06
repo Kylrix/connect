@@ -273,11 +273,6 @@ async function syncLockboxRows(entries: LockboxEntry[], auth?: { jwt?: string; c
     return callPermissionsApi('POST', { action: 'grant', keyMappings: entries }, auth);
 }
 
-async function revokeLockboxRows(resourceType: string, resourceId: string, grantees: string[], auth?: { jwt?: string; cookie?: string }) {
-    if (!resourceType || !resourceId || grantees.length === 0) return [];
-    return callPermissionsApi('DELETE', { resourceType, resourceId, targetUserIds: grantees }, auth);
-}
-
 export const ChatService = {
     async _unwrapConversationKey(conv: any, myUserId: string): Promise<CryptoKey | null> {
         const key = await resolveConversationKey(conv, myUserId);
@@ -287,7 +282,7 @@ export const ChatService = {
         return key;
     },
 
-    async rewrapConversationKeys(conversationId: string) {
+    async rewrapConversationKeys(_conversationId: string) {
         return;
     },
     async getConversationById(conversationId: string, userId?: string) {

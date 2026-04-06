@@ -1,4 +1,3 @@
-import type React from 'react';
 import { KeychainService } from '@/lib/appwrite/keychain';
 import { UsersService } from '@/lib/services/users';
 import { seedIdentityCache } from '@/lib/identity-cache';

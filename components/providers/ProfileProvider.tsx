@@ -85,7 +85,7 @@ export const ProfileProvider = ({ children }: { children: React.ReactNode }) => 
         });
 
         return unsubscribe;
-    }, [user?.$id, invalidate, refreshProfile]);
+    }, [user, invalidate, refreshProfile]);
 
     useEffect(() => {
         if (!user) {
