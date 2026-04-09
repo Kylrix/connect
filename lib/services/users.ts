@@ -124,7 +124,8 @@ export const UsersService = {
             return await resolveIdentityByUsername(normalized, async () => {
                 const result = await tablesDB.listRows(DB_ID, USERS_TABLE, [
                     Query.equal('username', normalized),
-                    Query.limit(1)
+                    Query.limit(1),
+                    Query.select(['$id', 'userId', 'username', 'displayName', 'bio', 'avatar', 'publicKey', 'walletAddress', 'preferences', 'tier', 'last_username_edit', 'createdAt', '$createdAt'])
                 ]);
                 return result.rows[0] || null;
             });
@@ -145,7 +146,8 @@ export const UsersService = {
                 // Priority 1: Find by the dedicated 'userId' field
                 const result = await tablesDB.listRows(DB_ID, USERS_TABLE, [
                     Query.equal('userId', userId),
-                    Query.limit(2) // Check if more than one exists
+                    Query.limit(2), // Check if more than one exists
+                    Query.select(['$id', 'userId', 'username', 'displayName', 'bio', 'avatar', 'publicKey', 'walletAddress', 'preferences', 'tier', 'last_username_edit', 'createdAt', '$createdAt'])
                 ]);
 
                 if (result.total > 1) {
@@ -180,7 +182,8 @@ export const UsersService = {
         try {
             const result = await tablesDB.listRows(DB_ID, USERS_TABLE, [
                 Query.equal('userId', userId),
-                Query.limit(100)
+                Query.limit(100),
+                Query.select(['$id', 'userId', 'username', 'displayName', 'bio', 'avatar', 'publicKey', 'walletAddress', 'preferences', 'tier', 'last_username_edit', 'createdAt', '$createdAt'])
             ]);
             
             for (const row of result.rows) {
@@ -197,7 +200,8 @@ export const UsersService = {
         if (!normalized) return false;
         try {
             const result = await tablesDB.listRows(DB_ID, USERS_TABLE, [
-                Query.equal('username', normalized)
+                Query.equal('username', normalized),
+                Query.select(['$id', 'userId', 'username', 'displayName', 'bio', 'avatar', 'publicKey', 'walletAddress', 'preferences', 'tier', 'last_username_edit', 'createdAt', '$createdAt'])
             ]);
             return result.total === 0;
         } catch (_e: unknown) {
