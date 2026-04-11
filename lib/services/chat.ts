@@ -14,6 +14,7 @@ const EPOCHS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.EPOCHS;
 const KEY_MAPPING_DB = APPWRITE_CONFIG.DATABASES.PASSWORD_MANAGER;
 const KEY_MAPPING_TABLE = APPWRITE_CONFIG.TABLES.PASSWORD_MANAGER.KEY_MAPPING;
 const ACCOUNTS_API_URL = `${KYLRIX_AUTH_URI}/api/permissions`;
+const ACCOUNTS_MESSAGE_API_URL = `${KYLRIX_AUTH_URI}/api/connect/messages`;
 const conversationKeyCache = new Map<string, CryptoKey>();
 
 const arraysEqual = (left: string[], right: string[]) =>
@@ -28,39 +29,12 @@ const getConversationActivityAt = (row: any) =>
 const getMessageActivityAt = (row: any) =>
     row?.createdAt || row?.updatedAt || row?.$createdAt || row?.$updatedAt || null;
 
-const buildMessagePermissions = (senderId: string) => {
-    return [
-        Permission.read(Role.user(senderId)),
-        Permission.update(Role.user(senderId)),
-        Permission.delete(Role.user(senderId)),
-    ];
-};
-
 const buildConversationMemberPermissions = (_participantIds: string[], creatorId: string) => {
     return [
         Permission.read(Role.user(creatorId)),
         Permission.update(Role.user(creatorId)),
         Permission.delete(Role.user(creatorId)),
     ];
-};
-
-const syncMessagePermissions = async (
-    rowId: string,
-    recipientIds: string[],
-    permission: 'read' | 'write' | 'admin' = 'read',
-    auth?: { jwt?: string; cookie?: string },
-    ownerId?: string
-) => {
-    const targets = Array.from(new Set(recipientIds.filter(Boolean)));
-    if (!rowId || targets.length === 0) return;
-    await callPermissionsApi('POST', {
-        databaseId: APPWRITE_CONFIG.DATABASES.CHAT,
-        tableId: MSG_TABLE,
-        rowId,
-        targetUserIds: targets,
-        permission,
-        ownerId,
-    }, auth);
 };
 
 const normalizeConversationRow = async (conversation: any) => {
@@ -152,6 +126,28 @@ async function callPermissionsApi(
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || 'Permission update failed');
+    }
+
+    return response.json().catch(() => ({}));
+}
+
+async function callMessageCreateApi(
+    payload: Record<string, unknown>,
+    auth?: { jwt?: string; cookie?: string }
+) {
+    const headers = await getPermissionUpdateAuth(auth);
+    const response = await fetch(ACCOUNTS_MESSAGE_API_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...headers,
+        },
+        body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Message creation failed');
     }
 
     return response.json().catch(() => ({}));
@@ -723,31 +719,15 @@ export const ChatService = {
             }
         }
 
-        const recipientIds = Array.isArray(conversation?.participants)
-            ? conversation.participants.filter((participantId: string) => participantId && participantId !== senderId)
-            : [];
-
-        const permissions = buildMessagePermissions(senderId);
-
-        // 1. Create Message with explicit permissions
-        const now = new Date().toISOString();
-
-        const message = await tablesDB.createRow(DB_ID, MSG_TABLE, ID.unique(), {
+        const message = await callMessageCreateApi({
             conversationId,
             senderId,
             content: finalContent,
             type,
             attachments,
             replyTo,
-            readBy: [senderId],
             metadata: finalMetadata,
-            createdAt: now,
-            updatedAt: now,
-        }, permissions);
-
-        if (recipientIds.length > 0) {
-            await syncMessagePermissions(message.$id, recipientIds, 'read', permissionSyncAuth, senderId);
-        }
+        }, permissionSyncAuth);
 
         // 2. Best-effort conversation preview update.
         // In a client-only model only the creator can mutate the shared row, so list UIs must
