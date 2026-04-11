@@ -696,7 +696,6 @@ export const ChatService = {
 
         // E2E Layer: Universal Handshake Protocol
         let finalContent = content;
-        let finalMetadata = metadata;
 
         try {
         const rawConversation = await tablesDB.getRow(DB_ID, CONV_TABLE, conversationId);
@@ -713,10 +712,6 @@ export const ChatService = {
             const convKey = conversation ? await resolveConversationKey(conversation, senderId) : null;
             if (!convKey) throw new Error('Conversation key not available');
             finalContent = await ecosystemSecurity.encryptWithKey(content, convKey);
-            if (metadata) {
-                const metaStr = typeof metadata === 'string' ? metadata : JSON.stringify(metadata);
-                finalMetadata = await ecosystemSecurity.encryptWithKey(metaStr, convKey);
-            }
         }
 
         const message = await callMessageCreateApi({
@@ -726,7 +721,6 @@ export const ChatService = {
             type,
             attachments,
             replyTo,
-            metadata: finalMetadata,
         }, permissionSyncAuth);
 
         // 2. Best-effort conversation preview update.
