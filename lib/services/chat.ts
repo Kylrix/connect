@@ -237,6 +237,15 @@ async function resolveConversationKey(
 ) {
     if (!conversation?.$id || !userId) return null;
 
+    if (ecosystemSecurity.status.isUnlocked && !ecosystemSecurity.status.hasIdentity) {
+        try {
+            await ecosystemSecurity.ensureE2EIdentity(userId);
+        } catch (error) {
+            console.warn('[ChatService] Failed to initialize E2E identity before key resolution:', error);
+            return null;
+        }
+    }
+
     const cached = conversationKeyCache.get(conversation.$id);
     if (cached && !messageCreatedAt) {
         return cached;
@@ -517,6 +526,8 @@ export const ChatService = {
             Permission.delete(Role.user(creatorId))
         ];
 
+        const now = new Date().toISOString();
+
         const newConv = await tablesDB.createRow(DB_ID, CONV_TABLE, ID.unique(), {
             participants: uniqueParticipants,
             participantCount: uniqueParticipants.length,
@@ -530,6 +541,8 @@ export const ChatService = {
             tags: [],
             isEncrypted: !!convKey,
             encryptionVersion: convKey ? 'T4' : '1.0',
+            createdAt: now,
+            updatedAt: now,
         }, conversationPermissions);
 
         await Promise.all(uniqueParticipants.map((participantId) =>
@@ -550,8 +563,9 @@ export const ChatService = {
             ecosystemSecurity.setConversationKey(newConv.$id, convKey);
             conversationKeyCache.set(newConv.$id, convKey);
             try {
-                const creatorProfile = await UsersService.getProfileById(creatorId);
-                const creatorPublicKey = creatorProfile?.publicKey || null;
+                const creatorPublicKey = ecosystemSecurity.status.hasIdentity
+                    ? await ecosystemSecurity.ensureE2EIdentity(creatorId)
+                    : null;
 
                 if (creatorPublicKey) {
                     const directLockboxRows: LockboxEntry[] = await Promise.all(uniqueParticipants.map(async (participantId) => {
@@ -651,6 +665,8 @@ export const ChatService = {
         const permissions = buildMessagePermissions(senderId);
 
         // 1. Create Message with explicit permissions
+        const now = new Date().toISOString();
+
         const message = await tablesDB.createRow(DB_ID, MSG_TABLE, ID.unique(), {
             conversationId,
             senderId,
@@ -660,6 +676,8 @@ export const ChatService = {
             replyTo,
             readBy: [senderId],
             metadata: finalMetadata,
+            createdAt: now,
+            updatedAt: now,
         }, permissions);
 
         const recipientIds = Array.isArray(conversation?.participants)
