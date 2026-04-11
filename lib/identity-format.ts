@@ -13,6 +13,12 @@ const normalizeUsername = (value?: string | null) => {
   return cleaned || null;
 };
 
+const formatFallbackHandle = (fallbackId?: string | null) => {
+  const id = fallbackId?.trim();
+  if (!id) return null;
+  return `@${id.slice(0, 7)}`;
+};
+
 export function resolveIdentity(identity?: IdentityLike | null, fallbackId?: string | null) {
   const cachedById = fallbackId ? getCachedIdentityById(fallbackId) : null;
   const cachedByUsername = normalizeUsername(identity?.username) ? getCachedIdentityByUsername(identity?.username) : null;
@@ -23,17 +29,19 @@ export function resolveIdentity(identity?: IdentityLike | null, fallbackId?: str
   };
 
   const username = normalizeUsername(resolved.username) || normalizeUsername(cachedByUsername?.username) || normalizeUsername(cachedById?.username) || null;
+  const fallbackHandle = formatFallbackHandle(fallbackId);
   const displayName =
     resolved.displayName?.trim() ||
     cachedById?.displayName?.trim() ||
     cachedByUsername?.displayName?.trim() ||
     username ||
+    fallbackHandle ||
     'User';
 
   return {
     username,
     displayName,
-    handle: username ? `@${username}` : '@user',
+    handle: username ? `@${username}` : fallbackHandle || '@user',
   };
 }
 
