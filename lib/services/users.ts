@@ -1,4 +1,4 @@
-import { ID, Query, Permission, Role } from 'appwrite';
+import { Query, Permission, Role } from 'appwrite';
 import { tablesDB, storage, getCurrentUser } from '../appwrite/client';
 import { APPWRITE_CONFIG } from '../appwrite/config';
 import { getEcosystemUrl } from '../constants';
@@ -14,6 +14,11 @@ const USERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.PROFILES;
 const PROFILE_SYNC_TTL = 5000;
 const profileSyncRequests = new Map<string, Promise<any | null>>();
 const profileSyncCache = new Map<string, { value: any | null; syncedAt: number }>();
+
+const isProfileWriteConflict = (error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    return /already exists|unique|duplicate|conflict|index/i.test(message);
+};
 
 const normalizeUsername = (input: string | null | undefined): string | null => {
     if (!input) return null;
@@ -138,11 +143,21 @@ export const UsersService = {
      * This is the primary lookup for the feed.
      * If multiple profiles are found, they are all purged to heal the state.
      */
-    async getProfileById(userId: string) {
+    async getProfileById(userId: string, skipCache = false) {
         if (!userId) return null;
-        try {
-            return await resolveIdentityById(userId, async () => {
-                // Priority 1: Find by the dedicated 'userId' field
+
+        const fetcher = async () => {
+            // Priority 1: Direct ID lookup (Fastest, most reliable, bypasses index lag)
+            // We use userId as the document ID ($id) for all modern profiles.
+            try {
+                const doc = await tablesDB.getRow(DB_ID, USERS_TABLE, userId);
+                if (doc) return doc;
+            } catch (_e) {
+                // Not found by ID
+            }
+
+            // Priority 2: Fallback to querying by userId field (Handles legacy rows where $id was random)
+            try {
                 const result = await tablesDB.listRows(DB_ID, USERS_TABLE, [
                     Query.equal('userId', userId),
                     Query.limit(1),
@@ -150,18 +165,19 @@ export const UsersService = {
                 ]);
 
                 if (result.rows[0]) return result.rows[0];
+            } catch (_e) {
+                // Query failed
+            }
 
-                // Priority 2: Robustness fallback - check if the passed ID is actually a document ID ($id)
-                // This happens when legacy UI components pass profile.$id instead of profile.userId
-                try {
-                    const doc = await tablesDB.getRow(DB_ID, USERS_TABLE, userId);
-                    if (doc) return doc;
-                } catch (_e) {
-                    // Not a document ID or not found
-                }
+            return null;
+        };
 
-                return null;
-            });
+        if (skipCache) {
+            return await fetcher();
+        }
+
+        try {
+            return await resolveIdentityById(userId, fetcher);
         } catch (_e: unknown) {
             return null;
         }
@@ -343,6 +359,12 @@ export const UsersService = {
         const normalized = normalizeUsername(username);
         if (!normalized) throw new Error('Invalid username');
 
+        const existing = await this.getProfileById(userId, true);
+        if (existing) {
+            seedIdentityCache(existing);
+            return existing;
+        }
+
         const createData: any = {
             userId,
             username: normalized,
@@ -363,18 +385,19 @@ export const UsersService = {
         console.log('[UsersService] [PAYLOAD_AUDIT] Creating with keys:', Object.keys(createData));
         console.log('[UsersService] Creating profile for', userId, 'with data:', JSON.stringify(createData));
 
-        return await tablesDB.createRow(
-            DB_ID,
-            USERS_TABLE,
-            ID.unique(),
-            createData,
-            [
-                Permission.read(Role.any()),
-                Permission.read(Role.user(userId)),
-                Permission.update(Role.user(userId)),
-                Permission.delete(Role.user(userId))
-            ]
-        ).then(async (row) => {
+        try {
+            const row = await tablesDB.createRow(
+                DB_ID,
+                USERS_TABLE,
+                userId,
+                createData,
+                [
+                    Permission.read(Role.any()),
+                    Permission.read(Role.user(userId)),
+                    Permission.update(Role.user(userId)),
+                    Permission.delete(Role.user(userId))
+                ]
+            );
             seedIdentityCache(row);
             await syncProfileEvent({
                 type: 'username_change',
@@ -391,7 +414,21 @@ export const UsersService = {
                 },
             });
             return row;
-        });
+        } catch (error) {
+            console.error('[UsersService] createProfile failed:', {
+                userId,
+                username: normalized,
+                error,
+            });
+
+            const recovered = await this.getProfileById(userId, true);
+            if (recovered) {
+                seedIdentityCache(recovered);
+                return recovered;
+            }
+
+            throw error;
+        }
     },
 
     /**
@@ -401,7 +438,7 @@ export const UsersService = {
     async ensureProfileForUser(user: { $id: string; email?: string; name?: string; prefs?: Record<string, any> }) {
         if (!user?.$id) return null;
         return dedupeProfileSync(user.$id, async () => {
-            const existing = await this.getProfileById(user.$id);
+            const existing = await this.getProfileById(user.$id, true);
 
             const email = user.email || (user as any).email;
             const name = user.name || (user as any).name;
@@ -497,12 +534,51 @@ export const UsersService = {
                     }
                 }
 
-                const created = await this.createProfile(user.$id, derivedUsername, createData);
-                seedIdentityCache(created);
-                return created;
+                const usernameCandidates = Array.from(new Set([
+                    derivedUsername,
+                    normalizeUsername(`${derivedUsername || buildFallbackUsername(user.$id, email)}${user.$id.slice(0, 4)}`),
+                    buildFallbackUsername(user.$id, email),
+                ].filter(Boolean))) as string[];
+
+                for (const candidateUsername of usernameCandidates) {
+                    if (!candidateUsername) continue;
+                    if (!existing && !(await this.isUsernameAvailable(candidateUsername))) {
+                        continue;
+                    }
+
+                    try {
+                        const created = await this.createProfile(user.$id, candidateUsername, createData);
+                        seedIdentityCache(created);
+                        return created;
+                    } catch (err) {
+                        console.error('[UsersService] Profile creation attempt failed:', {
+                            userId: user.$id,
+                            candidateUsername,
+                            error: err,
+                        });
+
+                        const recovered = await this.getProfileById(user.$id, true);
+                        if (recovered) {
+                            seedIdentityCache(recovered);
+                            return recovered;
+                        }
+
+                        if (!isProfileWriteConflict(err)) {
+                            throw err;
+                        }
+                    }
+                }
+
+                const recovered = await this.getProfileById(user.$id, true);
+                if (recovered) {
+                    seedIdentityCache(recovered);
+                    return recovered;
+                }
+
+                return null;
             } catch (err: unknown) {
                 console.error('[UsersService] ensureProfileForUser failed:', err);
-                return await this.getProfileById(user.$id);
+                return await this.getProfileById(user.$id, true);
             }
         });
     },
@@ -521,7 +597,7 @@ export const UsersService = {
             console.error('[UsersService] syncProfileWithIdentity failed:', error);
         }
 
-        return await this.getProfileById(user.$id);
+        return await this.getProfileById(user.$id, true);
     },
 
     async forceSyncProfileWithIdentity(user: { $id: string; email?: string; name?: string; prefs?: Record<string, any> }) {
@@ -536,11 +612,7 @@ export const UsersService = {
                 }
             })();
 
-            const existingByUserId = await tablesDB.listRows(DB_ID, USERS_TABLE, [
-                Query.equal('userId', user.$id),
-                Query.limit(1),
-            ]);
-            const profile = existingByUserId.rows[0] || null;
+            const profile = await this.getProfileById(user.$id, true);
             const payload = buildProfilePayload(user.$id, profile, {
                 email: user.email,
                 name: user.name,
@@ -566,9 +638,20 @@ export const UsersService = {
                 return updated;
             }
 
-            const created = await tablesDB.createRow(DB_ID, USERS_TABLE, user.$id, payload, permissionSet);
-            seedIdentityCache(created);
-            return created;
+            try {
+                const created = await tablesDB.createRow(DB_ID, USERS_TABLE, user.$id, payload, permissionSet);
+                seedIdentityCache(created);
+                return created;
+            } catch (err) {
+                if (isProfileWriteConflict(err)) {
+                    const recovered = await this.getProfileById(user.$id, true);
+                    if (recovered) {
+                        seedIdentityCache(recovered);
+                        return recovered;
+                    }
+                }
+                throw err;
+            }
         });
     },
 
