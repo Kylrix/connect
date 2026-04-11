@@ -11,8 +11,6 @@ import {
     ListItemButton, 
     ListItemIcon, 
     ListItemText, 
-    useMediaQuery, 
-    useTheme,
     Paper,
     BottomNavigation,
     BottomNavigationAction,
@@ -41,8 +39,6 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
     const { user, logout: _logout } = useAuth();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     const router = useRouter();
     const [_anchorEl, _setAnchorEl] = useState<null | HTMLElement>(null);
     const [_profileUrl, setProfileUrl] = useState<string | null>(null);
@@ -122,12 +118,13 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
             <AppHeader />
 
             {/* Desktop Sidebar */}
-            {!isMobile && !isExternalProfile && (
+            {!isExternalProfile && (
                 <Drawer
                     variant="permanent"
                     sx={{
                         width: drawerWidth,
                         flexShrink: 0,
+                        display: { xs: 'none', md: 'block' },
                         [`& .MuiDrawer-paper`]: { 
                             width: drawerWidth, 
                             boxSizing: 'border-box', 
@@ -261,7 +258,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
             </Box>
 
             {/* Mobile Bottom Nav */}
-            {isMobile && !isInsideChat && (
+            {!isInsideChat && (
                 <Paper 
                     elevation={0}
                     sx={{ 
@@ -269,6 +266,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
                         bottom: 24, 
                         left: 24, 
                         right: 24, 
+                        display: { xs: 'block', md: 'none' },
                         borderRadius: '20px', 
                         overflow: 'hidden',
                         border: '1px solid',

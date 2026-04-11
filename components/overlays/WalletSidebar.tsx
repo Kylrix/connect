@@ -53,7 +53,7 @@ const shortenAddress = (address: string) => {
 
 export const WalletSidebar = ({ isOpen, onClose }: WalletSidebarProps) => {
     const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+    const isMobile = useMediaQuery(theme.breakpoints.down('md'), { noSsr: true });
     const { user } = useAuth();
     const { requestSudo } = useSudo();
     const [isUnlocked, setIsUnlocked] = useState(ecosystemSecurity.status.isUnlocked);

@@ -70,7 +70,7 @@ export function PostViewClient() {
     const [actorsTitle, setActorsTitle] = useState('');
     const [expandedCaption, setExpandedCaption] = useState(false);
     const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+    const isMobile = useMediaQuery(theme.breakpoints.down('md'), { noSsr: true });
 
     const fetchActorsForLikes = async (momentId: string) => {
         try {

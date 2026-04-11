@@ -76,7 +76,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
     const { user } = useAuth();
     const { presence, getPresence } = usePresence() as any;
     const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+    const isMobile = useMediaQuery(theme.breakpoints.down('md'), { noSsr: true });
     const [messages, setMessages] = useState<Messages[]>([]);
     const [conversation, setConversation] = useState<any>(null);
     const [inputText, setInputText] = useState('');

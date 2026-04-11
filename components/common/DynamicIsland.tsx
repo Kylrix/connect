@@ -57,7 +57,7 @@ export const IslandProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }, []);
   const { user } = useAuth();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
 
   const showIsland = useCallback((notification: Omit<IslandNotification, 'id'>) => {
     const id = Date.now().toString(36) + (notifications.length).toString(36);

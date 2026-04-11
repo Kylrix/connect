@@ -23,7 +23,7 @@ interface Props {
 
 export function ActorsListDrawer({ open, onClose, title, actors, mobile = false, onSelect, onAction }: Props) {
     const theme = useTheme();
-    const isMdDown = useMediaQuery(theme.breakpoints.down('md'));
+    const isMdDown = useMediaQuery(theme.breakpoints.down('md'), { noSsr: true });
     const prefersMobile = mobile || isMdDown;
     const [isExpanded, setIsExpanded] = useState(false);
     const [actionLoading, setActionLoading] = useState<string | null>(null);

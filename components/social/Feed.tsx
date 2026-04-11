@@ -185,7 +185,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
     const momentsRef = React.useRef<any[]>([]);
 
     const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+    const isMobile = useMediaQuery(theme.breakpoints.down('md'), { noSsr: true });
 
     useEffect(() => {
         // Hydrate from localStorage immediately on mount

@@ -16,7 +16,7 @@ const ColorModeContext = createContext<ColorModeContextType>({ toggleColorMode: 
 export const useColorMode = () => useContext(ColorModeContext);
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
-  const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
+  const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)', { noSsr: true });
   const [mode, setMode] = useState<'light' | 'dark'>('light');
 
   useEcosystemNode('connect');
