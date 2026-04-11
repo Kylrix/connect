@@ -28,16 +28,17 @@ const getConversationActivityAt = (row: any) =>
 const getMessageActivityAt = (row: any) =>
     row?.createdAt || row?.updatedAt || row?.$createdAt || row?.$updatedAt || null;
 
-const buildMessagePermissions = (senderId: string) => [
-    Permission.read(Role.user(senderId)),
-    Permission.update(Role.user(senderId)),
-    Permission.delete(Role.user(senderId))
-];
-
-const buildConversationMemberPermissions = (participantIds: string[], creatorId: string) => {
-    const uniqueReaders = Array.from(new Set(participantIds.filter(Boolean)));
+const buildMessagePermissions = (senderId: string) => {
     return [
-        ...uniqueReaders.map((participantId) => Permission.read(Role.user(participantId))),
+        Permission.read(Role.user(senderId)),
+        Permission.update(Role.user(senderId)),
+        Permission.delete(Role.user(senderId)),
+    ];
+};
+
+const buildConversationMemberPermissions = (_participantIds: string[], creatorId: string) => {
+    return [
+        Permission.read(Role.user(creatorId)),
         Permission.update(Role.user(creatorId)),
         Permission.delete(Role.user(creatorId)),
     ];
@@ -520,11 +521,7 @@ export const ChatService = {
             encryptedName = await ecosystemSecurity.encryptWithKey(name, convKey);
         }
 
-        const conversationPermissions = [
-            Permission.read(Role.user(creatorId)),
-            Permission.update(Role.user(creatorId)),
-            Permission.delete(Role.user(creatorId))
-        ];
+        const conversationPermissions = buildConversationMemberPermissions(uniqueParticipants, creatorId);
 
         const now = new Date().toISOString();
 
@@ -662,6 +659,10 @@ export const ChatService = {
             }
         }
 
+        const recipientIds = Array.isArray(conversation?.participants)
+            ? conversation.participants.filter((participantId: string) => participantId && participantId !== senderId)
+            : [];
+
         const permissions = buildMessagePermissions(senderId);
 
         // 1. Create Message with explicit permissions
@@ -679,10 +680,6 @@ export const ChatService = {
             createdAt: now,
             updatedAt: now,
         }, permissions);
-
-        const recipientIds = Array.isArray(conversation?.participants)
-            ? conversation.participants.filter((participantId: string) => participantId && participantId !== senderId)
-            : [];
 
         if (recipientIds.length > 0) {
             await syncMessagePermissions(message.$id, recipientIds, 'read', permissionSyncAuth, senderId);
