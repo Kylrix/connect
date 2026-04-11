@@ -32,6 +32,7 @@ import { useAuth } from '@/lib/auth';
 import { AppHeader } from './AppHeader';
 import { ChatList } from '../chat/ChatList';
 import { Button } from '@mui/material';
+import { ProfileSetupDrawer } from '../profile/ProfileSetupDrawer';
 
 const drawerWidth = 280;
 
@@ -114,8 +115,9 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
     }
 
     return (
-            <Box sx={{ display: 'flex', height: '100dvh', minHeight: '100dvh', overflow: 'hidden', bgcolor: '#0A0908' }}>
+        <Box sx={{ display: 'flex', height: '100dvh', minHeight: '100dvh', overflow: 'hidden', bgcolor: '#0A0908' }}>
                 <AppHeader />
+                <ProfileSetupDrawer />
 
             {/* Desktop Sidebar */}
             {!isExternalProfile && (
