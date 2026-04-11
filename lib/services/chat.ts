@@ -1,7 +1,7 @@
 import { ID, Permission, Query, Role } from 'appwrite';
 import { account, tablesDB } from '../appwrite/client';
 import { APPWRITE_CONFIG } from '../appwrite/config';
-import { getEcosystemUrl } from '../constants';
+import { KYLRIX_AUTH_URI, getEcosystemUrl } from '../constants';
 import { ecosystemSecurity } from '../ecosystem/security';
 import { UsersService } from './users';
 
@@ -13,7 +13,7 @@ const MSG_TABLE = APPWRITE_CONFIG.TABLES.CHAT.MESSAGES;
 const EPOCHS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.EPOCHS;
 const KEY_MAPPING_DB = APPWRITE_CONFIG.DATABASES.PASSWORD_MANAGER;
 const KEY_MAPPING_TABLE = APPWRITE_CONFIG.TABLES.PASSWORD_MANAGER.KEY_MAPPING;
-const ACCOUNTS_API_URL = `${getEcosystemUrl('accounts')}/api/permissions`;
+const ACCOUNTS_API_URL = `${KYLRIX_AUTH_URI}/api/permissions`;
 const conversationKeyCache = new Map<string, CryptoKey>();
 
 const arraysEqual = (left: string[], right: string[]) =>
