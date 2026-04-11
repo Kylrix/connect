@@ -114,7 +114,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
     }
 
     return (
-            <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden', bgcolor: '#0A0908' }}>
+            <Box sx={{ display: 'flex', height: '100dvh', minHeight: '100dvh', overflow: 'hidden', bgcolor: '#0A0908' }}>
                 <AppHeader />
 
             {/* Desktop Sidebar */}
@@ -220,12 +220,12 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
                 }}
             >
                 <Box sx={{ 
-                    height: '100%', 
-                    p: isInsideChat ? 0 : { xs: 2, md: 3 },
-                    overflowY: isInsideChat ? 'hidden' : 'auto',
-                    maxWidth: isExternalProfile ? '1200px' : 'auto',
-                    mx: isExternalProfile ? 'auto' : 'unset'
-                }}>
+                     height: '100%', 
+                     p: isInsideChat ? 0 : { xs: 2, md: 3 },
+                     overflowY: isInsideChat ? 'hidden' : 'auto',
+                     maxWidth: isExternalProfile ? '1200px' : 'auto',
+                     mx: isExternalProfile ? 'auto' : 'unset'
+                 }}>
 
                     <Paper
                         elevation={0}

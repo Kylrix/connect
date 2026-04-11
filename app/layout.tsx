@@ -27,6 +27,7 @@ export const viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: "cover",
 };
 
 import { AuthOverlay } from '@/components/auth/AuthOverlay';

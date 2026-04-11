@@ -268,6 +268,39 @@ async function resolveConversationKey(
         return directKey;
     }
 
+    const isSelfChat = conversation.type === 'direct'
+        && Array.isArray(conversation.participants)
+        && conversation.participants.length > 0
+        && conversation.participants.every((participantId: string) => participantId === userId);
+
+    if (isSelfChat && ecosystemSecurity.status.isUnlocked && ecosystemSecurity.status.hasIdentity) {
+        const rebuiltKey = await ecosystemSecurity.generateConversationKey();
+        const publicKey = await ecosystemSecurity.ensureE2EIdentity(userId);
+        if (!publicKey) return null;
+
+        ecosystemSecurity.setConversationKey(conversation.$id, rebuiltKey);
+        conversationKeyCache.set(conversation.$id, rebuiltKey);
+
+        await syncLockboxRows([
+            {
+                resourceType: 'chat',
+                resourceId: conversation.$id,
+                grantee: userId,
+                wrappedKey: await ecosystemSecurity.wrapKeyWithECDH(rebuiltKey, publicKey),
+                metadata: buildLockboxMetadata({
+                    wrappedBy: userId,
+                    wrappedByPublicKey: publicKey,
+                    conversationId: conversation.$id,
+                    conversationType: 'direct',
+                    version: 't4',
+                    repaired: true,
+                }),
+            },
+        ]);
+
+        return rebuiltKey;
+    }
+
     return null;
 }
 

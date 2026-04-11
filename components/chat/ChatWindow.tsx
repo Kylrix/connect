@@ -1109,7 +1109,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
     );
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: '#0A0908', position: 'relative' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, bgcolor: '#0A0908', position: 'relative' }}>
             <AppBar position="static" color="transparent" elevation={0} sx={{ 
                 borderBottom: '1px solid rgba(255, 255, 255, 0.05)', 
                 bgcolor: '#0A0908', 
@@ -1244,7 +1244,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
             </Menu>
 
             {/* Messages Area */}
-            <Box sx={{ flex: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 1.5, pb: 'calc(16px + env(safe-area-inset-bottom))' }}>
                 {!isUnlocked && conversation?.isEncrypted && (
                     <Box sx={{ p: 2, mb: 2, bgcolor: alpha('#6366F1', 0.05), borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.05)', textAlign: 'center' }}>
                         <Typography variant="body2" sx={{ mb: 1.5, fontWeight: 600, color: '#6366F1' }}>
@@ -1457,14 +1457,16 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                         </MenuItem>
                     </Menu>
 
-                    <ChatDraftInput
-                        key={conversationId}
-                        attachment={attachment}
-                        sending={sending}
-                        isRecording={isRecording}
-                        onSend={handleSend}
-                        onToggleRecording={toggleRecording}
-                    />
+                    <Box sx={{ position: 'sticky', bottom: 0, pt: 1.5, pb: 'calc(12px + env(safe-area-inset-bottom))', bgcolor: '#0A0908', zIndex: 1 }}>
+                        <ChatDraftInput
+                            key={conversationId}
+                            attachment={attachment}
+                            sending={sending}
+                            isRecording={isRecording}
+                            onSend={handleSend}
+                            onToggleRecording={toggleRecording}
+                        />
+                    </Box>
                 </Paper>
             </Box>
 
