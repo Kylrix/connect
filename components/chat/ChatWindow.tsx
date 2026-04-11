@@ -278,6 +278,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
     const [partnerProfile, setPartnerProfile] = useState<any | null>(null);
     const [partnerVerification, setPartnerVerification] = useState(() => getVerificationState(null));
     const [conversationReadAt, setConversationReadAt] = useState(0);
+    const initialLoadRef = useRef<string | null>(null);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -401,19 +402,17 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
 
     useEffect(() => {
         const unsubscribe = ecosystemSecurity.onStatusChange((status) => {
-            if (status.isUnlocked && status.hasIdentity) {
-                setLoading(true);
-            }
+            const shouldReload = status.isUnlocked && status.hasIdentity && !isUnlocked;
             setIsUnlocked(status.isUnlocked);
 
-            if (status.isUnlocked && status.hasIdentity) {
+            if (shouldReload) {
                 loadMessages();
                 loadConversation();
             }
         });
 
         return () => unsubscribe();
-    }, [loadConversation, loadMessages]);
+    }, [loadConversation, loadMessages, isUnlocked]);
 
     useEffect(() => {
         if (conversationId && conversation?.type === 'direct' && !isSelf) {
@@ -423,75 +422,76 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
     }, [conversationId, conversation, isSelf, user, getPresence]);
 
     useEffect(() => {
-        if (conversationId) {
+        if (!conversationId || !user?.$id) return;
+
+        if (initialLoadRef.current !== conversationId) {
+            initialLoadRef.current = conversationId;
             loadMessages();
             loadConversation();
+        }
+        let unsub: any;
+        const initRealtime = async () => {
+            unsub = await realtime.subscribe(
+                [`databases.${APPWRITE_CONFIG.DATABASES.CHAT}.tables.${APPWRITE_CONFIG.TABLES.CHAT.MESSAGES}.rows`],
+                async (response) => {
+                    const payload = response.payload as ChatMessage;
+                    if (payload.conversationId === conversationId) {
+                        if (response.events.some(e => e.includes('.create')) || response.events.some(e => e.includes('.update'))) {
+                            if (user && payload.senderId === user.$id && response.events.some(e => e.includes('.create'))) return;
 
-            // Proactively trigger sudo modal if conversation is encrypted and vault is locked
-            if (conversation?.isEncrypted && !isUnlocked && !unlockModalOpen) {
-                setUnlockModalOpen(true);
-            }
+                            const isEncrypted = ecosystemSecurity.status.isUnlocked && (
+                                (payload.type === MessagesType.TEXT && payload.content && payload.content.length > 40)
+                            );
 
-            // Subscribe to real-time messages
-            let unsub: any;
-            const initRealtime = async () => {
-                unsub = await realtime.subscribe(
-                    [`databases.${APPWRITE_CONFIG.DATABASES.CHAT}.tables.${APPWRITE_CONFIG.TABLES.CHAT.MESSAGES}.rows`],
-                    async (response) => {
-                        const payload = response.payload as ChatMessage;
-                        if (payload.conversationId === conversationId) {
-                            if (response.events.some(e => e.includes('.create')) || response.events.some(e => e.includes('.update'))) {
-                                if (user && payload.senderId === user.$id && response.events.some(e => e.includes('.create'))) return;
+                            if (isEncrypted) {
+                                try {
+                                    const convKey = ecosystemSecurity.getConversationKey(conversationId);
+                                    const decrypt = async (val: string) => {
+                                        if (convKey) return await ecosystemSecurity.decryptWithKey(val, convKey);
+                                        return await ecosystemSecurity.decrypt(val);
+                                    };
 
-                                // Decrypt message before adding to state
-                                const isEncrypted = ecosystemSecurity.status.isUnlocked && (
-                                    (payload.type === MessagesType.TEXT && payload.content && payload.content.length > 40)
-                                );
-
-                                if (isEncrypted) {
-                                    try {
-                                        const convKey = ecosystemSecurity.getConversationKey(conversationId);
-                                        const decrypt = async (val: string) => {
-                                            if (convKey) return await ecosystemSecurity.decryptWithKey(val, convKey);
-                                            return await ecosystemSecurity.decrypt(val);
-                                        };
-
-                                        if (payload.type === MessagesType.TEXT && payload.content && payload.content.length > 40) {
-                                            payload.content = await decrypt(payload.content);
-                                        }
-                                    } catch (_e: unknown) { }
-                                }
-
-                                if (response.events.some(e => e.includes('.create'))) {
-                                    setMessages(prev => {
-                                        const withoutOptimistic = prev.filter(m => {
-                                            const isOptimistic = m.$id && String(m.$id).startsWith('optimistic-');
-                                            if (isOptimistic) return m.content !== payload.content;
-                                            return true;
-                                        });
-                                        if (withoutOptimistic.some(m => m.$id === payload.$id)) return withoutOptimistic;
-                                        return [...withoutOptimistic, payload];
-                                    });
-                                    setTimeout(() => scrollToBottom(), 100);
-                                } else {
-                                    setMessages(prev => prev.map(m => m.$id === payload.$id ? payload : m));
-                                }
-                            } else if (response.events.some(e => e.includes('.delete'))) {
-                                setMessages(prev => prev.filter(m => m.$id === payload.$id));
+                                    if (payload.type === MessagesType.TEXT && payload.content && payload.content.length > 40) {
+                                        payload.content = await decrypt(payload.content);
+                                    }
+                                } catch (_e: unknown) { }
                             }
+
+                            if (response.events.some(e => e.includes('.create'))) {
+                                setMessages(prev => {
+                                    const withoutOptimistic = prev.filter(m => {
+                                        const isOptimistic = m.$id && String(m.$id).startsWith('optimistic-');
+                                        if (isOptimistic) return m.content !== payload.content;
+                                        return true;
+                                    });
+                                    if (withoutOptimistic.some(m => m.$id === payload.$id)) return withoutOptimistic;
+                                    return [...withoutOptimistic, payload];
+                                });
+                                setTimeout(() => scrollToBottom(), 100);
+                            } else {
+                                setMessages(prev => prev.map(m => m.$id === payload.$id ? payload : m));
+                            }
+                        } else if (response.events.some(e => e.includes('.delete'))) {
+                            setMessages(prev => prev.filter(m => m.$id === payload.$id));
                         }
                     }
-                );
-            };
+                }
+            );
+        };
 
-            initRealtime();
+        initRealtime();
 
-            return () => {
-                if (typeof unsub === 'function') unsub();
-                else if (unsub?.unsubscribe) unsub.unsubscribe();
-            };
+        return () => {
+            if (typeof unsub === 'function') unsub();
+            else if (unsub?.unsubscribe) unsub.unsubscribe();
+        };
+    }, [conversationId, user?.$id, loadConversation, loadMessages]);
+
+    useEffect(() => {
+        if (conversation?.isEncrypted && !isUnlocked && !unlockModalOpen) {
+            setUnlockModalOpen(true);
         }
-    }, [conversationId, user, loadConversation, loadMessages, conversation?.isEncrypted, isUnlocked, unlockModalOpen, conversation]);
+    }, [conversation?.isEncrypted, isUnlocked, unlockModalOpen]);
 
     const handleClearChat = async (mode: 'me' | 'everyone') => {
         if (!user || !confirm(`Are you sure you want to wipe this chat ${mode === 'me' ? 'for yourself' : 'for everyone'}?`)) return;
@@ -1211,7 +1211,33 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
     );
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, bgcolor: '#0A0908', position: 'relative' }}>
+        <Box sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+            minHeight: 0,
+            bgcolor: '#0A0908',
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+                content: '""',
+                position: 'absolute',
+                inset: 0,
+                pointerEvents: 'none',
+                opacity: 0.22,
+                backgroundImage: `
+                    radial-gradient(circle at 18% 22%, rgba(255,255,255,0.08) 0 1px, transparent 1.6px),
+                    radial-gradient(circle at 62% 18%, rgba(255,255,255,0.05) 0 1px, transparent 1.4px),
+                    radial-gradient(circle at 84% 46%, rgba(255,255,255,0.07) 0 1px, transparent 1.5px),
+                    radial-gradient(circle at 34% 74%, rgba(255,255,255,0.05) 0 1px, transparent 1.5px),
+                    radial-gradient(circle at 72% 82%, rgba(255,255,255,0.06) 0 1px, transparent 1.6px),
+                    linear-gradient(135deg, rgba(255,255,255,0.02) 0 1px, transparent 1px),
+                    linear-gradient(45deg, rgba(255,255,255,0.015) 0 1px, transparent 1px)
+                `,
+                backgroundSize: '180px 180px, 220px 220px, 260px 260px, 240px 240px, 200px 200px, 72px 72px, 96px 96px',
+                backgroundPosition: '0 0, 20px 40px, 80px 10px, 120px 90px, 30px 130px, 0 0, 12px 12px'
+            }
+        }}>
             <AppBar position="static" color="transparent" elevation={0} sx={{ 
                 borderBottom: '1px solid rgba(255, 255, 255, 0.05)', 
                 bgcolor: '#0A0908', 
@@ -1346,7 +1372,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
             </Menu>
 
             {/* Messages Area */}
-            <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 1.5, pb: 'calc(16px + env(safe-area-inset-bottom))' }}>
+            <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 1.5, pb: 'calc(16px + env(safe-area-inset-bottom))', position: 'relative', zIndex: 1 }}>
                 {!isUnlocked && conversation?.isEncrypted && (
                     <Box sx={{ p: 2, mb: 2, bgcolor: alpha('#6366F1', 0.05), borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.05)', textAlign: 'center' }}>
                         <Typography variant="body2" sx={{ mb: 1.5, fontWeight: 600, color: '#6366F1' }}>
@@ -1508,7 +1534,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
             </Box>
 
             {/* Input Area */}
-            <Box sx={{ p: 2, pb: isMobile ? 4 : 2, bgcolor: 'transparent' }}>
+            <Box sx={{ p: 2, pb: isMobile ? 4 : 2, bgcolor: 'transparent', position: 'relative', zIndex: 1 }}>
                 {replyingTo && (
                     <Box sx={{ 
                         mb: 1, 
