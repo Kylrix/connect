@@ -8,6 +8,7 @@ import { UsersService } from './users';
 
 const DB_ID = APPWRITE_CONFIG.DATABASES.CHAT;
 const CONV_TABLE = APPWRITE_CONFIG.TABLES.CHAT.CONVERSATIONS;
+const CONV_MEMBERS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.CONVERSATION_MEMBERS || 'conversationMembers';
 const MSG_TABLE = APPWRITE_CONFIG.TABLES.CHAT.MESSAGES;
 const EPOCHS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.EPOCHS;
 const KEY_MAPPING_DB = APPWRITE_CONFIG.DATABASES.PASSWORD_MANAGER;
@@ -33,6 +34,15 @@ const buildMessagePermissions = (senderId: string) => [
     Permission.update(Role.user(senderId)),
     Permission.delete(Role.user(senderId))
 ];
+
+const buildConversationMemberPermissions = (participantIds: string[], creatorId: string) => {
+    const uniqueReaders = Array.from(new Set(participantIds.filter(Boolean)));
+    return [
+        ...uniqueReaders.map((participantId) => Permission.read(Role.user(participantId))),
+        Permission.update(Role.user(creatorId)),
+        Permission.delete(Role.user(creatorId)),
+    ];
+};
 
 const syncMessagePermissions = async (
     rowId: string,
@@ -75,8 +85,8 @@ const normalizeConversationRow = async (conversation: any) => {
     if (!conversation) return conversation;
 
     const participants = Array.isArray(conversation.participants) ? conversation.participants : [];
-    const normalizedParticipants = await Promise.all(participants.map((participantId: string) => resolveParticipantId(participantId)));
-    const creatorId = conversation.creatorId ? await resolveParticipantId(conversation.creatorId) : conversation.creatorId;
+    const normalizedParticipants = Array.from(new Set(participants.filter(Boolean)));
+    const creatorId = conversation.creatorId;
 
     if (arraysEqual(participants, normalizedParticipants) && creatorId === conversation.creatorId) {
         return conversation;
@@ -288,7 +298,35 @@ export const ChatService = {
     async getConversationById(conversationId: string, userId?: string) {
         const conv = await tablesDB.getRow(DB_ID, CONV_TABLE, conversationId);
         const normalizedConversation = await normalizeConversationRow(conv);
-        return await this._decryptConversation(normalizedConversation, userId);
+        const hydrated = await this._hydrateConversationParticipants(normalizedConversation);
+        return await this._decryptConversation(hydrated, userId);
+    },
+
+    async _hydrateConversationParticipants(conversation: any) {
+        if (!conversation?.$id) return conversation;
+        const existingParticipants = Array.isArray(conversation.participants) ? conversation.participants.filter(Boolean) : [];
+        if (existingParticipants.length > 0) {
+            return conversation;
+        }
+
+        try {
+            const memberRows = await tablesDB.listRows(DB_ID, CONV_MEMBERS_TABLE, [
+                Query.equal('conversationId', conversation.$id),
+                Query.limit(1000),
+            ]);
+
+            const participants = Array.from(new Set(
+                memberRows.rows
+                    .map((row: any) => row.userId)
+                    .filter(Boolean)
+            ));
+
+            if (!participants.length) return conversation;
+
+            return { ...conversation, participants };
+        } catch (_e) {
+            return conversation;
+        }
     },
 
     async _decryptConversation(conv: any, userId?: string) {
@@ -319,65 +357,84 @@ export const ChatService = {
     async getConversations(userId: string) {
         console.log('[ChatService] getConversations for:', userId);
 
-        const conversationMap = new Map<string, any>();
+        const memberRows = await tablesDB.listRows(DB_ID, CONV_MEMBERS_TABLE, [
+            Query.equal('userId', userId),
+            Query.limit(1000)
+        ]).catch(() => ({ rows: [] as any[] }));
 
-        // 1. Standard fetch of existing conversations
-        const res = await tablesDB.listRows(DB_ID, CONV_TABLE, [
-            Query.contains('participants', userId),
-            Query.limit(100)
-        ]);
-        res.rows.forEach((conversation: any) => conversationMap.set(conversation.$id, conversation));
+        const conversationIds = Array.from(new Set(
+            (memberRows.rows || [])
+                .map((row: any) => row.conversationId)
+                .filter(Boolean)
+        ));
 
-        // 2. Proactive Scan: recent messages can reveal conversations that were created
-        // with legacy participant IDs or whose metadata was never updated after the first send.
-        let recentMessages: any[] = [];
-        try {
-            const recentMessagesResult = await tablesDB.listRows(DB_ID, MSG_TABLE, [
-                Query.orderDesc('createdAt'),
-                Query.limit(100)
-            ]);
-            recentMessages = recentMessagesResult.rows;
+        let conversationRows: any[] = [];
+        let memberRowsByConversation = new Map<string, string[]>();
 
-            const missingConversationIds = new Set<string>();
-            recentMessages.forEach((message: any) => {
-                if (message.conversationId && !conversationMap.has(message.conversationId)) {
-                    missingConversationIds.add(message.conversationId);
-                }
-            });
+        if (conversationIds.length > 0) {
+            const conversationsResult = await tablesDB.listRows(DB_ID, CONV_TABLE, [
+                Query.equal('$id', conversationIds),
+                Query.limit(conversationIds.length)
+            ]).catch(() => ({ rows: [] as any[] }));
 
-            if (missingConversationIds.size > 0) {
-                console.log('[ChatService] Found messages for potential missing conversations:', Array.from(missingConversationIds));
-                const potentialConvs = await Promise.all(
-                    Array.from(missingConversationIds).map(id => tablesDB.getRow(DB_ID, CONV_TABLE, id).catch(() => null))
-                );
+            conversationRows = conversationsResult.rows || [];
 
-                potentialConvs.forEach(conversation => {
-                    if (conversation?.$id) {
-                        conversationMap.set(conversation.$id, conversation);
-                    }
-                });
+            const allMembers = await tablesDB.listRows(DB_ID, CONV_MEMBERS_TABLE, [
+                Query.equal('conversationId', conversationIds),
+                Query.limit(Math.min(1000, conversationIds.length * 10))
+            ]).catch(() => ({ rows: [] as any[] }));
+
+            memberRowsByConversation = new Map<string, string[]>();
+            for (const row of allMembers.rows || []) {
+                if (!row?.conversationId || !row?.userId) continue;
+                const existing = memberRowsByConversation.get(row.conversationId) || [];
+                if (!existing.includes(row.userId)) existing.push(row.userId);
+                memberRowsByConversation.set(row.conversationId, existing);
             }
-        } catch (_scanErr) {
-            console.warn('[ChatService] Proactive message scan failed');
+        } else {
+            const legacy = await tablesDB.listRows(DB_ID, CONV_TABLE, [
+                Query.contains('participants', userId),
+                Query.limit(100)
+            ]).catch(() => ({ rows: [] as any[] }));
+            conversationRows = legacy.rows || [];
+            for (const conversation of conversationRows) {
+                const participants = Array.isArray(conversation.participants) ? conversation.participants.filter(Boolean) : [];
+                if (participants.length) memberRowsByConversation.set(conversation.$id, participants);
+            }
         }
 
-        let rows = await Promise.all(Array.from(conversationMap.values()).map((conversation: any) => normalizeConversationRow(conversation)));
-        rows = rows.filter((conversation: any) => conversation?.participants?.includes(userId));
+        const previewConversationIds = conversationIds.length > 0
+            ? conversationIds
+            : conversationRows.map((conversation) => conversation.$id).filter(Boolean);
+        const needsPreviewHydration = conversationRows.some((conversation) => !conversation.lastMessageAt || !conversation.lastMessageText);
+        let latestMessageByConversation = new Map<string, any>();
 
-        const latestMessageByConversation = new Map<string, any>();
-        recentMessages.forEach((message: any) => {
-            if (message?.conversationId && !latestMessageByConversation.has(message.conversationId)) {
-                latestMessageByConversation.set(message.conversationId, message);
+        if (needsPreviewHydration && previewConversationIds.length > 0) {
+            const recentMessagesResult = await tablesDB.listRows(DB_ID, MSG_TABLE, [
+                Query.equal('conversationId', previewConversationIds),
+                Query.orderDesc('createdAt'),
+                Query.limit(Math.min(1000, previewConversationIds.length * 20))
+            ]).catch(() => ({ rows: [] as any[] }));
+
+            for (const message of recentMessagesResult.rows || []) {
+                if (message?.conversationId && !latestMessageByConversation.has(message.conversationId)) {
+                    latestMessageByConversation.set(message.conversationId, message);
+                }
             }
-        });
+        }
 
-        rows = await Promise.all(rows.map(async (conversation: any) => {
+        const rows = await Promise.all(conversationRows.map(async (conversation: any) => {
+            const participants = memberRowsByConversation.get(conversation.$id) || conversation.participants || [];
+            const normalizedConversation = {
+                ...conversation,
+                participants: Array.from(new Set((participants || []).filter(Boolean)))
+            };
             const latestMessage = latestMessageByConversation.get(conversation.$id);
             const hydratedConversation = latestMessage ? {
-                ...conversation,
-                lastMessageAt: getMessageActivityAt(latestMessage) || conversation.lastMessageAt,
-                lastMessageText: await getMessagePreview(latestMessage, conversation.$id)
-            } : conversation;
+                ...normalizedConversation,
+                lastMessageAt: getMessageActivityAt(latestMessage) || normalizedConversation.lastMessageAt,
+                lastMessageText: normalizedConversation.lastMessageText || await getMessagePreview(latestMessage, conversation.$id)
+            } : normalizedConversation;
 
             return this._decryptConversation(hydratedConversation, userId);
         }));
@@ -465,6 +522,19 @@ export const ChatService = {
             updatedAt: now
         }, conversationPermissions);
 
+        await Promise.all(uniqueParticipants.map((participantId) =>
+            tablesDB.createRow(
+                DB_ID,
+                CONV_MEMBERS_TABLE,
+                ID.unique(),
+                {
+                    conversationId: newConv.$id,
+                    userId: participantId,
+                },
+                buildConversationMemberPermissions(uniqueParticipants, creatorId)
+            ).catch(() => null)
+        ));
+
         // Cache the local key for this session
         if (convKey) {
             ecosystemSecurity.setConversationKey(newConv.$id, convKey);
@@ -547,8 +617,8 @@ export const ChatService = {
         let finalMetadata = metadata;
 
         try {
-            const rawConversation = await tablesDB.getRow(DB_ID, CONV_TABLE, conversationId);
-            conversation = await normalizeConversationRow(rawConversation);
+        const rawConversation = await tablesDB.getRow(DB_ID, CONV_TABLE, conversationId);
+            conversation = await this._hydrateConversationParticipants(await normalizeConversationRow(rawConversation));
         } catch (_e) {
             conversation = null;
         }
@@ -754,6 +824,19 @@ export const ChatService = {
         const conv = await this.getConversationById(conversationId);
         const participants = conv.participants || [];
         if (!participants.includes(userId)) {
+            const memberRows = await tablesDB.listRows(DB_ID, CONV_MEMBERS_TABLE, [
+                Query.equal('conversationId', conversationId),
+                Query.equal('userId', userId),
+                Query.limit(1)
+            ]).catch(() => ({ rows: [] as any[] }));
+
+            if (!memberRows.rows.length) {
+                await tablesDB.createRow(DB_ID, CONV_MEMBERS_TABLE, ID.unique(), {
+                    conversationId,
+                    userId
+                }, buildConversationMemberPermissions([...participants, userId], conv.creatorId || participants[0] || userId)).catch(() => null);
+            }
+
             const updated = await this.updateConversation(conversationId, {
                 participants: [...participants, userId]
             });
@@ -779,6 +862,16 @@ export const ChatService = {
 
         const participants = (conv.participants || []).filter((id: string) => id !== userId);
         const admins = (conv.admins || []).filter((id: string) => id !== userId);
+
+        const memberRows = await tablesDB.listRows(DB_ID, CONV_MEMBERS_TABLE, [
+            Query.equal('conversationId', conversationId),
+            Query.equal('userId', userId),
+            Query.limit(1)
+        ]).catch(() => ({ rows: [] as any[] }));
+        if (memberRows.rows[0]?.$id) {
+            await tablesDB.deleteRow(DB_ID, CONV_MEMBERS_TABLE, memberRows.rows[0].$id).catch(() => null);
+        }
+
         const updated = await this.updateConversation(conversationId, {
             participants,
             admins

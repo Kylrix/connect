@@ -21,6 +21,7 @@ export const APPWRITE_CONFIG = {
         },
         CHAT: {
             CONVERSATIONS: 'conversations',
+            CONVERSATION_MEMBERS: 'conversationMembers',
             MESSAGES: 'messages',
             ACCOUNT_EVENTS: 'accountEvents',
             APP_ACTIVITY: 'app_activity',

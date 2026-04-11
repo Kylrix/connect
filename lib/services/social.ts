@@ -28,6 +28,20 @@ const parseMomentMetadata = (moment: any): MomentMetadata | null => {
     return null;
 };
 
+const getMomentKind = (moment: any): MomentMetadata['type'] | null => {
+    const explicit = String(moment?.momentKind || '').trim().toLowerCase();
+    if (explicit === 'post' || explicit === 'reply' || explicit === 'pulse' || explicit === 'quote') {
+        return explicit;
+    }
+    return parseMomentMetadata(moment)?.type || null;
+};
+
+const getMomentSourceId = (moment: any): string | null => {
+    const explicit = String(moment?.sourceId || '').trim();
+    if (explicit) return explicit;
+    return parseMomentMetadata(moment)?.sourceId || null;
+};
+
 const fetchRowsByIds = async (databaseId: string, tableId: string, ids: string[]) => {
     const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
     if (!uniqueIds.length) return [];
@@ -53,28 +67,37 @@ export const SocialService = {
             ]);
 
             const likes = interactions.rows.filter((i: any) => i.emoji === 'like').length;
-            
-            // For replies and pulses, we have to look at the moments table
-            // This is slightly inefficient but works for now
-            const moments = await tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
-                Query.limit(100)
-            ]);
+
+            const related = await tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
+                Query.equal('sourceId', momentId),
+                Query.limit(200)
+            ]).catch(() => ({ rows: [] as any[] }));
 
             let replies = 0;
             let pulses = 0;
 
-            moments.rows.forEach((m: any) => {
-                try {
-                    if (!m.fileId) return;
-                    const meta = JSON.parse(m.fileId);
-                    if (meta.sourceId === momentId) {
-                        if (meta.type === 'reply') replies++;
-                        if (meta.type === 'pulse') pulses++;
-                    }
-            } catch (_e) {}
-        });
+            for (const m of related.rows || []) {
+                const kind = getMomentKind(m);
+                if (kind === 'reply') replies += 1;
+                if (kind === 'pulse') pulses += 1;
+            }
 
-        return { likes, replies, pulses };
+            if (!related.rows?.length) {
+                const legacy = await tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
+                    Query.orderDesc('$createdAt'),
+                    Query.limit(100)
+                ]).catch(() => ({ rows: [] as any[] }));
+
+                for (const m of legacy.rows || []) {
+                    const kind = getMomentKind(m);
+                    const sourceId = getMomentSourceId(m);
+                    if (sourceId !== momentId) continue;
+                    if (kind === 'reply') replies += 1;
+                    if (kind === 'pulse') pulses += 1;
+                }
+            }
+
+            return { likes, replies, pulses };
         } catch (_e) {
             return { likes: 0, replies: 0, pulses: 0 };
         }
@@ -99,18 +122,26 @@ export const SocialService = {
 
     async _listPulsesFor(sourceId: string) {
         try {
-            // We must scan recent moments and filter pulses referencing sourceId
             const moments = await tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
+                Query.equal('sourceId', sourceId),
+                Query.equal('momentKind', 'pulse'),
+                Query.orderDesc('$createdAt'),
+                Query.limit(100)
+            ]);
+
+            if (moments.rows.length) {
+                return moments.rows.map((m: any) => ({ userId: m.userId || m.creatorId, createdAt: m.$createdAt || m.createdAt }));
+            }
+
+            const legacy = await tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
                 Query.orderDesc('$createdAt'),
                 Query.limit(200)
             ]);
 
-            return moments.rows.filter((m: any) => {
-                try {
-                    if (!m.fileId) return false;
-                    const meta = JSON.parse(m.fileId);
-                    return meta.type === 'pulse' && meta.sourceId === sourceId;
-                } catch (_e) { return false; }
+            return legacy.rows.filter((m: any) => {
+                const kind = getMomentKind(m);
+                const legacySourceId = getMomentSourceId(m);
+                return kind === 'pulse' && legacySourceId === sourceId;
             }).map((m: any) => ({ userId: m.userId || m.creatorId, createdAt: m.$createdAt || m.createdAt }));
         } catch (e) {
             console.error('_listPulsesFor error', e);
@@ -189,16 +220,16 @@ export const SocialService = {
     },
 
     async enrichMoment(moment: any, currentUserId?: string) {
-        let metadata: MomentMetadata | null = null;
-        
-        // Attempt to parse metadata from fileId
-        try {
-            if (moment.fileId && (moment.fileId.startsWith('{') || moment.fileId.startsWith('['))) {
-                metadata = JSON.parse(moment.fileId);
+        const parsedMetadata = parseMomentMetadata(moment);
+        const resolvedKind = getMomentKind(moment);
+        const resolvedSourceId = getMomentSourceId(moment);
+        const metadata: MomentMetadata | null = (resolvedKind || resolvedSourceId || parsedMetadata)
+            ? {
+                type: resolvedKind || parsedMetadata?.type || 'post',
+                sourceId: resolvedSourceId || parsedMetadata?.sourceId || undefined,
+                attachments: parsedMetadata?.attachments || [],
             }
-        } catch (_e) {
-            // Not JSON, handle as legacy
-        }
+            : null;
 
         const enriched = { 
             ...moment, 
@@ -301,13 +332,16 @@ export const SocialService = {
                     Query.limit(1000)
                 ]).then((res) => res.rows || []).catch(() => [])
                 : Promise.resolve([]),
-            tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
-                Query.orderDesc('$createdAt'),
-                Query.limit(200)
-            ]).then((res) => res.rows || []).catch(() => []),
+            momentIds.length
+                ? tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
+                    Query.equal('sourceId', momentIds),
+                    Query.limit(1000)
+                ]).then((res) => res.rows || []).catch(() => [])
+                : Promise.resolve([]),
             userId
                 ? tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
                     Query.equal('userId', userId),
+                    Query.equal('momentKind', 'pulse'),
                     Query.orderDesc('$createdAt'),
                     Query.limit(200)
                 ]).then((res) => res.rows || []).catch(() => [])
@@ -326,19 +360,21 @@ export const SocialService = {
 
         const engagementBySource = new Map<string, { replies: number; pulses: number }>();
         recentMomentRows.forEach((moment: any) => {
-            const metadata = parseMomentMetadata(moment);
-            if (!metadata?.sourceId) return;
-            const counts = engagementBySource.get(metadata.sourceId) || { replies: 0, pulses: 0 };
-            if (metadata.type === 'reply') counts.replies += 1;
-            if (metadata.type === 'pulse') counts.pulses += 1;
-            engagementBySource.set(metadata.sourceId, counts);
+            const sourceId = getMomentSourceId(moment);
+            const kind = getMomentKind(moment);
+            if (!sourceId) return;
+            const counts = engagementBySource.get(sourceId) || { replies: 0, pulses: 0 };
+            if (kind === 'reply') counts.replies += 1;
+            if (kind === 'pulse') counts.pulses += 1;
+            engagementBySource.set(sourceId, counts);
         });
 
         const pulsedMomentIds = new Set<string>();
         userPulseRows.forEach((moment: any) => {
-            const metadata = parseMomentMetadata(moment);
-            if (metadata?.type === 'pulse' && metadata.sourceId) {
-                pulsedMomentIds.add(metadata.sourceId);
+            const sourceId = getMomentSourceId(moment);
+            const kind = getMomentKind(moment);
+            if (kind === 'pulse' && sourceId) {
+                pulsedMomentIds.add(sourceId);
             }
         });
 
@@ -552,6 +588,8 @@ export const SocialService = {
             userId: creatorId, 
             caption: content,
             type: 'image', // Database schema only accepts image/video
+            momentKind: type,
+            sourceId: sourceId || null,
             fileId: effectiveFileId, 
             createdAt: new Date().toISOString(),
             expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() 
@@ -601,16 +639,13 @@ export const SocialService = {
     async unpulseMoment(userId: string, sourceId: string) {
         const existing = await tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
             Query.equal('userId', userId),
+            Query.equal('momentKind', 'pulse'),
+            Query.equal('sourceId', sourceId),
             Query.orderDesc('$createdAt'),
             Query.limit(100)
         ]);
 
-        const pulseToDelete = existing.rows.find((m: any) => {
-            try {
-                const meta = JSON.parse(m.fileId);
-                return meta.type === 'pulse' && meta.sourceId === sourceId;
-            } catch (_e) { return false; }
-        });
+        const pulseToDelete = existing.rows[0] || null;
 
         if (pulseToDelete) {
             await this.deleteMoment(pulseToDelete.$id);
@@ -849,26 +884,23 @@ export const SocialService = {
     },
 
     async getReplies(momentId: string, currentUserId?: string) {
-        // Find moments where sourceId matches the current ID
-        // Note: Currently, sourceId is buried in a JSON string (fileId).
-        // Standard Appwrite queries won't find this.
-        // Optimization: Use a dedicated 'sourceId' string field in the DB.
-        // Fallback: Fetch latest and filter client-side (until we add sourceId field)
         const moments = await tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
+            Query.equal('sourceId', momentId),
+            Query.equal('momentKind', 'reply'),
             Query.orderDesc('$createdAt'),
             Query.limit(100)
         ]);
 
-        const replies = await Promise.all(
-            moments.rows
-                .filter((m: any) => {
-                    try {
-                        const meta = JSON.parse(m.fileId);
-                        return meta.sourceId === momentId && meta.type === 'reply';
-                    } catch (_e) { return false; }
-                })
-                .map(m => this.enrichMoment(m, currentUserId))
-        );
+        const replies = moments.rows.length
+            ? await Promise.all(moments.rows.map(m => this.enrichMoment(m, currentUserId)))
+            : await Promise.all(
+                (await tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
+                    Query.orderDesc('$createdAt'),
+                    Query.limit(100)
+                ])).rows
+                    .filter((m: any) => getMomentKind(m) === 'reply' && getMomentSourceId(m) === momentId)
+                    .map(m => this.enrichMoment(m, currentUserId))
+            );
 
         return replies;
     }
