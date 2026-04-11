@@ -265,9 +265,9 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
                     elevation={0}
                     sx={{ 
                         position: 'fixed', 
-                        bottom: 24, 
-                        left: 24, 
-                        right: 24, 
+                        bottom: { xs: 'calc(16px + env(safe-area-inset-bottom))', md: 24 }, 
+                        left: { xs: 16, md: 24 }, 
+                        right: { xs: 16, md: 24 }, 
                         display: { xs: 'block', md: 'none' },
                         borderRadius: '20px', 
                         overflow: 'hidden',
@@ -280,7 +280,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
                 >
                     <BottomNavigation
                         value={pathname}
-                        sx={{ bgcolor: 'transparent', height: 72 }}
+                        sx={{ bgcolor: 'transparent', height: 72, pb: 'env(safe-area-inset-bottom)' }}
                     >
                         {navItems.map((item) => (
                             <BottomNavigationAction
