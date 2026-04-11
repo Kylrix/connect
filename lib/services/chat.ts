@@ -63,8 +63,10 @@ const syncMessagePermissions = async (
 const normalizeConversationRow = async (conversation: any) => {
     if (!conversation) return conversation;
 
-    const participants = Array.isArray(conversation.participants) ? conversation.participants : [];
-    const normalizedParticipants = Array.from(new Set(participants.filter(Boolean)));
+    const participants: string[] = Array.isArray(conversation.participants)
+        ? conversation.participants.filter((participant: unknown): participant is string => typeof participant === 'string' && participant.length > 0)
+        : [];
+    const normalizedParticipants = Array.from(new Set(participants));
     const creatorId = conversation.creatorId;
 
     if (arraysEqual(participants, normalizedParticipants) && creatorId === conversation.creatorId) {
