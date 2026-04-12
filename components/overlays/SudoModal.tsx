@@ -2,10 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-    Dialog,
+    Drawer,
     DialogTitle,
     DialogContent,
-    DialogActions,
     Typography,
     Button,
     TextField,
@@ -13,7 +12,6 @@ import {
     IconButton,
     CircularProgress,
     Stack,
-    Fade,
     alpha,
     InputAdornment,
 } from "@mui/material";
@@ -228,23 +226,30 @@ export function SudoModal({
     }
 
     return (
-        <Dialog
+        <Drawer
             open={isOpen}
             onClose={() => { }} // Prevent closing by clicking outside
-            maxWidth="xs"
-            fullWidth
-            TransitionComponent={Fade}
+            anchor="bottom"
+            ModalProps={{ keepMounted: true }}
+            sx={{ zIndex: 2200 }}
             PaperProps={{
                 sx: {
-                    borderRadius: '32px',
-                    bgcolor: 'rgba(5, 5, 5, 0.03)',
-                    backdropFilter: 'blur(25px) saturate(180%)',
+                    borderTopLeftRadius: '32px',
+                    borderTopRightRadius: '32px',
+                    borderBottomLeftRadius: 0,
+                    borderBottomRightRadius: 0,
+                    bgcolor: '#0A0908',
+                    backdropFilter: 'none',
                     border: '1px solid rgba(255, 255, 255, 0.08)',
                     backgroundImage: 'none',
                     boxShadow: '0 25px 50px rgba(0, 0, 0, 0.6)',
                     width: '100%',
-                    maxWidth: '400px',
-                    overflow: 'hidden'
+                    maxWidth: '100vw',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: 'auto',
+                    maxHeight: 'calc(100dvh - 12px)',
                 }
             }}
         >
@@ -259,7 +264,7 @@ export function SudoModal({
                     100% { transform: scale(1); opacity: 1; }
                 }
             `}</style>
-            <DialogTitle component="div" sx={{ textAlign: 'center', pt: 6, pb: 1, position: 'relative' }}>
+            <DialogTitle component="div" sx={{ textAlign: 'center', pt: 5, pb: 1, position: 'relative', bgcolor: '#0A0908' }}>
                 <Box sx={{ position: 'absolute', top: -32, left: '50%', transform: 'translateX(-50%)' }}>
                     <Box sx={{ position: 'relative' }}>
                         <Logo 
@@ -308,7 +313,7 @@ export function SudoModal({
                 </Typography>
             </DialogTitle>
 
-            <DialogContent sx={{ pb: 4 }}>
+            <DialogContent sx={{ pb: 4, flex: '1 1 auto', minHeight: 0, overflowY: 'auto', scrollbarGutter: 'stable', bgcolor: '#0A0908' }}>
                 {isDetecting || (loading && !password) ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                         <CircularProgress sx={{ color: '#6366F1' }} />
@@ -495,10 +500,6 @@ export function SudoModal({
                     </Stack>
                 )}
             </DialogContent>
-
-            <DialogActions sx={{ flexDirection: 'column', p: 4, pt: 0, gap: 2 }}>
-                {/* No logout here */}
-            </DialogActions>
-        </Dialog>
+        </Drawer>
     );
 }
