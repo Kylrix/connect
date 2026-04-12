@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useTransition } from 'react';
 import { ChatService } from '@/lib/services/chat';
 import { useAuth } from '@/lib/auth';
 import Link from 'next/link';
@@ -96,6 +96,7 @@ export const ChatList = () => {
         lastMessageAt: string;
     }>>({});
     const [activePreviewConversationId, setActivePreviewConversationId] = useState<string | null>(null);
+    const [, startTransition] = useTransition();
 
     const isLikelyEncrypted = (val: string) => {
         if (!val) return false;
@@ -176,36 +177,40 @@ export const ChatList = () => {
 
     const handleConversationUpdated = useCallback((updatedConversation: any) => {
         if (!updatedConversation?.$id) return;
-        setConversations((prev) => {
-            const next = prev.map((conv) => conv.$id === updatedConversation.$id ? { ...conv, ...updatedConversation } : conv);
-            next.sort((a, b) => new Date(b.lastMessageAt || b.createdAt || 0).getTime() - new Date(a.lastMessageAt || a.createdAt || 0).getTime());
-            conversationsRef.current = next;
-            return next;
+        startTransition(() => {
+            setConversations((prev) => {
+                const next = prev.map((conv) => conv.$id === updatedConversation.$id ? { ...conv, ...updatedConversation } : conv);
+                next.sort((a, b) => new Date(b.lastMessageAt || b.createdAt || 0).getTime() - new Date(a.lastMessageAt || a.createdAt || 0).getTime());
+                conversationsRef.current = next;
+                return next;
+            });
         });
     }, []);
 
     const handleConversationDeleted = useCallback((conversationId: string) => {
         ChatService.clearConversationPreviewCache(conversationId);
-        setConversations((prev) => {
-            const next = prev.filter((conv) => conv.$id !== conversationId);
-            conversationsRef.current = next;
-            return next;
+        startTransition(() => {
+            setConversations((prev) => {
+                const next = prev.filter((conv) => conv.$id !== conversationId);
+                conversationsRef.current = next;
+                return next;
+            });
+            setLivePreviewByConversation((prev) => {
+                if (!prev[conversationId]) return prev;
+                const next = { ...prev };
+                delete next[conversationId];
+                return next;
+            });
+            setActivePreviewConversationId((current) => current === conversationId ? null : current);
+            setSelectedConversation((current: any) => current?.$id === conversationId ? null : current);
         });
-        setLivePreviewByConversation((prev) => {
-            if (!prev[conversationId]) return prev;
-            const next = { ...prev };
-            delete next[conversationId];
-            return next;
-        });
-        setActivePreviewConversationId((current) => current === conversationId ? null : current);
-        setSelectedConversation((current: any) => current?.$id === conversationId ? null : current);
     }, []);
 
     const loadConversations = React.useCallback(async () => {
         const requestId = ++loadRequestRef.current;
         try {
             if (!ecosystemSecurity.status.isUnlocked) {
-                setConversations([]);
+                startTransition(() => setConversations([]));
                 setLoading(false);
                 return;
             }
@@ -267,11 +272,13 @@ export const ChatList = () => {
                         const newSelfChat = await ChatService.createConversation([user!.$id], 'direct');
                         console.log('[ChatList] Self chat created:', newSelfChat.$id);
                         if (loadRequestRef.current !== requestId) return;
-                        setConversations((current) => {
-                            if (current.some((conv) => conv.$id === newSelfChat.$id)) return current;
-                            const next = [newSelfChat, ...current];
-                            conversationsRef.current = next;
-                            return next;
+                        startTransition(() => {
+                            setConversations((current) => {
+                                if (current.some((conv) => conv.$id === newSelfChat.$id)) return current;
+                                const next = [newSelfChat, ...current];
+                                conversationsRef.current = next;
+                                return next;
+                            });
                         });
                     } catch (e: unknown) {
                         console.error('[ChatList] Failed to auto-create self chat', e);
@@ -340,8 +347,10 @@ export const ChatList = () => {
             });
 
             console.log('[ChatList] Base conversations count:', sorted.length);
-            setConversations(sorted);
-            conversationsRef.current = sorted;
+            startTransition(() => {
+                setConversations(sorted);
+                conversationsRef.current = sorted;
+            });
             setLoading(false);
 
             void (async () => {
@@ -401,8 +410,10 @@ export const ChatList = () => {
                     const timeB = new Date(b.lastMessageAt || b.createdAt).getTime();
                     return timeB - timeA;
                 });
-                setConversations(next);
-                conversationsRef.current = next;
+                startTransition(() => {
+                    setConversations(next);
+                    conversationsRef.current = next;
+                });
             })();
         } catch (error: unknown) {
             console.error('Failed to load chats:', error);
@@ -419,7 +430,7 @@ export const ChatList = () => {
                 loadConversations();
             } else {
                 ChatService.clearConversationPreviewCache();
-                setConversations([]);
+                startTransition(() => setConversations([]));
                 setLoading(false);
             }
         });
@@ -445,7 +456,9 @@ export const ChatList = () => {
             if (isConversationEvent) {
                 if (response.events.some(e => e.includes('.delete'))) {
                     ChatService.clearConversationPreviewCache(relatedConversationId);
-                    setConversations(prev => prev.filter(c => c.$id !== relatedConversationId));
+                    startTransition(() => {
+                        setConversations(prev => prev.filter(c => c.$id !== relatedConversationId));
+                    });
                     return;
                 }
                 loadConversations();
@@ -454,15 +467,17 @@ export const ChatList = () => {
 
             if (response.events.some(e => e.includes('.delete'))) {
                 ChatService.clearConversationPreviewCache(relatedConversationId);
-                setConversations(prev => prev.filter(c => c.$id !== relatedConversationId));
-                conversationsRef.current = conversationsRef.current.filter(c => c.$id !== relatedConversationId);
-                setLivePreviewByConversation((prev) => {
-                    if (!prev[relatedConversationId]) return prev;
-                    const next = { ...prev };
-                    delete next[relatedConversationId];
-                    return next;
+                startTransition(() => {
+                    setConversations(prev => prev.filter(c => c.$id !== relatedConversationId));
+                    conversationsRef.current = conversationsRef.current.filter(c => c.$id !== relatedConversationId);
+                    setLivePreviewByConversation((prev) => {
+                        if (!prev[relatedConversationId]) return prev;
+                        const next = { ...prev };
+                        delete next[relatedConversationId];
+                        return next;
+                    });
+                    setActivePreviewConversationId((current) => current === relatedConversationId ? null : current);
                 });
-                setActivePreviewConversationId((current) => current === relatedConversationId ? null : current);
                 return;
             }
 
@@ -500,38 +515,42 @@ export const ChatList = () => {
                     setActivePreviewConversationId((current) => current === relatedConversationId ? null : current);
                 }, 900);
 
+                startTransition(() => {
+                    setConversations(prev => {
+                        const next = [...prev];
+                        const current = next[existingIndex];
+                        next[existingIndex] = {
+                            ...current,
+                            lastMessageAt: livePreviewAt,
+                            lastMessageId: payload.$id,
+                            lastMessageSenderId: payload.senderId || current.lastMessageSenderId,
+                            lastMessageText: livePreviewText,
+                        };
+
+                        next.sort((a, b) => new Date(b.lastMessageAt || b.createdAt || 0).getTime() - new Date(a.lastMessageAt || a.createdAt || 0).getTime());
+                        conversationsRef.current = next;
+                        return next;
+                    });
+                });
+                return;
+            }
+
+            startTransition(() => {
                 setConversations(prev => {
                     const next = [...prev];
                     const current = next[existingIndex];
                     next[existingIndex] = {
                         ...current,
-                        lastMessageAt: livePreviewAt,
-                        lastMessageId: payload.$id,
+                        lastMessageAt: payload.$createdAt || payload.createdAt || current.lastMessageAt,
+                        lastMessageId: payload.$id || current.lastMessageId,
                         lastMessageSenderId: payload.senderId || current.lastMessageSenderId,
-                        lastMessageText: livePreviewText,
+                        lastMessageText: formatPreviewFromMessage(payload) || current.lastMessageText,
                     };
 
                     next.sort((a, b) => new Date(b.lastMessageAt || b.createdAt || 0).getTime() - new Date(a.lastMessageAt || a.createdAt || 0).getTime());
                     conversationsRef.current = next;
                     return next;
                 });
-                return;
-            }
-
-            setConversations(prev => {
-                const next = [...prev];
-                const current = next[existingIndex];
-                next[existingIndex] = {
-                    ...current,
-                    lastMessageAt: payload.$createdAt || payload.createdAt || current.lastMessageAt,
-                    lastMessageId: payload.$id || current.lastMessageId,
-                    lastMessageSenderId: payload.senderId || current.lastMessageSenderId,
-                    lastMessageText: formatPreviewFromMessage(payload) || current.lastMessageText,
-                };
-
-                next.sort((a, b) => new Date(b.lastMessageAt || b.createdAt || 0).getTime() - new Date(a.lastMessageAt || a.createdAt || 0).getTime());
-                conversationsRef.current = next;
-                return next;
             });
         });
 

@@ -421,7 +421,7 @@ export default function ConversationActionsSheet({
     try {
       await ChatService.removeParticipant(currentConversation.$id, targetId);
       setGroupMembers((current) => current.filter((member: any) => (member.userId || member.$id) !== targetId));
-      setCurrentConversation((current) => {
+      setCurrentConversation((current: any) => {
         if (!current) return current;
         const nextParticipants = Array.isArray(current.participants)
           ? current.participants.filter((id: string) => id !== targetId)

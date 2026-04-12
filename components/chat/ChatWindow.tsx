@@ -2,7 +2,7 @@
 
 import type { Models } from 'appwrite';
 import { Query } from 'appwrite';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useTransition } from 'react';
 import { ChatService } from '@/lib/services/chat';
 import { StorageService } from '@/lib/services/storage';
 import { useAuth } from '@/lib/auth';
@@ -433,6 +433,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
     const [reactionPopoverAnchorEl, setReactionPopoverAnchorEl] = useState<HTMLElement | null>(null);
     const [reactionPopoverMessageId, setReactionPopoverMessageId] = useState<string | null>(null);
     const initialLoadRef = useRef<string | null>(null);
+    const [, startTransition] = useTransition();
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -521,8 +522,10 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                 if (otherId) {
                     try {
                         const profile = await UsersService.getProfileById(otherId);
-                        setPartnerProfile(profile || null);
-                        setPartnerVerification(getVerificationState(profile?.preferences || null));
+                        startTransition(() => {
+                            setPartnerProfile(profile || null);
+                            setPartnerVerification(getVerificationState(profile?.preferences || null));
+                        });
                         let avatarUrl = null;
                         if (profile?.avatar?.startsWith?.('http')) {
                             avatarUrl = profile.avatar;
@@ -533,21 +536,27 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                             } catch (_e) {}
                         }
                         seedIdentityCache({ ...profile, avatar: profile?.avatar || avatarUrl });
-                        setConversation({
-                            ...conv,
-                            name: profile ? (profile.displayName || profile.username) : `@${otherId.slice(0, 7)}`,
-                            avatarUrl
+                        startTransition(() => {
+                            setConversation({
+                                ...conv,
+                                name: profile ? (profile.displayName || profile.username) : `@${otherId.slice(0, 7)}`,
+                                avatarUrl
+                            });
                         });
                     } catch (_e: unknown) {
-                        setPartnerProfile(null);
-                        setPartnerVerification(getVerificationState(null));
-                        setConversation({ ...conv, name: `@${otherId.slice(0, 7)}` });
+                        startTransition(() => {
+                            setPartnerProfile(null);
+                            setPartnerVerification(getVerificationState(null));
+                            setConversation({ ...conv, name: `@${otherId.slice(0, 7)}` });
+                        });
                     }
                 } else {
                     const myProfile = await UsersService.getProfileById(user.$id);
                     const myName = myProfile ? (myProfile.displayName || myProfile.username) : (user.name || 'You');
-                    setPartnerProfile(null);
-                    setPartnerVerification(getVerificationState(null));
+                    startTransition(() => {
+                        setPartnerProfile(null);
+                        setPartnerVerification(getVerificationState(null));
+                    });
                     let avatarUrl = null;
                     if (myProfile?.avatar?.startsWith?.('http')) {
                         avatarUrl = myProfile.avatar;
@@ -558,12 +567,16 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                         } catch (_e) {}
                     }
                     seedIdentityCache({ ...myProfile, avatar: myProfile?.avatar || avatarUrl });
-                    setConversation({ ...conv, name: `${myName} (You)`, avatarUrl });
+                    startTransition(() => {
+                        setConversation({ ...conv, name: `${myName} (You)`, avatarUrl });
+                    });
                 }
             } else {
-                setPartnerProfile(null);
-                setPartnerVerification(getVerificationState(null));
-                setConversation(conv);
+                startTransition(() => {
+                    setPartnerProfile(null);
+                    setPartnerVerification(getVerificationState(null));
+                    setConversation(conv);
+                });
             }
         } catch (error: unknown) {
             console.error('Failed to load conversation:', error);
@@ -586,7 +599,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                 return acc;
             }, {});
 
-            setMessageReactions(grouped);
+            startTransition(() => setMessageReactions(grouped));
         } catch (error: unknown) {
             console.error('Failed to load reactions:', error);
         }
@@ -595,12 +608,14 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
     const loadMessages = React.useCallback(async () => {
         setLoading(true);
         try {
-            setMessageReactions({});
+            startTransition(() => setMessageReactions({}));
             if (user?.$id && ecosystemSecurity.status.isUnlocked) {
                 await UsersService.forceSyncProfileWithIdentity(user);
             }
-            const response = await ChatService.getMessages(conversationId, 50, 0, user?.$id);
-            const conv = await ChatService.getConversationById(conversationId, user?.$id);
+            const [response, conv] = await Promise.all([
+                ChatService.getMessages(conversationId, 50, 0, user?.$id),
+                ChatService.getConversationById(conversationId, user?.$id),
+            ]);
 
             // Filter by clearedAt if exists in settings
             let displayMessages = response.rows;
@@ -616,8 +631,10 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
             }
 
             // Reverse once for display order (bottom is newest)
-            setMessages(displayMessages.reverse() as unknown as ChatMessage[]);
-            await loadReactions();
+            startTransition(() => {
+                setMessages(displayMessages.reverse() as unknown as ChatMessage[]);
+            });
+            void loadReactions();
         } catch (error: unknown) {
             console.error('Failed to load messages:', error);
         } finally {
@@ -649,8 +666,8 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
             setIsUnlocked(status.isUnlocked);
 
             if (shouldReload) {
-                loadMessages();
-                loadConversation();
+                void loadMessages();
+                void loadConversation();
             }
         });
 
@@ -716,14 +733,16 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
 
             if (cancelled) return;
 
-            setSenderProfiles((prev) => {
-                const next = { ...prev };
-                resolved.forEach((entry) => {
-                    if (entry?.profile) {
-                        next[entry.senderId] = entry.profile;
-                    }
+            startTransition(() => {
+                setSenderProfiles((prev) => {
+                    const next = { ...prev };
+                    resolved.forEach((entry) => {
+                        if (entry?.profile) {
+                            next[entry.senderId] = entry.profile;
+                        }
+                    });
+                    return next;
                 });
-                return next;
             });
         };
 
@@ -740,16 +759,18 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
         const unsubscribe = subscribeIdentityCache((identity) => {
             if (!identity?.userId || !messageSenderIds.includes(identity.userId)) return;
 
-            setSenderProfiles((prev) => ({
-                ...prev,
-                [identity.userId]: {
-                    displayName: identity.displayName,
-                    username: identity.username,
-                    avatar: identity.avatar,
-                    avatarUrl: identity.avatar && identity.avatar.startsWith('http') ? identity.avatar : prev[identity.userId]?.avatarUrl || null,
-                    preferences: identity.preferences,
-                },
-            }));
+            startTransition(() => {
+                setSenderProfiles((prev) => ({
+                    ...prev,
+                    [identity.userId]: {
+                        displayName: identity.displayName,
+                        username: identity.username,
+                        avatar: identity.avatar,
+                        avatarUrl: identity.avatar && identity.avatar.startsWith('http') ? identity.avatar : prev[identity.userId]?.avatarUrl || null,
+                        preferences: identity.preferences,
+                    },
+                }));
+            });
         });
 
         return unsubscribe;
@@ -801,14 +822,18 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
 
             if (cancelled) return;
 
-            setSenderProfiles((prev) => {
-                const next = { ...prev };
-                resolved.forEach((entry) => {
-                    if (entry?.profile) {
-                        next[entry.participantId] = entry.profile;
-                    }
+            startTransition(() => {
+            startTransition(() => {
+                setSenderProfiles((prev) => {
+                    const next = { ...prev };
+                    resolved.forEach((entry) => {
+                        if (entry?.profile) {
+                            next[entry.participantId] = entry.profile;
+                        }
+                    });
+                    return next;
                 });
-                return next;
+            });
             });
         };
 
@@ -856,21 +881,27 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                             }
 
                             if (response.events.some(e => e.includes('.create'))) {
-                                setMessages(prev => {
-                                    const withoutOptimistic = prev.filter(m => {
-                                        const isOptimistic = m.$id && String(m.$id).startsWith('optimistic-');
-                                        if (isOptimistic) return m.content !== payload.content;
-                                        return true;
+                                startTransition(() => {
+                                    setMessages(prev => {
+                                        const withoutOptimistic = prev.filter(m => {
+                                            const isOptimistic = m.$id && String(m.$id).startsWith('optimistic-');
+                                            if (isOptimistic) return m.content !== payload.content;
+                                            return true;
+                                        });
+                                        if (withoutOptimistic.some(m => m.$id === payload.$id)) return withoutOptimistic;
+                                        return [...withoutOptimistic, payload];
                                     });
-                                    if (withoutOptimistic.some(m => m.$id === payload.$id)) return withoutOptimistic;
-                                    return [...withoutOptimistic, payload];
                                 });
                                 setTimeout(() => scrollToBottom(), 100);
                             } else {
-                                setMessages(prev => prev.map(m => m.$id === payload.$id ? payload : m));
+                                startTransition(() => {
+                                    setMessages(prev => prev.map(m => m.$id === payload.$id ? payload : m));
+                                });
                             }
                         } else if (response.events.some(e => e.includes('.delete'))) {
-                            setMessages(prev => prev.filter(m => m.$id === payload.$id));
+                            startTransition(() => {
+                                setMessages(prev => prev.filter(m => m.$id === payload.$id));
+                            });
                         }
                     }
                 }
@@ -904,24 +935,28 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
 
                     if (response.events.some((event) => event.includes('.delete'))) {
                         if (!payload.messageId) return;
-                        setMessageReactions((prev) => {
-                            const next = { ...prev };
-                            const existing = next[payload.messageId || ''] || [];
-                            const filtered = existing.filter((reaction) => reaction.$id !== payload.$id);
-                            if (filtered.length) next[payload.messageId || ''] = filtered;
-                            else delete next[payload.messageId || ''];
-                            return next;
+                        startTransition(() => {
+                            setMessageReactions((prev) => {
+                                const next = { ...prev };
+                                const existing = next[payload.messageId || ''] || [];
+                                const filtered = existing.filter((reaction) => reaction.$id !== payload.$id);
+                                if (filtered.length) next[payload.messageId || ''] = filtered;
+                                else delete next[payload.messageId || ''];
+                                return next;
+                            });
                         });
                         return;
                     }
 
                     if (!payload.messageId || !payload.$id) return;
-                    setMessageReactions((prev) => {
-                        const next = { ...prev };
-                        const existing = next[payload.messageId as string] || [];
-                        const filtered = existing.filter((reaction) => reaction.$id !== payload.$id);
-                        next[payload.messageId as string] = [...filtered, payload as ChatReaction];
-                        return next;
+                    startTransition(() => {
+                        setMessageReactions((prev) => {
+                            const next = { ...prev };
+                            const existing = next[payload.messageId as string] || [];
+                            const filtered = existing.filter((reaction) => reaction.$id !== payload.$id);
+                            next[payload.messageId as string] = [...filtered, payload as ChatReaction];
+                            return next;
+                        });
                     });
                 }
             );
@@ -1063,7 +1098,9 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
             status: 'sending'
         };
 
-        setMessages(prev => [...prev, optimisticMessage]);
+        startTransition(() => {
+            setMessages(prev => [...prev, optimisticMessage]);
+        });
         setTimeout(() => scrollToBottom(), 50);
         await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
@@ -1091,11 +1128,15 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
             // CRITICAL: We MUST override the content back to plaintext. The sentMessage from the API 
             // contains the encrypted blob, and if we set it as is, the UI will show gibberish!
             const messageForState = { ...sentMessage, content: text } as unknown as ChatMessage;
-            setMessages(prev => prev.map(m => m.$id === optimisticId ? messageForState : m));
+            startTransition(() => {
+                setMessages(prev => prev.map(m => m.$id === optimisticId ? messageForState : m));
+            });
         } catch (error: unknown) {
             console.error('Failed to send message:', error);
             // Mark optimistic message as failed
-            setMessages(prev => prev.map(m => m.$id === optimisticId ? ({ ...m, status: 'error' } as any) : m));
+            startTransition(() => {
+                setMessages(prev => prev.map(m => m.$id === optimisticId ? ({ ...m, status: 'error' } as any) : m));
+            });
             setAttachment(file);
             setReplyingTo(previousReplyingTo);
             return false;

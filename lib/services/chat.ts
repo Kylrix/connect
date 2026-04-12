@@ -1244,7 +1244,6 @@ export const ChatService = {
             const updatedParticipants = await getConversationMemberSnapshot(conversationId, [...participants, userId]);
             const updated = await this.updateConversation(conversationId, {
                 participants: updatedParticipants,
-                participantCount: updatedParticipants.length,
             });
             await syncConversationAccess(
                 conversationId,
@@ -1334,7 +1333,6 @@ export const ChatService = {
         const updatedParticipants = await getConversationMemberSnapshot(conversationId, participants);
         const updated = await this.updateConversation(conversationId, {
             participants: updatedParticipants,
-            participantCount: updatedParticipants.length,
             admins
         });
         await revokeConversationAvatarAccess(
