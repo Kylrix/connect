@@ -16,6 +16,7 @@ import {
 import { Users, ShieldCheck, ArrowRight } from 'lucide-react';
 
 import { AppShell } from '@/components/layout/AppShell';
+import { useAuth } from '@/lib/auth';
 import { KYLRIX_AUTH_URI } from '@/lib/constants';
 
 type InvitePreview = {
@@ -32,6 +33,7 @@ export default function GroupInvitePage() {
   const params = useParams();
   const router = useRouter();
   const conversationId = params.conversationId as string;
+  const { user, loading } = useAuth();
 
   const [preview, setPreview] = useState<InvitePreview | null>(null);
   const [requestState, setRequestState] = useState<'idle' | 'loading' | 'pending' | 'joined' | 'error'>('idle');
@@ -41,6 +43,14 @@ export default function GroupInvitePage() {
     if (!conversationId || typeof window === 'undefined') return '';
     return `${window.location.origin}/groups/invite/${conversationId}`;
   }, [conversationId]);
+
+  useEffect(() => {
+    if (loading || user || !inviteUrl) return;
+
+    const loginUrl = new URL('/login', 'https://accounts.kylrix.space');
+    loginUrl.searchParams.set('source', inviteUrl);
+    window.location.replace(loginUrl.toString());
+  }, [inviteUrl, loading, user]);
 
   useEffect(() => {
     if (!conversationId) return;
