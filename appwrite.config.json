@@ -3120,6 +3120,15 @@
                     "format": ""
                 },
                 {
+                    "key": "inviteMeta",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 65535,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
                     "key": "category",
                     "type": "string",
                     "required": false,

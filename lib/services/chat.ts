@@ -93,6 +93,49 @@ type LockboxEntry = {
 
 const buildLockboxMetadata = (payload: Record<string, unknown>) => JSON.stringify(payload);
 
+type InviteMeta = Record<string, unknown> & {
+    name?: string;
+    description?: string;
+};
+
+const parseInviteMeta = (value: unknown): InviteMeta | null => {
+    if (!value) return null;
+    if (typeof value === 'object') return value as InviteMeta;
+    if (typeof value !== 'string') return null;
+
+    try {
+        const parsed = JSON.parse(value);
+        return parsed && typeof parsed === 'object' ? parsed as InviteMeta : null;
+    } catch {
+        return null;
+    }
+};
+
+const buildInviteMeta = (current: any, patch: Record<string, unknown>) => {
+    const existing = parseInviteMeta(current?.inviteMeta) || {};
+    const next: InviteMeta = {
+        ...existing,
+    };
+
+    if (Object.prototype.hasOwnProperty.call(patch, 'name')) {
+        next.name = typeof patch.name === 'string' ? patch.name : '';
+    } else if (typeof current?.name === 'string') {
+        next.name = current.name;
+    } else if (!Object.prototype.hasOwnProperty.call(next, 'name')) {
+        next.name = '';
+    }
+
+    if (Object.prototype.hasOwnProperty.call(patch, 'description')) {
+        next.description = typeof patch.description === 'string' ? patch.description : '';
+    } else if (typeof current?.description === 'string') {
+        next.description = current.description;
+    } else if (!Object.prototype.hasOwnProperty.call(next, 'description')) {
+        next.description = '';
+    }
+
+    return JSON.stringify(next);
+};
+
 async function getPermissionUpdateAuth(auth?: { jwt?: string; cookie?: string }) {
     let jwt = auth?.jwt || null;
     if (!jwt && !auth?.cookie) {
@@ -626,6 +669,9 @@ export const ChatService = {
             participantCount: uniqueParticipants.length,
             type: type || 'direct',
             name: encryptedName || 'Direct Chat',
+            inviteMeta: null,
+            inviteLink: null,
+            inviteLinkExpiry: null,
             creatorId,
             admins: type === 'group' ? [creatorId] : uniqueParticipants,
             isPinned: [],
@@ -989,10 +1035,20 @@ export const ChatService = {
         tags: string[];
         inviteLink: string | null;
         inviteLinkExpiry: string | null;
+        inviteMeta: string | null;
     }>) {
-        return await tablesDB.updateRow(DB_ID, CONV_TABLE, conversationId, {
-            ...data
-        });
+        const current = await this.getConversationById(conversationId).catch(() => null);
+        const patch: Record<string, unknown> = { ...data };
+        const nextInviteLink = Object.prototype.hasOwnProperty.call(patch, 'inviteLink')
+            ? patch.inviteLink
+            : current?.inviteLink;
+        const inviteEnabled = Boolean(nextInviteLink && nextInviteLink === conversationId);
+
+        if (inviteEnabled && !Object.prototype.hasOwnProperty.call(patch, 'inviteMeta')) {
+            patch.inviteMeta = buildInviteMeta(current, patch);
+        }
+
+        return await tablesDB.updateRow(DB_ID, CONV_TABLE, conversationId, patch);
     },
 
     async addParticipant(conversationId: string, userId: string) {
@@ -1180,7 +1236,7 @@ export const ChatService = {
     },
 
     async updateConversationInvite(conversationId: string, enabled: boolean) {
-        return await tablesDB.updateRow(DB_ID, CONV_TABLE, conversationId, {
+        return await this.updateConversation(conversationId, {
             inviteLink: enabled ? conversationId : null,
             inviteLinkExpiry: null,
         });

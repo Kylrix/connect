@@ -160,6 +160,9 @@ export default function ConversationActionsSheet({
   const [pendingJoinRequests, setPendingJoinRequests] = useState<any[]>([]);
   const [pendingRequestsLoading, setPendingRequestsLoading] = useState(false);
   const [requesterProfiles, setRequesterProfiles] = useState<Record<string, any>>({});
+  const [groupNameDraft, setGroupNameDraft] = useState('');
+  const [groupDescriptionDraft, setGroupDescriptionDraft] = useState('');
+  const [detailsSaving, setDetailsSaving] = useState(false);
   const [memberTab, setMemberTab] = useState<'members' | 'add' | 'remove'>('members');
   const [memberQuery, setMemberQuery] = useState('');
   const [memberResults, setMemberResults] = useState<any[]>([]);
@@ -248,6 +251,8 @@ export default function ConversationActionsSheet({
   useEffect(() => {
     if (!open || !conversation) return;
     setCurrentConversation(conversation);
+    setGroupNameDraft(conversation?.name || '');
+    setGroupDescriptionDraft(conversation?.description || '');
     setMemberTab('members');
     setMemberQuery('');
     setMemberResults([]);
@@ -426,6 +431,32 @@ export default function ConversationActionsSheet({
       toast.error(error?.message || 'Failed to update invite link');
     } finally {
       setMutating(false);
+    }
+  };
+
+  const handleSaveGroupDetails = async () => {
+    if (!currentConversation?.$id) return;
+    const nextName = groupNameDraft.trim();
+    const nextDescription = groupDescriptionDraft.trim();
+
+    if (!nextName) {
+      toast.error('Group name is required');
+      return;
+    }
+
+    setDetailsSaving(true);
+    try {
+      await ChatService.updateConversation(currentConversation.$id, {
+        name: nextName,
+        description: nextDescription,
+      });
+      await refreshConversation();
+      toast.success('Group details updated');
+    } catch (error: any) {
+      console.error('[ConversationActionsSheet] Failed to update group details:', error);
+      toast.error(error?.message || 'Failed to update group details');
+    } finally {
+      setDetailsSaving(false);
     }
   };
 
@@ -643,6 +674,45 @@ export default function ConversationActionsSheet({
                     disabled={!inviteEnabled}
                   >
                     Copy link
+                  </Button>
+                </Stack>
+              </Paper>
+            </Box>
+          )}
+
+          {isAdmin && isGroup && (
+            <Box sx={{ px: 2.5, pt: 1.5 }}>
+              <Paper
+                sx={{
+                  p: 1.5,
+                  borderRadius: '18px',
+                  bgcolor: 'rgba(255,255,255,0.02)',
+                  border: '1px solid rgba(255,255,255,0.05)',
+                }}
+              >
+                <Stack spacing={1.5}>
+                  <Typography sx={{ fontWeight: 800 }}>Group details</Typography>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Group name"
+                    value={groupNameDraft}
+                    onChange={(e) => setGroupNameDraft(e.target.value)}
+                  />
+                  <TextField
+                    fullWidth
+                    multiline
+                    minRows={3}
+                    label="Description"
+                    value={groupDescriptionDraft}
+                    onChange={(e) => setGroupDescriptionDraft(e.target.value)}
+                  />
+                  <Button
+                    variant="contained"
+                    onClick={() => void handleSaveGroupDetails()}
+                    disabled={detailsSaving}
+                  >
+                    Save details
                   </Button>
                 </Stack>
               </Paper>
