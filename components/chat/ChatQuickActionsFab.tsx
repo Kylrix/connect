@@ -221,6 +221,19 @@ export default function ChatQuickActionsFab({ hidden = false }: { hidden?: boole
 
   return (
     <>
+      <Box
+        aria-hidden
+        sx={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 999,
+          pointerEvents: 'none',
+          opacity: open ? 1 : 0,
+          transition: 'opacity 220ms ease',
+          backdropFilter: open ? 'blur(14px) saturate(170%)' : 'blur(0px)',
+          bgcolor: open ? 'rgba(10, 9, 8, 0.22)' : 'transparent',
+        }}
+      />
       <SpeedDial
         ariaLabel="Quick chat actions"
         sx={{
@@ -233,6 +246,15 @@ export default function ChatQuickActionsFab({ hidden = false }: { hidden?: boole
             color: '#000000',
             boxShadow: '0 0 30px rgba(99, 102, 241, 0.4)',
             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              inset: 0,
+              borderRadius: '50%',
+              background: 'linear-gradient(180deg, rgba(255,255,255,0.2), rgba(255,255,255,0.02))',
+              opacity: 0.8,
+              pointerEvents: 'none',
+            },
             '&:hover': {
               bgcolor: '#00D1DA',
               transform: 'scale(1.1) rotate(90deg)',
@@ -240,20 +262,34 @@ export default function ChatQuickActionsFab({ hidden = false }: { hidden?: boole
             },
           },
           '& .MuiSpeedDialAction-fab': {
-            bgcolor: 'rgba(10, 10, 10, 0.98)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            color: 'rgba(255, 255, 255, 0.7)',
-            transition: 'all 0.2s ease',
+            bgcolor: 'rgba(10, 10, 10, 0.72)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
+            color: 'rgba(255, 255, 255, 0.78)',
+            transition: 'all 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
+            backdropFilter: 'blur(16px) saturate(180%)',
+            clipPath: 'polygon(18% 0, 100% 0, 82% 100%, 0 100%)',
+            borderRadius: '14px',
+            boxShadow: '0 16px 40px rgba(0, 0, 0, 0.38)',
+            transform: 'skewX(-12deg)',
+            '& .MuiSvgIcon-root, svg': {
+              transform: 'skewX(12deg)',
+            },
             '&:hover': {
-              bgcolor: 'rgba(99, 102, 241, 0.1)',
+              bgcolor: 'rgba(99, 102, 241, 0.14)',
               color: '#6366F1',
               borderColor: '#6366F1',
-              transform: 'translateY(-4px)',
+              transform: 'skewX(-12deg) translateY(-4px)',
+            },
+            '& .MuiSpeedDialAction-staticTooltipLabel': {
+              transform: 'translateY(-1px)',
             },
           },
+          '& .MuiSpeedDialAction-fab + .MuiSpeedDialAction-fab': {
+            mt: 1,
+          },
           '& .MuiSpeedDialAction-staticTooltipLabel': {
-            bgcolor: 'rgba(10, 10, 10, 0.98)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
+            bgcolor: 'rgba(10, 10, 10, 0.88)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
             color: '#fff',
             fontFamily: 'var(--font-satoshi)',
             fontWeight: 700,
@@ -261,7 +297,8 @@ export default function ChatQuickActionsFab({ hidden = false }: { hidden?: boole
             textTransform: 'uppercase',
             fontSize: '0.75rem',
             padding: '6px 12px',
-            borderRadius: '8px',
+            borderRadius: '10px',
+            backdropFilter: 'blur(14px) saturate(180%)',
           },
         }}
         icon={<SpeedDialIcon icon={<Plus size={24} strokeWidth={1.5} />} openIcon={<X size={24} strokeWidth={1.5} />} />}
@@ -269,10 +306,10 @@ export default function ChatQuickActionsFab({ hidden = false }: { hidden?: boole
         onOpen={() => setOpen(true)}
         onClose={() => setOpen(false)}
         direction="up"
-      >
+        >
         <SpeedDialAction
-          icon={<Phone size={20} strokeWidth={1.8} />}
-          tooltipTitle="New Call"
+          icon={<Phone size={20} strokeWidth={1.5} color="#F59E0B" />}
+          tooltipTitle="Call"
           tooltipOpen
           onClick={() => {
             setOpen(false);
@@ -280,14 +317,14 @@ export default function ChatQuickActionsFab({ hidden = false }: { hidden?: boole
           }}
         />
         <SpeedDialAction
-          icon={<Users size={20} strokeWidth={1.8} />}
-          tooltipTitle="New Group"
+          icon={<Users size={20} strokeWidth={1.5} color="#10B981" />}
+          tooltipTitle="Group"
           tooltipOpen
           onClick={() => openComposer('group')}
         />
         <SpeedDialAction
-          icon={<MessageCircle size={20} strokeWidth={1.8} />}
-          tooltipTitle="New Chat"
+          icon={<MessageCircle size={20} strokeWidth={1.5} color="#6366F1" />}
+          tooltipTitle="Chat"
           tooltipOpen
           onClick={() => openComposer('chat')}
         />
