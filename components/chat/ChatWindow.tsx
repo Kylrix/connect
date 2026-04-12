@@ -24,6 +24,7 @@ import {
     Toolbar,
     Menu,
     MenuItem,
+    Popover,
     Divider,
     Avatar,
     Stack,
@@ -157,6 +158,20 @@ const groupMessageReactions = (reactions: ChatReaction[], currentUserId?: string
     });
 
     return Array.from(groups.values());
+};
+
+const sortReactionGroups = (reactions: ChatReaction[], currentUserId?: string | null) =>
+    groupMessageReactions(reactions, currentUserId).sort((left, right) => {
+        if (right.count !== left.count) return right.count - left.count;
+        return left.emoji.localeCompare(right.emoji);
+    });
+
+const getReactionActorLabel = (
+    userId: string,
+    senderProfiles: Record<string, SenderProfile>
+) => {
+    const cached = senderProfiles[userId] || getCachedIdentityById(userId);
+    return cached?.displayName || cached?.username || `@${userId.slice(0, 7)}`;
 };
 
 const ChatDraftInput = React.memo(function ChatDraftInput({
@@ -393,6 +408,8 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
     const [conversationReadAt, setConversationReadAt] = useState(0);
     const [senderProfiles, setSenderProfiles] = useState<Record<string, SenderProfile>>({});
     const [messageReactions, setMessageReactions] = useState<Record<string, ChatReaction[]>>({});
+    const [reactionPopoverAnchorEl, setReactionPopoverAnchorEl] = useState<HTMLElement | null>(null);
+    const [reactionPopoverMessageId, setReactionPopoverMessageId] = useState<string | null>(null);
     const initialLoadRef = useRef<string | null>(null);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -427,6 +444,38 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
             });
     }, [conversation?.participants, conversation?.type, senderProfiles, user?.$id]);
     const reactionsByMessageId = React.useMemo(() => messageReactions, [messageReactions]);
+    const reactionPopoverMessage = React.useMemo(
+        () => messages.find((message) => message.$id === reactionPopoverMessageId) || null,
+        [messages, reactionPopoverMessageId]
+    );
+    const reactionPopoverRows = React.useMemo(() => {
+        if (!reactionPopoverMessageId) return [];
+        return reactionsByMessageId[reactionPopoverMessageId] || [];
+    }, [reactionPopoverMessageId, reactionsByMessageId]);
+    const reactionPopoverGroups = React.useMemo(() => {
+        const groups = new Map<string, { emoji: string; actors: { userId: string; label: string; isSelf: boolean }[] }>();
+
+        reactionPopoverRows.forEach((reaction) => {
+            if (!reaction?.emoji || !reaction?.userId) return;
+            const existing = groups.get(reaction.emoji);
+            const actor = {
+                userId: reaction.userId,
+                label: getReactionActorLabel(reaction.userId, senderProfiles),
+                isSelf: reaction.userId === user?.$id,
+            };
+
+            if (existing) {
+                if (!existing.actors.some((entry) => entry.userId === reaction.userId)) {
+                    existing.actors.push(actor);
+                }
+                return;
+            }
+
+            groups.set(reaction.emoji, { emoji: reaction.emoji, actors: [actor] });
+        });
+
+        return Array.from(groups.values());
+    }, [reactionPopoverRows, senderProfiles, user?.$id]);
 
     const isSelf = conversation?.type === 'direct' && conversation?.participants && (conversation.participants.length === 1 || conversation.participants.length === 2) && conversation.participants.every((p: string) => p === user?.$id);
     const hasRepliedToPartner = messages.some((message) => message.senderId === user?.$id);
@@ -553,6 +602,16 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
             setLoading(false);
         }
     }, [conversationId, loadReactions, user]);
+
+    const openReactionPopover = React.useCallback((event: React.MouseEvent<HTMLElement>, messageId: string) => {
+        setReactionPopoverAnchorEl(event.currentTarget);
+        setReactionPopoverMessageId(messageId);
+    }, []);
+
+    const closeReactionPopover = React.useCallback(() => {
+        setReactionPopoverAnchorEl(null);
+        setReactionPopoverMessageId(null);
+    }, []);
 
     useEffect(() => {
         if (user?.$id && conversationId) {
@@ -1921,7 +1980,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                                                 {renderMessageContent(msg)}
                                             </Paper>
                                             {(() => {
-                                                const reactionGroups = groupMessageReactions(reactionsByMessageId[msg.$id] || [], user?.$id);
+                                                const reactionGroups = sortReactionGroups(reactionsByMessageId[msg.$id] || [], user?.$id).slice(0, 3);
                                                 if (!reactionGroups.length) return null;
 
                                                 return (
@@ -1929,37 +1988,36 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                                                         sx={{
                                                             display: 'flex',
                                                             flexWrap: 'wrap',
-                                                            gap: 0.5,
+                                                            gap: 0.75,
                                                             alignSelf: isOutgoing ? 'flex-end' : 'flex-start',
                                                             maxWidth: '100%',
-                                                            mt: 0.75,
+                                                            mt: 0.5,
                                                             px: 0.5,
                                                         }}
                                                     >
                                                         {reactionGroups.map((reaction) => (
                                                             <Box
                                                                 key={reaction.emoji}
+                                                                component="button"
+                                                                type="button"
+                                                                onClick={(e) => openReactionPopover(e, msg.$id)}
                                                                 sx={{
-                                                                    display: 'inline-flex',
-                                                                    alignItems: 'center',
-                                                                    gap: 0.5,
-                                                                    px: 1,
-                                                                    py: 0.35,
-                                                                    borderRadius: '999px',
-                                                                    bgcolor: reaction.reactedBySelf ? alpha('#F59E0B', 0.16) : 'rgba(255, 255, 255, 0.05)',
-                                                                    border: '1px solid',
-                                                                    borderColor: reaction.reactedBySelf ? 'rgba(245, 158, 11, 0.45)' : 'rgba(255, 255, 255, 0.08)',
-                                                                    boxShadow: reaction.reactedBySelf ? '0 8px 20px rgba(0,0,0,0.24)' : 'none',
+                                                                    p: 0,
+                                                                    m: 0,
+                                                                    border: 0,
+                                                                    background: 'transparent',
+                                                                    color: 'inherit',
+                                                                    cursor: 'pointer',
+                                                                    fontSize: '1rem',
+                                                                    lineHeight: 1,
+                                                                    opacity: reaction.reactedBySelf ? 1 : 0.95,
+                                                                    '&:hover': {
+                                                                        opacity: 1,
+                                                                        transform: 'translateY(-1px)',
+                                                                    },
                                                                 }}
                                                             >
-                                                                <Typography component="span" sx={{ fontSize: '0.9rem', lineHeight: 1 }}>
-                                                                    {reaction.emoji}
-                                                                </Typography>
-                                                                {reaction.count > 1 && (
-                                                                    <Typography variant="caption" sx={{ fontSize: '0.65rem', fontWeight: 800, color: 'rgba(255,255,255,0.78)' }}>
-                                                                        {reaction.count}
-                                                                    </Typography>
-                                                                )}
+                                                                {reaction.emoji}
                                                             </Box>
                                                         ))}
                                                     </Box>
@@ -1996,6 +2054,66 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                 )}
                 <div ref={messagesEndRef} />
             </Box>
+
+            <Popover
+                open={Boolean(reactionPopoverAnchorEl && reactionPopoverMessageId)}
+                anchorEl={reactionPopoverAnchorEl}
+                onClose={closeReactionPopover}
+                anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+                transformOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                PaperProps={{
+                    sx: {
+                        mt: 1,
+                        minWidth: 240,
+                        maxWidth: 320,
+                        borderRadius: '16px',
+                        bgcolor: 'rgba(15, 15, 15, 0.96)',
+                        backdropFilter: 'blur(18px)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        backgroundImage: 'none',
+                        p: 1.5,
+                    }
+                }}
+            >
+                <Stack spacing={1}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                        Reactions
+                    </Typography>
+                    {reactionPopoverGroups.length ? (
+                        reactionPopoverGroups.map((group) => (
+                            <Box key={group.emoji} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                <Typography component="div" sx={{ fontSize: '1rem', lineHeight: 1 }}>
+                                    {group.emoji}
+                                </Typography>
+                                <Stack spacing={0.35}>
+                                    {group.actors.map((actor) => (
+                                        <Typography
+                                            key={`${group.emoji}-${actor.userId}`}
+                                            variant="body2"
+                                            sx={{
+                                                fontSize: '0.82rem',
+                                                color: actor.isSelf ? '#F59E0B' : 'text.secondary',
+                                                fontWeight: actor.isSelf ? 700 : 500,
+                                            }}
+                                        >
+                                            {actor.label}
+                                        </Typography>
+                                    ))}
+                                </Stack>
+                            </Box>
+                        ))
+                    ) : (
+                        <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.82rem' }}>
+                            No reactions yet.
+                        </Typography>
+                    )}
+                    {reactionPopoverMessage && (
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem', lineHeight: 1.4 }}>
+                            {String(reactionPopoverMessage.content || '').slice(0, 96)}
+                        </Typography>
+                    )}
+                </Stack>
+            </Popover>
 
             {/* Input Area */}
             <Box sx={{ p: 2, pb: isMobile ? 4 : 2, bgcolor: 'transparent', position: 'relative', zIndex: 2 }}>
