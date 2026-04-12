@@ -197,7 +197,7 @@ export const ChatList = () => {
             return next;
         });
         setActivePreviewConversationId((current) => current === conversationId ? null : current);
-        setSelectedConversation((current) => current?.$id === conversationId ? null : current);
+        setSelectedConversation((current: any) => current?.$id === conversationId ? null : current);
     }, []);
 
     const loadConversations = React.useCallback(async () => {

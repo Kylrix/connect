@@ -16,6 +16,7 @@ import {
     Paper,
     Typography,
     TextField,
+    InputAdornment,
     IconButton,
     Button,
     AppBar,
@@ -57,6 +58,7 @@ import {
     X,
     Reply,
     Copy,
+    AtSign,
 } from 'lucide-react';
 import { NoteSelectorModal } from './NoteSelectorModal';
 import { SecretSelectorModal } from './SecretSelectorModal';
@@ -129,6 +131,8 @@ const ChatDraftInput = React.memo(function ChatDraftInput({
     attachment,
     sending,
     isRecording,
+    enableMentions,
+    mentionTargets,
     onAttach,
     onSend,
     onToggleRecording,
@@ -136,17 +140,42 @@ const ChatDraftInput = React.memo(function ChatDraftInput({
     attachment: File | null;
     sending: boolean;
     isRecording: boolean;
+    enableMentions?: boolean;
+    mentionTargets?: Array<{ id: string; label: string; token: string }>;
     onAttach: (event: React.MouseEvent<HTMLElement>) => void;
     onSend: (text: string) => Promise<boolean>;
     onToggleRecording: () => void;
 }) {
     const [draft, setDraft] = useState('');
+    const [mentionAnchorEl, setMentionAnchorEl] = useState<null | HTMLElement>(null);
     const textRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
     const submitDraft = React.useCallback(async () => {
         const didSend = await onSend(draft);
         if (didSend) setDraft('');
     }, [draft, onSend]);
+
+    const insertMention = React.useCallback((token: string) => {
+        const input = textRef.current;
+        if (!input) {
+            setDraft((prev) => `${prev}${prev && !prev.endsWith(' ') ? ' ' : ''}${token} `);
+            return;
+        }
+
+        const start = input.selectionStart ?? draft.length;
+        const end = input.selectionEnd ?? draft.length;
+        const before = draft.slice(0, start);
+        const after = draft.slice(end);
+        const prefix = before && !before.endsWith(' ') ? ' ' : '';
+        const nextDraft = `${before}${prefix}${token} ${after}`;
+        setDraft(nextDraft);
+
+        requestAnimationFrame(() => {
+            const cursor = before.length + prefix.length + token.length + 1;
+            input.focus();
+            input.setSelectionRange(cursor, cursor);
+        });
+    }, [draft]);
 
     return (
         <>
@@ -219,6 +248,23 @@ const ChatDraftInput = React.memo(function ChatDraftInput({
                             px: 1.5,
                         },
                     }}
+                    InputProps={{
+                        startAdornment: enableMentions ? (
+                            <InputAdornment position="start">
+                                <IconButton
+                                    size="small"
+                                    onClick={(e) => setMentionAnchorEl(e.currentTarget)}
+                                    sx={{
+                                        color: 'text.secondary',
+                                        mr: 0.5,
+                                        '&:hover': { color: '#F59E0B' },
+                                    }}
+                                >
+                                    <AtSign size={16} strokeWidth={2} />
+                                </IconButton>
+                            </InputAdornment>
+                        ) : undefined,
+                    }}
                 />
 
                 <IconButton
@@ -259,6 +305,33 @@ const ChatDraftInput = React.memo(function ChatDraftInput({
                     </Box>
                 </IconButton>
             </Box>
+
+            <Menu
+                anchorEl={mentionAnchorEl}
+                open={Boolean(mentionAnchorEl)}
+                onClose={() => setMentionAnchorEl(null)}
+                PaperProps={{
+                    sx: {
+                        mt: 1,
+                        minWidth: 220,
+                        borderRadius: '16px',
+                        bgcolor: 'rgba(15, 15, 15, 0.96)',
+                        backdropFilter: 'blur(20px)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        backgroundImage: 'none',
+                    }
+                }}
+            >
+                <MenuItem onClick={() => { insertMention('@all'); setMentionAnchorEl(null); }} sx={{ gap: 1.5, py: 1.1, fontWeight: 700 }}>
+                    <AtSign size={16} /> @all
+                </MenuItem>
+                <Divider sx={{ my: 0.5, opacity: 0.08 }} />
+                {(mentionTargets || []).map((target) => (
+                    <MenuItem key={target.id} onClick={() => { insertMention(target.token); setMentionAnchorEl(null); }} sx={{ gap: 1.5, py: 1.1, fontWeight: 600 }}>
+                        <AtSign size={16} /> {target.label}
+                    </MenuItem>
+                ))}
+            </Menu>
         </>
     );
 });
@@ -302,6 +375,24 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
         () => Array.from(new Set(messages.map((msg) => msg.senderId).filter(Boolean))) as string[],
         [messages]
     );
+    const groupMentionTargets = React.useMemo(() => {
+        if (conversation?.type !== 'group' || !Array.isArray(conversation?.participants)) return [];
+
+        const participantIds = conversation.participants.filter((participantId: unknown): participantId is string => typeof participantId === 'string' && participantId.trim().length > 0);
+        const uniqueParticipantIds: string[] = Array.from(new Set(participantIds));
+
+        return uniqueParticipantIds
+            .filter((participantId) => participantId !== user?.$id)
+            .map((participantId) => {
+                const cached = senderProfiles[participantId] || getCachedIdentityById(participantId);
+                const username = cached?.username || null;
+                return {
+                    id: participantId,
+                    label: cached?.displayName || username || `@${participantId.slice(0, 7)}`,
+                    token: username ? `@${username}` : `@${participantId.slice(0, 7)}`,
+                };
+            });
+    }, [conversation?.participants, conversation?.type, senderProfiles, user?.$id]);
 
     const isSelf = conversation?.type === 'direct' && conversation?.participants && (conversation.participants.length === 1 || conversation.participants.length === 2) && conversation.participants.every((p: string) => p === user?.$id);
     const hasRepliedToPartner = messages.some((message) => message.senderId === user?.$id);
@@ -524,6 +615,70 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
 
         return unsubscribe;
     }, [messageSenderIds]);
+
+    useEffect(() => {
+        if (conversation?.type !== 'group' || !Array.isArray(conversation?.participants)) return;
+
+        let cancelled = false;
+        const participantIds = conversation.participants.filter((participantId: unknown): participantId is string => typeof participantId === 'string' && participantId.trim().length > 0);
+        const uniqueParticipantIds: string[] = Array.from(new Set(participantIds));
+        const groupParticipantIds = uniqueParticipantIds.filter((participantId) => participantId !== user?.$id);
+        const missingIds = groupParticipantIds.filter((participantId) => !senderProfiles[participantId] && !getCachedIdentityById(participantId));
+        if (!missingIds.length) return;
+
+        const hydrateMembers = async () => {
+            const resolved = await Promise.all(missingIds.map(async (participantId) => {
+                try {
+                    const profile = await UsersService.getProfileById(participantId);
+                    if (!profile) return null;
+
+                    let avatarUrl: string | null = null;
+                    if (profile?.avatar?.startsWith?.('http')) {
+                        avatarUrl = profile.avatar;
+                    } else if (profile?.avatar) {
+                        try {
+                            const url = await fetchProfilePreview(profile.avatar, 48, 48);
+                            avatarUrl = url as unknown as string;
+                        } catch (_e) {}
+                    }
+
+                    const normalized = seedIdentityCache({ ...profile, avatar: profile?.avatar || avatarUrl });
+                    if (!normalized) return null;
+
+                    return {
+                        participantId,
+                        profile: {
+                            displayName: normalized.displayName,
+                            username: normalized.username,
+                            avatar: normalized.avatar,
+                            avatarUrl,
+                            preferences: normalized.preferences,
+                        } as SenderProfile,
+                    };
+                } catch (_e) {
+                    return null;
+                }
+            }));
+
+            if (cancelled) return;
+
+            setSenderProfiles((prev) => {
+                const next = { ...prev };
+                resolved.forEach((entry) => {
+                    if (entry?.profile) {
+                        next[entry.participantId] = entry.profile;
+                    }
+                });
+                return next;
+            });
+        };
+
+        void hydrateMembers();
+
+        return () => {
+            cancelled = true;
+        };
+        }, [conversation?.participants, conversation?.type, senderProfiles, user?.$id]);
 
     useEffect(() => {
         if (!conversationId || !user?.$id) return;
@@ -1391,6 +1546,11 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                                     {conversation?.name || 'Loading...'}
                                 </Typography>
                             )}
+                            {conversation?.type === 'group' && (
+                                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, opacity: 0.65, display: 'block' }}>
+                                    {(conversation?.participantCount || conversation?.participants?.length || 0)} members
+                                </Typography>
+                            )}
                             {!isSelf && conversation?.type === 'direct' && (
                                 <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, opacity: 0.6, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                     {(() => {
@@ -1770,6 +1930,8 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                         attachment={attachment}
                         sending={sending}
                         isRecording={isRecording}
+                        enableMentions={conversation?.type === 'group'}
+                        mentionTargets={groupMentionTargets}
                         onAttach={(e) => setAttachAnchorEl(e.currentTarget)}
                         onSend={handleSend}
                         onToggleRecording={toggleRecording}

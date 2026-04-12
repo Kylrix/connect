@@ -162,7 +162,15 @@ export default function ConversationActionsSheet({
 
   const isGroup = currentConversation?.type === 'group';
   const isDirect = Boolean(currentConversation && !isGroup);
-  const participantIds = useMemo(() => Array.from(new Set((currentConversation?.participants || []).filter(Boolean))), [currentConversation?.participants]);
+  const participantIds = useMemo(
+    () => {
+      const ids = Array.isArray(currentConversation?.participants)
+        ? currentConversation.participants.filter((id: unknown): id is string => typeof id === 'string' && id.trim().length > 0)
+        : [];
+      return Array.from(new Set<string>(ids));
+    },
+    [currentConversation?.participants]
+  );
   const isAdmin = Boolean(user?.$id && (
     currentConversation?.admins?.includes(user.$id) ||
     currentConversation?.creatorId === user.$id
@@ -189,7 +197,7 @@ export default function ConversationActionsSheet({
     if (!open || !currentConversation) return;
 
     if (isDirect) {
-      const targetUserId = currentConversation.otherUserId || participantIds.find((id: string) => id !== user?.$id) || currentConversation.creatorId;
+      const targetUserId = currentConversation.otherUserId || participantIds.find((id) => id !== user?.$id) || currentConversation.creatorId;
       if (!targetUserId) return;
 
       let active = true;
