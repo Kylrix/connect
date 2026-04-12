@@ -22,6 +22,7 @@ export const APPWRITE_CONFIG = {
         CHAT: {
             CONVERSATIONS: 'conversations',
             CONVERSATION_MEMBERS: 'conversationMembers',
+            JOIN_REQUESTS: 'joinRequests',
             MESSAGES: 'messages',
             MESSAGE_REACTIONS: 'messageReactions',
             ACCOUNT_EVENTS: 'accountEvents',
