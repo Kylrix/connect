@@ -422,7 +422,6 @@ async function syncConversationAccess(
 }
 
 async function syncConversationAvatarAccess(
-    conversationId: string,
     avatarFileId: string | null,
     participantIds: string[],
     auth?: { jwt?: string; cookie?: string }
@@ -1143,7 +1142,6 @@ export const ChatService = {
                 conv.creatorId || participants[0] || userId
             );
             await syncConversationAvatarAccess(
-                conversationId,
                 conv.avatarFileId || null,
                 [...participants, userId],
             );
@@ -1309,12 +1307,16 @@ export const ChatService = {
         ]);
 
         const uploaded = await storage.createFile(APPWRITE_CONFIG.BUCKETS.GROUP_AVATARS, ID.unique(), file);
-        await syncConversationAvatarAccess(conversationId, uploaded.$id, existingParticipants, auth);
-
-        return await this.updateConversation(conversationId, {
-            avatarFileId: uploaded.$id,
-            avatarUrl: buildGroupAvatarUrl(conversationId),
-        });
+        try {
+            await syncConversationAvatarAccess(uploaded.$id, existingParticipants, auth);
+            return await this.updateConversation(conversationId, {
+                avatarFileId: uploaded.$id,
+                avatarUrl: buildGroupAvatarUrl(conversationId),
+            });
+        } catch (error) {
+            await storage.deleteFile(APPWRITE_CONFIG.BUCKETS.GROUP_AVATARS, uploaded.$id).catch(() => null);
+            throw error;
+        }
     },
 
     async resolveJoinRequest(
