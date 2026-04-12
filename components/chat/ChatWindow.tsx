@@ -1,6 +1,7 @@
 'use client';
 
 import type { Models } from 'appwrite';
+import { Query } from 'appwrite';
 import React, { useEffect, useState, useRef } from 'react';
 import { ChatService } from '@/lib/services/chat';
 import { StorageService } from '@/lib/services/storage';
@@ -8,7 +9,7 @@ import { useAuth } from '@/lib/auth';
 import { UsersService } from '@/lib/services/users';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { realtime } from '@/lib/appwrite/client';
+import { tablesDB, realtime } from '@/lib/appwrite/client';
 import { APPWRITE_CONFIG } from '@/lib/appwrite/config';
 import { format } from 'date-fns';
 import {
@@ -77,6 +78,13 @@ import MuralPattern from './MuralPattern';
 import { IdentityAvatar, IdentityName } from '../common/IdentityBadge';
 
 type ChatMessage = Models.Row & Record<string, any>;
+type ChatReaction = Models.Row & {
+    conversationId: string;
+    messageId: string;
+    userId: string;
+    emoji: string;
+    createdAt?: string;
+};
 type SenderProfile = {
     displayName?: string | null;
     username?: string | null;
@@ -125,6 +133,30 @@ const getClientReadSegments = (
         outgoingReadAt,
         firstUnreadIncomingIndex,
     };
+};
+
+const groupMessageReactions = (reactions: ChatReaction[], currentUserId?: string | null) => {
+    const groups = new Map<string, { emoji: string; count: number; reactedBySelf: boolean }>();
+
+    reactions.forEach((reaction) => {
+        const emoji = reaction?.emoji;
+        if (!emoji) return;
+
+        const existing = groups.get(emoji);
+        if (existing) {
+            existing.count += 1;
+            existing.reactedBySelf = existing.reactedBySelf || reaction.userId === currentUserId;
+            return;
+        }
+
+        groups.set(emoji, {
+            emoji,
+            count: 1,
+            reactedBySelf: reaction.userId === currentUserId,
+        });
+    });
+
+    return Array.from(groups.values());
 };
 
 const ChatDraftInput = React.memo(function ChatDraftInput({
@@ -360,6 +392,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
     const [partnerVerification, setPartnerVerification] = useState(() => getVerificationState(null));
     const [conversationReadAt, setConversationReadAt] = useState(0);
     const [senderProfiles, setSenderProfiles] = useState<Record<string, SenderProfile>>({});
+    const [messageReactions, setMessageReactions] = useState<Record<string, ChatReaction[]>>({});
     const initialLoadRef = useRef<string | null>(null);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -393,6 +426,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                 };
             });
     }, [conversation?.participants, conversation?.type, senderProfiles, user?.$id]);
+    const reactionsByMessageId = React.useMemo(() => messageReactions, [messageReactions]);
 
     const isSelf = conversation?.type === 'direct' && conversation?.participants && (conversation.participants.length === 1 || conversation.participants.length === 2) && conversation.participants.every((p: string) => p === user?.$id);
     const hasRepliedToPartner = messages.some((message) => message.senderId === user?.$id);
@@ -465,9 +499,32 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
         }
     }, [conversationId, user]);
 
+    const loadReactions = React.useCallback(async () => {
+        try {
+            const response = await tablesDB.listRows(APPWRITE_CONFIG.DATABASES.CHAT, APPWRITE_CONFIG.TABLES.CHAT.MESSAGE_REACTIONS, [
+                Query.equal('conversationId', conversationId),
+                Query.limit(1000),
+                Query.orderAsc('createdAt'),
+            ]);
+
+            const reactionRows = (response.rows || []) as unknown as ChatReaction[];
+            const grouped = reactionRows.reduce((acc: Record<string, ChatReaction[]>, reaction: ChatReaction) => {
+                if (!reaction?.messageId) return acc;
+                acc[reaction.messageId] ||= [];
+                acc[reaction.messageId].push(reaction);
+                return acc;
+            }, {});
+
+            setMessageReactions(grouped);
+        } catch (error: unknown) {
+            console.error('Failed to load reactions:', error);
+        }
+    }, [conversationId]);
+
     const loadMessages = React.useCallback(async () => {
         setLoading(true);
         try {
+            setMessageReactions({});
             if (user?.$id && ecosystemSecurity.status.isUnlocked) {
                 await UsersService.forceSyncProfileWithIdentity(user);
             }
@@ -489,12 +546,13 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
 
             // Reverse once for display order (bottom is newest)
             setMessages(displayMessages.reverse() as unknown as ChatMessage[]);
+            await loadReactions();
         } catch (error: unknown) {
             console.error('Failed to load messages:', error);
         } finally {
             setLoading(false);
         }
-    }, [conversationId, user]);
+    }, [conversationId, loadReactions, user]);
 
     useEffect(() => {
         if (user?.$id && conversationId) {
@@ -751,6 +809,50 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
             setUnlockModalOpen(true);
         }
     }, [conversation?.isEncrypted, isUnlocked, unlockModalOpen]);
+
+    useEffect(() => {
+        if (!conversationId || !user?.$id) return;
+
+        let unsub: any;
+        const initRealtime = async () => {
+            unsub = await realtime.subscribe(
+                [`databases.${APPWRITE_CONFIG.DATABASES.CHAT}.tables.${APPWRITE_CONFIG.TABLES.CHAT.MESSAGE_REACTIONS}.rows`],
+                async (response) => {
+                    const payload = response.payload as Partial<ChatReaction>;
+                    if (payload?.conversationId !== conversationId) return;
+
+                    if (response.events.some((event) => event.includes('.delete'))) {
+                        if (!payload.messageId) return;
+                        setMessageReactions((prev) => {
+                            const next = { ...prev };
+                            const existing = next[payload.messageId || ''] || [];
+                            const filtered = existing.filter((reaction) => reaction.$id !== payload.$id);
+                            if (filtered.length) next[payload.messageId || ''] = filtered;
+                            else delete next[payload.messageId || ''];
+                            return next;
+                        });
+                        return;
+                    }
+
+                    if (!payload.messageId || !payload.$id) return;
+                    setMessageReactions((prev) => {
+                        const next = { ...prev };
+                        const existing = next[payload.messageId as string] || [];
+                        const filtered = existing.filter((reaction) => reaction.$id !== payload.$id);
+                        next[payload.messageId as string] = [...filtered, payload as ChatReaction];
+                        return next;
+                    });
+                }
+            );
+        };
+
+        void initRealtime();
+
+        return () => {
+            if (typeof unsub === 'function') unsub();
+            else if (unsub?.unsubscribe) unsub.unsubscribe();
+        };
+    }, [conversationId, user?.$id]);
 
     const handleClearChat = async (mode: 'me' | 'everyone') => {
         if (!user || !confirm(`Are you sure you want to wipe this chat ${mode === 'me' ? 'for yourself' : 'for everyone'}?`)) return;
@@ -1818,6 +1920,51 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                                                 )}
                                                 {renderMessageContent(msg)}
                                             </Paper>
+                                            {(() => {
+                                                const reactionGroups = groupMessageReactions(reactionsByMessageId[msg.$id] || [], user?.$id);
+                                                if (!reactionGroups.length) return null;
+
+                                                return (
+                                                    <Box
+                                                        sx={{
+                                                            display: 'flex',
+                                                            flexWrap: 'wrap',
+                                                            gap: 0.5,
+                                                            alignSelf: isOutgoing ? 'flex-end' : 'flex-start',
+                                                            maxWidth: '100%',
+                                                            mt: 0.75,
+                                                            px: 0.5,
+                                                        }}
+                                                    >
+                                                        {reactionGroups.map((reaction) => (
+                                                            <Box
+                                                                key={reaction.emoji}
+                                                                sx={{
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: 0.5,
+                                                                    px: 1,
+                                                                    py: 0.35,
+                                                                    borderRadius: '999px',
+                                                                    bgcolor: reaction.reactedBySelf ? alpha('#F59E0B', 0.16) : 'rgba(255, 255, 255, 0.05)',
+                                                                    border: '1px solid',
+                                                                    borderColor: reaction.reactedBySelf ? 'rgba(245, 158, 11, 0.45)' : 'rgba(255, 255, 255, 0.08)',
+                                                                    boxShadow: reaction.reactedBySelf ? '0 8px 20px rgba(0,0,0,0.24)' : 'none',
+                                                                }}
+                                                            >
+                                                                <Typography component="span" sx={{ fontSize: '0.9rem', lineHeight: 1 }}>
+                                                                    {reaction.emoji}
+                                                                </Typography>
+                                                                {reaction.count > 1 && (
+                                                                    <Typography variant="caption" sx={{ fontSize: '0.65rem', fontWeight: 800, color: 'rgba(255,255,255,0.78)' }}>
+                                                                        {reaction.count}
+                                                                    </Typography>
+                                                                )}
+                                                            </Box>
+                                                        ))}
+                                                    </Box>
+                                                );
+                                            })()}
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, alignSelf: isOutgoing ? 'flex-end' : 'flex-start', px: 0.5, position: 'relative', zIndex: 2 }}>
                                                 <Typography variant="caption" sx={{ fontSize: '0.65rem', opacity: 1, color: 'rgba(255,255,255,0.72)', fontWeight: 700 }}>
                                                     {format(new Date(msg.$createdAt || Date.now()), 'h:mm a')}

@@ -23,6 +23,7 @@ export const APPWRITE_CONFIG = {
             CONVERSATIONS: 'conversations',
             CONVERSATION_MEMBERS: 'conversationMembers',
             MESSAGES: 'messages',
+            MESSAGE_REACTIONS: 'messageReactions',
             ACCOUNT_EVENTS: 'accountEvents',
             APP_ACTIVITY: 'app_activity',
             CALL_LINKS: 'calls',
