@@ -4254,16 +4254,14 @@
                     ]
                 },
                 {
-                    "key": "uniq_msgreact_user_msg_emoji",
+                    "key": "uniq_msgreact_user_msg",
                     "type": "unique",
                     "status": "available",
                     "columns": [
                         "userId",
-                        "messageId",
-                        "emoji"
+                        "messageId"
                     ],
                     "orders": [
-                        "ASC",
                         "ASC",
                         "ASC"
                     ]

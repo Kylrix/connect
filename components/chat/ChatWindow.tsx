@@ -85,6 +85,8 @@ type ChatReaction = Models.Row & {
     userId: string;
     emoji: string;
     createdAt?: string;
+    updatedAt?: string;
+    $updatedAt?: string;
 };
 type SenderProfile = {
     displayName?: string | null;
@@ -158,6 +160,26 @@ const groupMessageReactions = (reactions: ChatReaction[], currentUserId?: string
     });
 
     return Array.from(groups.values());
+};
+
+const dedupeReactionsByUser = (reactions: ChatReaction[]) => {
+    const latestByUser = new Map<string, ChatReaction>();
+
+    reactions.forEach((reaction) => {
+        if (!reaction?.userId || !reaction?.messageId) return;
+        const key = `${reaction.messageId}:${reaction.userId}`;
+        const existing = latestByUser.get(key);
+        const nextTime = new Date(reaction.updatedAt || reaction.$updatedAt || reaction.createdAt || reaction.$createdAt || 0).getTime();
+        const existingTime = existing
+            ? new Date(existing.updatedAt || existing.$updatedAt || existing.createdAt || existing.$createdAt || 0).getTime()
+            : -1;
+
+        if (!existing || nextTime >= existingTime) {
+            latestByUser.set(key, reaction);
+        }
+    });
+
+    return Array.from(latestByUser.values());
 };
 
 const sortReactionGroups = (reactions: ChatReaction[], currentUserId?: string | null) =>
@@ -556,7 +578,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                 Query.orderAsc('createdAt'),
             ]);
 
-            const reactionRows = (response.rows || []) as unknown as ChatReaction[];
+            const reactionRows = dedupeReactionsByUser((response.rows || []) as unknown as ChatReaction[]);
             const grouped = reactionRows.reduce((acc: Record<string, ChatReaction[]>, reaction: ChatReaction) => {
                 if (!reaction?.messageId) return acc;
                 acc[reaction.messageId] ||= [];
