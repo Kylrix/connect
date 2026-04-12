@@ -15,6 +15,7 @@ const KEY_MAPPING_DB = APPWRITE_CONFIG.DATABASES.PASSWORD_MANAGER;
 const KEY_MAPPING_TABLE = APPWRITE_CONFIG.TABLES.PASSWORD_MANAGER.KEY_MAPPING;
 const ACCOUNTS_API_URL = `${KYLRIX_AUTH_URI}/api/permissions`;
 const ACCOUNTS_MESSAGE_API_URL = `${KYLRIX_AUTH_URI}/api/connect/messages`;
+const ACCOUNTS_MESSAGE_REACTIONS_API_URL = `${KYLRIX_AUTH_URI}/api/connect/message-reactions`;
 const conversationKeyCache = new Map<string, CryptoKey>();
 
 const arraysEqual = (left: string[], right: string[]) =>
@@ -148,6 +149,29 @@ async function callMessageCreateApi(
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || 'Message creation failed');
+    }
+
+    return response.json().catch(() => ({}));
+}
+
+async function callMessageReactionApi(
+    method: 'POST' | 'DELETE',
+    payload: Record<string, unknown>,
+    auth?: { jwt?: string; cookie?: string }
+) {
+    const headers = await getPermissionUpdateAuth(auth);
+    const response = await fetch(ACCOUNTS_MESSAGE_REACTIONS_API_URL, {
+        method,
+        headers: {
+            'Content-Type': 'application/json',
+            ...headers,
+        },
+        body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Reaction update failed');
     }
 
     return response.json().catch(() => ({}));
@@ -747,6 +771,32 @@ export const ChatService = {
         }
 
         return message;
+    },
+
+    async reactToMessage(
+        conversationId: string,
+        messageId: string,
+        emoji: string,
+        permissionSyncAuth?: { jwt?: string; cookie?: string }
+    ) {
+        return callMessageReactionApi('POST', {
+            conversationId,
+            messageId,
+            emoji,
+        }, permissionSyncAuth);
+    },
+
+    async removeMessageReaction(
+        conversationId: string,
+        messageId: string,
+        emoji: string,
+        permissionSyncAuth?: { jwt?: string; cookie?: string }
+    ) {
+        return callMessageReactionApi('DELETE', {
+            conversationId,
+            messageId,
+            emoji,
+        }, permissionSyncAuth);
     },
 
     async getMessages(conversationId: string, limit = 50, offset = 0, userId?: string) {

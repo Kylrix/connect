@@ -58,7 +58,6 @@ import {
     Reply,
     Copy,
 } from 'lucide-react';
-import { IdentityName } from '../common/IdentityBadge';
 import { NoteSelectorModal } from './NoteSelectorModal';
 import { SecretSelectorModal } from './SecretSelectorModal';
 import { ecosystemSecurity } from '@/lib/ecosystem/security';
@@ -67,14 +66,22 @@ import { usePresence } from '../providers/PresenceProvider';
 import { AttachmentMetadata } from '@/types/p2p';
 import toast from 'react-hot-toast';
 import { fetchProfilePreview } from '@/lib/profile-preview';
-import { seedIdentityCache } from '@/lib/identity-cache';
+import { getCachedIdentityById, seedIdentityCache, subscribeIdentityCache } from '@/lib/identity-cache';
 import { buildSafetyWarning, getVerificationState } from '@/lib/verification';
 import { FormattedText } from '../common/FormattedText';
 import { markConversationRead } from '@/lib/chat-read-state';
 import { useChatNotifications } from '../providers/ChatNotificationProvider';
 import MuralPattern from './MuralPattern';
+import { IdentityAvatar, IdentityName } from '../common/IdentityBadge';
 
 type ChatMessage = Models.Row & Record<string, any>;
+type SenderProfile = {
+    displayName?: string | null;
+    username?: string | null;
+    avatar?: string | null;
+    avatarUrl?: string | null;
+    preferences?: any | null;
+};
 
 const MessagesType = {
     TEXT: 'text',
@@ -279,6 +286,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
     const [partnerProfile, setPartnerProfile] = useState<any | null>(null);
     const [partnerVerification, setPartnerVerification] = useState(() => getVerificationState(null));
     const [conversationReadAt, setConversationReadAt] = useState(0);
+    const [senderProfiles, setSenderProfiles] = useState<Record<string, SenderProfile>>({});
     const initialLoadRef = useRef<string | null>(null);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -289,6 +297,10 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
     const clientReadSegments = React.useMemo(
         () => getClientReadSegments(messages, user?.$id, conversation?.type === 'direct', conversationReadAt),
         [messages, user?.$id, conversation?.type, conversationReadAt]
+    );
+    const messageSenderIds = React.useMemo(
+        () => Array.from(new Set(messages.map((msg) => msg.senderId).filter(Boolean))) as string[],
+        [messages]
     );
 
     const isSelf = conversation?.type === 'direct' && conversation?.participants && (conversation.participants.length === 1 || conversation.participants.length === 2) && conversation.participants.every((p: string) => p === user?.$id);
@@ -421,6 +433,97 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
             if (otherId) getPresence(otherId);
         }
     }, [conversationId, conversation, isSelf, user, getPresence]);
+
+    useEffect(() => {
+        if (!messageSenderIds.length) return;
+
+        let cancelled = false;
+
+        const hydrateSenders = async () => {
+            const missingIds = messageSenderIds.filter((senderId) => {
+                const cached = senderProfiles[senderId] || getCachedIdentityById(senderId);
+                const hasRenderableAvatar = Boolean(
+                    senderProfiles[senderId]?.avatarUrl ||
+                    (cached?.avatar && cached.avatar.startsWith?.('http'))
+                );
+
+                return !cached || !hasRenderableAvatar;
+            });
+            if (!missingIds.length) return;
+
+            const resolved = await Promise.all(missingIds.map(async (senderId) => {
+                try {
+                    const profile = await UsersService.getProfileById(senderId);
+                    if (!profile) return null;
+
+                    let avatarUrl: string | null = null;
+                    if (profile?.avatar?.startsWith?.('http')) {
+                        avatarUrl = profile.avatar;
+                    } else if (profile?.avatar) {
+                        try {
+                            const url = await fetchProfilePreview(profile.avatar, 48, 48);
+                            avatarUrl = url as unknown as string;
+                        } catch (_e) {}
+                    }
+
+                    const normalized = seedIdentityCache({ ...profile, avatar: profile?.avatar || avatarUrl });
+                    if (!normalized) return null;
+
+                    return {
+                        senderId,
+                        profile: {
+                            displayName: normalized.displayName,
+                            username: normalized.username,
+                            avatar: normalized.avatar,
+                            avatarUrl,
+                            preferences: normalized.preferences,
+                        } as SenderProfile,
+                    };
+                } catch (_e) {
+                    return null;
+                }
+            }));
+
+            if (cancelled) return;
+
+            setSenderProfiles((prev) => {
+                const next = { ...prev };
+                resolved.forEach((entry) => {
+                    if (entry?.profile) {
+                        next[entry.senderId] = entry.profile;
+                    }
+                });
+                return next;
+            });
+        };
+
+        void hydrateSenders();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [messageSenderIds, senderProfiles]);
+
+    useEffect(() => {
+        if (!messageSenderIds.length) return () => {};
+
+        const unsubscribe = subscribeIdentityCache((identity) => {
+            if (!identity?.userId || !messageSenderIds.includes(identity.userId)) return;
+
+            setSenderProfiles((prev) => ({
+                ...prev,
+                [identity.userId]: {
+                    displayName: identity.displayName,
+                    username: identity.username,
+                    avatar: identity.avatar,
+                    avatarUrl: identity.avatar && identity.avatar.startsWith('http') ? identity.avatar : prev[identity.userId]?.avatarUrl || null,
+                    preferences: identity.preferences,
+                },
+            }));
+        });
+
+        return unsubscribe;
+    }, [messageSenderIds]);
 
     useEffect(() => {
         if (!conversationId || !user?.$id) return;
@@ -1425,102 +1528,148 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
                                 </Box>
                             )}
 
-                        <Box 
-                            id={`msg-${msg.$id}`}
-                            sx={{
-                            alignSelf: msg.senderId === user?.$id ? 'flex-end' : 'flex-start',
-                            maxWidth: '80%',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 0.5,
-                            position: 'relative',
-                            zIndex: 2
-                        }}>
-                            <Paper 
-                                onContextMenu={(e) => handleMessageContextMenu(e, msg)}
-                                sx={{
-                                p: 1.2,
-                                px: 1.8,
-                                borderRadius: msg.senderId === user?.$id ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
-                                bgcolor: msg.senderId === user?.$id ? '#2E3192' : '#7A4A0A',
-                                backgroundImage: msg.senderId === user?.$id
-                                    ? 'linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.02) 34%, rgba(0,0,0,0.06) 100%)'
-                                    : 'linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.015) 34%, rgba(0,0,0,0.08) 100%)',
-                                border: '1px solid',
-                                borderColor: msg.senderId === user?.$id ? '#4F55D6' : '#A36211',
-                                color: 'text.primary',
-                                boxShadow: msg.senderId === user?.$id
-                                    ? '0 12px 24px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(0,0,0,0.22)'
-                                    : '0 12px 24px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.06), inset 0 -1px 0 rgba(0,0,0,0.24)',
-                                position: 'relative',
-                                zIndex: 2,
-                                '&::after': {
-                                    content: '""',
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    right: 0,
-                                    height: '1px',
-                                    background: msg.senderId === user?.$id ? 'rgba(99, 102, 241, 0.1)' : 'rgba(245, 158, 11, 0.05)',
-                                    borderRadius: msg.senderId === user?.$id ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
-                                }
-                            }}>
-                                {msg.replyTo && (
-                                    <Box 
-                                        onClick={() => {
-                                            const el = document.getElementById(`msg-${msg.replyTo}`);
-                                            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                        }}
-                                        sx={{ 
-                                            mb: 1, 
-                                            p: 1, 
-                                            bgcolor: '#2A2623', 
-                                            borderRadius: '8px', 
-                                            borderLeft: '3px solid',
-                                            borderColor: 'primary.main',
-                                            cursor: 'pointer',
-                                            opacity: 0.8,
-                                             '&:hover': { opacity: 1, bgcolor: '#332F2B' }
-                                        }}
+                        {(() => {
+                            const isOutgoing = msg.senderId === user?.$id;
+                            const senderProfile = senderProfiles[msg.senderId] || getCachedIdentityById(msg.senderId);
+                            const senderVerification = getVerificationState(senderProfile?.preferences || null);
+                            const senderName = isOutgoing
+                                ? 'You'
+                                : senderProfile?.displayName || senderProfile?.username || (conversation?.type === 'direct' ? conversation?.name || 'Partner' : `@${String(msg.senderId || '').slice(0, 7)}`);
+                            const senderAvatarSrc = senderProfiles[msg.senderId]?.avatarUrl
+                                || (senderProfile?.avatar?.startsWith?.('http') ? senderProfile.avatar : null);
+
+                            return (
+                                <Box
+                                    id={`msg-${msg.$id}`}
+                                    sx={{
+                                        width: '100%',
+                                        display: 'flex',
+                                        justifyContent: isOutgoing ? 'flex-end' : 'flex-start',
+                                        position: 'relative',
+                                        zIndex: 2
+                                    }}
+                                >
+                                    <Stack
+                                        direction={isOutgoing ? 'row-reverse' : 'row'}
+                                        spacing={1}
+                                        alignItems="flex-end"
+                                        sx={{ width: '100%', maxWidth: '80%' }}
                                     >
-                                        <Typography variant="caption" sx={{ fontWeight: 800, color: 'primary.main', display: 'block', mb: 0.5 }}>
-                                            {messages.find(m => m.$id === msg.replyTo)?.senderId === user?.$id ? 'You' : (conversation?.name || 'Partner')}
-                                        </Typography>
-                                        <Typography variant="caption" sx={{ 
-                                            display: '-webkit-box', 
-                                            WebkitLineClamp: 2, 
-                                            WebkitBoxOrient: 'vertical', 
-                                            overflow: 'hidden',
-                                            fontSize: '0.75rem',
-                                            lineHeight: 1.2
-                                        }}>
-                                            {messages.find(m => m.$id === msg.replyTo)?.content || 'Original message'}
-                                        </Typography>
-                                    </Box>
-                                )}
-                                {renderMessageContent(msg)}
-                            </Paper>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, alignSelf: msg.senderId === user?.$id ? 'flex-end' : 'flex-start', px: 0.5, position: 'relative', zIndex: 2 }}>
-                                <Typography variant="caption" sx={{ fontSize: '0.65rem', opacity: 1, color: 'rgba(255,255,255,0.72)', fontWeight: 700 }}>
-                                    {format(new Date(msg.$createdAt || Date.now()), 'h:mm a')}
-                                </Typography>
-                                        {msg.senderId === user?.$id && (
-                                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                                {String(msg.$id).startsWith('optimistic-') || (msg as any).status === 'sending' ? (
-                                                    <Box sx={{ opacity: 1, display: 'flex', color: 'rgba(255,255,255,0.72)' }}><Clock size={11} strokeWidth={2.5} /></Box>
-                                                ) : (msg as any).status === 'error' ? (
-                                                    <Typography variant="caption" sx={{ color: '#ff4d4d', fontSize: '10px', opacity: 1 }}>Failed</Typography>
-                                                ) : (
-                                                    getMessageTimestamp(msg) <= clientReadSegments.outgoingReadAt ? (
-                                                        <CheckCheck size={13} color="var(--color-primary)" strokeWidth={2.5} style={{ opacity: 1 }} />
-                                                    ) : (
-                                                        <Check size={13} strokeWidth={2.5} style={{ opacity: 1, color: 'rgba(255,255,255,0.72)' }} />
-                                                    )
+                                        <IdentityAvatar
+                                            src={senderAvatarSrc || undefined}
+                                            alt={senderName}
+                                            fallback={senderName.slice(0, 1).toUpperCase()}
+                                            size={30}
+                                            borderRadius="50%"
+                                        />
+                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 0, flex: '0 1 auto', alignItems: isOutgoing ? 'flex-end' : 'flex-start' }}>
+                                            {!isOutgoing && (
+                                                <IdentityName
+                                                    verified={senderVerification.verified}
+                                                    verifiedOn={senderVerification.verifiedOn}
+                                                    sx={{
+                                                        fontSize: '0.72rem',
+                                                        fontWeight: 800,
+                                                        color: 'rgba(255,255,255,0.72)',
+                                                        pl: 0.5,
+                                                    }}
+                                                >
+                                                    {senderName}
+                                                </IdentityName>
+                                            )}
+                                            <Paper
+                                                onContextMenu={(e) => handleMessageContextMenu(e, msg)}
+                                                sx={{
+                                                    p: 1.2,
+                                                    px: 1.8,
+                                                    width: 'fit-content',
+                                                    maxWidth: '100%',
+                                                    alignSelf: isOutgoing ? 'flex-end' : 'flex-start',
+                                                    borderRadius: isOutgoing ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
+                                                    bgcolor: isOutgoing ? '#2E3192' : '#7A4A0A',
+                                                    backgroundImage: isOutgoing
+                                                        ? 'linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.02) 34%, rgba(0,0,0,0.06) 100%)'
+                                                        : 'linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.015) 34%, rgba(0,0,0,0.08) 100%)',
+                                                    border: '1px solid',
+                                                    borderColor: isOutgoing ? '#4F55D6' : '#A36211',
+                                                    color: 'text.primary',
+                                                    boxShadow: isOutgoing
+                                                        ? '0 12px 24px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(0,0,0,0.22)'
+                                                        : '0 12px 24px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.06), inset 0 -1px 0 rgba(0,0,0,0.24)',
+                                                    position: 'relative',
+                                                    zIndex: 2,
+                                                    '&::after': {
+                                                        content: '""',
+                                                        position: 'absolute',
+                                                        top: 0,
+                                                        left: 0,
+                                                        right: 0,
+                                                        height: '1px',
+                                                        background: isOutgoing ? 'rgba(99, 102, 241, 0.1)' : 'rgba(245, 158, 11, 0.05)',
+                                                        borderRadius: isOutgoing ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
+                                                    }
+                                                }}
+                                            >
+                                                {msg.replyTo && (
+                                                    <Box
+                                                        onClick={() => {
+                                                            const el = document.getElementById(`msg-${msg.replyTo}`);
+                                                            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                        }}
+                                                        sx={{
+                                                            mb: 1,
+                                                            p: 1,
+                                                            bgcolor: '#2A2623',
+                                                            borderRadius: '8px',
+                                                            borderLeft: '3px solid',
+                                                            borderColor: 'primary.main',
+                                                            cursor: 'pointer',
+                                                            opacity: 0.8,
+                                                            '&:hover': { opacity: 1, bgcolor: '#332F2B' }
+                                                        }}
+                                                    >
+                                                        <Typography variant="caption" sx={{ fontWeight: 800, color: 'primary.main', display: 'block', mb: 0.5 }}>
+                                                            {messages.find(m => m.$id === msg.replyTo)?.senderId === user?.$id ? 'You' : (conversation?.name || 'Partner')}
+                                                        </Typography>
+                                                        <Typography variant="caption" sx={{
+                                                            display: '-webkit-box',
+                                                            WebkitLineClamp: 2,
+                                                            WebkitBoxOrient: 'vertical',
+                                                            overflow: 'hidden',
+                                                            fontSize: '0.75rem',
+                                                            lineHeight: 1.2
+                                                        }}>
+                                                            {messages.find(m => m.$id === msg.replyTo)?.content || 'Original message'}
+                                                        </Typography>
+                                                    </Box>
+                                                )}
+                                                {renderMessageContent(msg)}
+                                            </Paper>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, alignSelf: isOutgoing ? 'flex-end' : 'flex-start', px: 0.5, position: 'relative', zIndex: 2 }}>
+                                                <Typography variant="caption" sx={{ fontSize: '0.65rem', opacity: 1, color: 'rgba(255,255,255,0.72)', fontWeight: 700 }}>
+                                                    {format(new Date(msg.$createdAt || Date.now()), 'h:mm a')}
+                                                </Typography>
+                                                {isOutgoing && (
+                                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                        {String(msg.$id).startsWith('optimistic-') || (msg as any).status === 'sending' ? (
+                                                            <Box sx={{ opacity: 1, display: 'flex', color: 'rgba(255,255,255,0.72)' }}><Clock size={11} strokeWidth={2.5} /></Box>
+                                                        ) : (msg as any).status === 'error' ? (
+                                                            <Typography variant="caption" sx={{ color: '#ff4d4d', fontSize: '10px', opacity: 1 }}>Failed</Typography>
+                                                        ) : (
+                                                            getMessageTimestamp(msg) <= clientReadSegments.outgoingReadAt ? (
+                                                                <CheckCheck size={13} color="var(--color-primary)" strokeWidth={2.5} style={{ opacity: 1 }} />
+                                                            ) : (
+                                                                <Check size={13} strokeWidth={2.5} style={{ opacity: 1, color: 'rgba(255,255,255,0.72)' }} />
+                                                            )
+                                                        )}
+                                                    </Box>
                                                 )}
                                             </Box>
-                                        )}
-                            </Box>
-                        </Box>
+                                        </Box>
+                                    </Stack>
+                                </Box>
+                            );
+                        })()}
                         </React.Fragment>
                         ))}
                     </>
