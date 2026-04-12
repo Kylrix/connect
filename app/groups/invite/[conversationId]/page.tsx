@@ -74,10 +74,10 @@ export default function GroupInvitePage() {
         if (!active) return;
 
         setPreview(data.resource || null);
-        if (data.request?.status === 'pending') {
-          setRequestState('pending');
-        } else if (data.request?.status === 'accepted' || data.request?.alreadyJoined) {
+        if (data.alreadyJoined || data.request?.status === 'accepted') {
           setRequestState('joined');
+        } else if (data.request?.status === 'pending') {
+          setRequestState('pending');
         } else {
           setRequestState('idle');
         }
@@ -181,8 +181,14 @@ export default function GroupInvitePage() {
 
             <Stack spacing={1.25} sx={{ width: '100%' }}>
               {requestState === 'joined' ? (
+                <Typography variant="body2" sx={{ opacity: 0.72, fontWeight: 700 }}>
+                  Already in group
+                </Typography>
+              ) : null}
+
+              {requestState === 'joined' ? (
                 <Button fullWidth variant="contained" endIcon={<ArrowRight size={16} />} onClick={() => router.push(`/chat/${conversationId}`)}>
-                  Open group
+                  Go to chat
                 </Button>
               ) : requestState === 'pending' ? (
                 <Button fullWidth variant="outlined" disabled>
@@ -196,7 +202,7 @@ export default function GroupInvitePage() {
                   onClick={() => void handleRequestJoin()}
                   disabled={requestState === 'loading' || !preview}
                 >
-                  Request access
+                  {preview ? 'Request access' : 'Loading...'}
                 </Button>
               )}
             </Stack>
