@@ -41,6 +41,7 @@ import { getUserProfilePicId } from '@/lib/user-utils';
 import { getCachedIdentityById, seedIdentityCache } from '@/lib/identity-cache';
 import { resolveIdentity } from '@/lib/identity-format';
 import { getCachedMomentPreview, seedMomentPreview } from '@/lib/moment-preview';
+import { getCachedMomentThread, seedMomentThread } from '@/lib/moment-thread-cache';
 import { format } from 'date-fns';
 import { FormattedText } from '@/components/common/FormattedText';
 import toast from 'react-hot-toast';
@@ -295,9 +296,9 @@ const ThreadPostView = ({
                     <Box
                         sx={{
                             width: '2px',
-                            height: threadLineMode === 'both' ? 14 : 20,
+                            height: threadLineMode === 'both' ? 18 : 22,
                             bgcolor: 'rgba(255,255,255,0.16)',
-                            mb: 0.45,
+                            mb: 0,
                         }}
                     />
                 )}
@@ -320,10 +321,10 @@ const ThreadPostView = ({
                     <Box
                         sx={{
                             width: '2px',
-                            minHeight: threadLineMode === 'both' ? 14 : 18,
+                            minHeight: threadLineMode === 'both' ? 18 : 22,
                             flexGrow: 1,
                             bgcolor: 'rgba(255,255,255,0.16)',
-                            mt: 0.45,
+                            mt: 0,
                         }}
                     />
                 )}
@@ -681,6 +682,11 @@ export function PostViewClient() {
             setThreadAncestors(ancestors);
             setMoment((prev: any) => prev ? ({ ...prev, sourceMoment: ancestors[ancestors.length - 1] || null }) : prev);
             setShowAncestors(true);
+            seedMomentThread(momentId, {
+                moment: { ...moment, sourceMoment: ancestors[ancestors.length - 1] || null },
+                replies,
+                ancestors,
+            });
         } catch (error) {
             console.error('Failed to reveal ancestor thread', error);
             toast.error('Failed to load thread');
@@ -690,7 +696,7 @@ export function PostViewClient() {
             pullStartYRef.current = null;
             pullActiveRef.current = false;
         }
-    }, [ancestorLoading, fetchAncestorThread, moment, showAncestors]);
+    }, [ancestorLoading, fetchAncestorThread, moment, momentId, replies, showAncestors]);
 
     const onPullPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
         if (!moment?.metadata?.sourceId || showAncestors) return;
@@ -768,6 +774,13 @@ export function PostViewClient() {
         setPullDistance(0);
         pullStartYRef.current = null;
         pullActiveRef.current = false;
+        const cachedThread = getCachedMomentThread(momentId);
+        if (cachedThread?.moment) {
+            setMoment(cachedThread.moment);
+            setReplies(cachedThread.replies || []);
+            setLoading(false);
+            return;
+        }
         try {
             const rawMoment = await SocialService.getMomentById(momentId, user?.$id);
             const enrichedMoment = await hydrateMoment(rawMoment);
@@ -784,6 +797,11 @@ export function PostViewClient() {
                 return enrichedReply;
             }));
             setReplies(enrichedReplies);
+            seedMomentThread(momentId, {
+                moment: enrichedMoment,
+                replies: enrichedReplies,
+                ancestors: [],
+            });
 
         } catch (_e: unknown) {
             console.error('Failed to load moment:', _e);
@@ -798,6 +816,15 @@ export function PostViewClient() {
         loadMoment();
         if (user) fetchUserAvatar();
     }, [loadMoment, user, fetchUserAvatar]);
+
+    useEffect(() => {
+        if (!momentId || !moment) return;
+        seedMomentThread(momentId, {
+            moment,
+            replies,
+            ancestors: showAncestors ? threadAncestors : [],
+        });
+    }, [momentId, moment, replies, showAncestors, threadAncestors]);
 
     const handleToggleLike = async (targetMoment?: any) => {
         if (!user) {
@@ -945,6 +972,11 @@ export function PostViewClient() {
     const resolvedCreator = resolveIdentity(moment.creator || cachedCreator, creatorId);
     const creatorName = isOwnPost ? (user?.name || 'You') : resolvedCreator.displayName;
     const creatorAvatar = isOwnPost ? userAvatarUrl : (moment.creator?.avatar || cachedCreator?.avatar);
+    const currentHasPrev = showAncestors || Boolean(moment.metadata?.sourceId);
+    const currentHasNext = replies.length > 0;
+    const currentThreadLineMode: ThreadPostViewProps['threadLineMode'] = currentHasPrev
+        ? (currentHasNext ? 'both' : 'up')
+        : (currentHasNext ? 'down' : 'none');
 
     return (
         <AppShell>
@@ -1034,7 +1066,7 @@ export function PostViewClient() {
                 )}
 
                 {showAncestors && threadAncestors.length > 0 && (
-                    <Box sx={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                    <Box>
                         {threadAncestors.map((ancestor, index) => {
                             const ancestorId = ancestor.userId || ancestor.creatorId;
                             const resolvedAncestor = resolveIdentity(ancestor.creator, ancestorId);
@@ -1053,7 +1085,9 @@ export function PostViewClient() {
                                         likes: ancestor.stats?.likes || 0,
                                         views: ancestor.stats?.views || 0,
                                     }}
-                                    threadLineMode="down"
+                                    threadLineMode={
+                                        index === 0 ? 'down' : 'both'
+                                    }
                                     onClick={() => router.push(`/post/${ancestor.$id}`)}
                                     onLike={(e) => { e.stopPropagation(); handleToggleLike(ancestor); }}
                                     onPulse={(e) => {
@@ -1083,7 +1117,7 @@ export function PostViewClient() {
                         likes: moment.stats?.likes || 0,
                         views: moment.stats?.views || 0,
                     }}
-                    threadLineMode={moment.metadata?.sourceId && !showAncestors ? 'up' : (replies.length > 0 ? 'down' : 'none')}
+                    threadLineMode={currentThreadLineMode}
                     onLike={(e) => { e.stopPropagation(); handleToggleLike(); }}
                     onPulse={(e) => {
                         e.stopPropagation();
@@ -1231,7 +1265,7 @@ export function PostViewClient() {
                     </Box>
                 </Drawer>
 
-                <Box sx={{ borderTop: '1px solid rgba(255,255,255,0.08)', mt: 1 }}>
+                <Box sx={{ mt: 0.5 }}>
                     {replies.map((reply, index) => {
                         const rCreatorId = reply.userId || reply.creatorId;
                         const rResolvedCreator = resolveIdentity(reply.creator, rCreatorId);
@@ -1252,7 +1286,7 @@ export function PostViewClient() {
                                     likes: reply.stats?.likes || 0,
                                     views: reply.stats?.views || 0,
                                 }}
-                                threadLineMode={index < replies.length - 1 ? 'down' : 'none'}
+                                threadLineMode={index < replies.length - 1 ? 'both' : 'up'}
                                 onClick={() => router.push(`/post/${reply.$id}`)}
                                 onLike={(e) => {
                                     e.stopPropagation();

@@ -2,6 +2,8 @@ import { ID, Query } from 'appwrite';
 import { tablesDB, realtime, storage } from '../appwrite/client';
 import { UsersService } from './users';
 import { APPWRITE_CONFIG } from '../appwrite/config';
+import { getCachedMomentPreview, seedMomentPreview } from '../moment-preview';
+import { getCachedMomentThread } from '../moment-thread-cache';
 
 const DB_ID = APPWRITE_CONFIG.DATABASES.CHAT;
 const MOMENTS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.MOMENTS;
@@ -880,11 +882,22 @@ export const SocialService = {
     },
 
     async getMomentById(momentId: string, currentUserId?: string) {
+        const cachedThread = getCachedMomentThread(momentId);
+        if (cachedThread?.moment) return cachedThread.moment;
+
+        const cachedPreview = getCachedMomentPreview(momentId);
+        if (cachedPreview) return cachedPreview;
+
         const moment = await tablesDB.getRow(DB_ID, MOMENTS_TABLE, momentId);
-        return this.enrichMoment(moment, currentUserId);
+        const enriched = await this.enrichMoment(moment, currentUserId);
+        seedMomentPreview(enriched);
+        return enriched;
     },
 
     async getReplies(momentId: string, currentUserId?: string) {
+        const cachedThread = getCachedMomentThread(momentId);
+        if (cachedThread) return cachedThread.replies || [];
+
         const moments = await tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
             Query.equal('sourceId', momentId),
             Query.equal('momentKind', 'reply'),
