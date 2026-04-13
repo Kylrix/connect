@@ -45,7 +45,8 @@ import {
     Send,
     Edit,
     Image as ImageIcon,
-    Download
+    Download,
+    ChevronDown
 } from 'lucide-react';
 import { fetchProfilePreview } from '@/lib/profile-preview';
 import { getUserProfilePicId } from '@/lib/user-utils';
@@ -331,12 +332,17 @@ export function PostViewClient() {
     const [exportingImage, setExportingImage] = useState(false);
     const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
     const [threadAncestors, setThreadAncestors] = useState<any[]>([]);
+    const [showAncestors, setShowAncestors] = useState(false);
+    const [ancestorLoading, setAncestorLoading] = useState(false);
+    const [pullDistance, setPullDistance] = useState(0);
     const [actorsDrawerOpen, setActorsDrawerOpen] = useState(false);
     const [actorsList, setActorsList] = useState<any[]>([]);
     const [actorsTitle, setActorsTitle] = useState('');
     const [expandedCaption, setExpandedCaption] = useState(false);
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'), { noSsr: true });
+    const pullStartYRef = React.useRef<number | null>(null);
+    const pullActiveRef = React.useRef(false);
 
     const fetchActorsForLikes = async (momentId: string) => {
         try {
@@ -378,6 +384,80 @@ export function PostViewClient() {
         }
     };
 
+    const hydrateMoment = useCallback(async (data: any): Promise<any> => {
+        seedMomentPreview(data);
+
+        const creatorId = data.userId || data.creatorId;
+        const creator = await UsersService.getProfileById(creatorId);
+
+        let avatar = null;
+        if (creator?.avatar) {
+            try {
+                avatar = String(creator.avatar).startsWith('http')
+                    ? creator.avatar
+                    : await fetchProfilePreview(creator.avatar, 64, 64) as unknown as string;
+            } catch (_e) {}
+        }
+
+        return { ...data, creator: { ...creator, avatar } };
+    }, []);
+
+    const fetchAncestorThread = useCallback(async (sourceMomentId: string): Promise<any[]> => {
+        const ancestors: any[] = [];
+        let currentSourceId = sourceMomentId;
+
+        for (let depth = 0; currentSourceId && depth < 8; depth += 1) {
+            const sourceMoment = await SocialService.getMomentById(currentSourceId, user?.$id);
+            const hydratedSource = await hydrateMoment(sourceMoment);
+            ancestors.unshift(hydratedSource);
+            currentSourceId = hydratedSource.metadata?.sourceId || '';
+        }
+
+        return ancestors;
+    }, [hydrateMoment, user?.$id]);
+
+    const revealAncestorThread = useCallback(async () => {
+        if (!moment?.metadata?.sourceId || ancestorLoading || showAncestors) return;
+        setAncestorLoading(true);
+        try {
+            const ancestors = await fetchAncestorThread(moment.metadata.sourceId);
+            setThreadAncestors(ancestors);
+            setShowAncestors(true);
+        } catch (error) {
+            console.error('Failed to reveal ancestor thread', error);
+            toast.error('Failed to load thread');
+        } finally {
+            setAncestorLoading(false);
+            setPullDistance(0);
+            pullStartYRef.current = null;
+            pullActiveRef.current = false;
+        }
+    }, [ancestorLoading, fetchAncestorThread, moment, showAncestors]);
+
+    const onPullPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+        if (!moment?.metadata?.sourceId || showAncestors) return;
+        pullStartYRef.current = event.clientY;
+        pullActiveRef.current = true;
+        (event.currentTarget as HTMLDivElement).setPointerCapture?.(event.pointerId);
+    }, [moment?.metadata?.sourceId, showAncestors]);
+
+    const onPullPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+        if (!pullActiveRef.current || pullStartYRef.current === null || !moment?.metadata?.sourceId || showAncestors) return;
+        const distance = Math.max(0, event.clientY - pullStartYRef.current);
+        setPullDistance(Math.min(distance, 120));
+    }, [moment?.metadata?.sourceId, showAncestors]);
+
+    const onPullPointerUp = useCallback(() => {
+        if (!pullActiveRef.current) return;
+        pullActiveRef.current = false;
+        if (pullDistance >= 72) {
+            void revealAncestorThread();
+            return;
+        }
+        setPullDistance(0);
+        pullStartYRef.current = null;
+    }, [pullDistance, revealAncestorThread]);
+
     const openActorsList = async (title: string, fetcher: () => Promise<any[]>) => {
         setActorsTitle(title);
         setActorsDrawerOpen(true);
@@ -402,62 +482,19 @@ export function PostViewClient() {
         if (!momentId) return;
         if (!hasPreviewRef.current) setLoading(true);
         setThreadAncestors([]);
+        setShowAncestors(false);
+        setPullDistance(0);
         try {
-            const enrichMoment = async (data: any, depth = 0): Promise<any> => {
-                seedMomentPreview(data);
-
-                const creatorId = data.userId || data.creatorId;
-                const creator = await UsersService.getProfileById(creatorId);
-
-                let avatar = null;
-                if (creator?.avatar) {
-                    try {
-                        avatar = String(creator.avatar).startsWith('http')
-                            ? creator.avatar
-                            : await fetchProfilePreview(creator.avatar, 64, 64) as unknown as string;
-                    } catch (_e) {}
-                }
-
-                let sourceMoment = data.sourceMoment;
-                if (data.metadata?.sourceId && depth < 8) {
-                    try {
-                        const source = await SocialService.getMomentById(data.metadata.sourceId, user?.$id);
-                        sourceMoment = await enrichMoment(source, depth + 1);
-                    } catch (_e: unknown) {
-                        console.warn('Failed to resolve source moment in client', _e);
-                    }
-                }
-
-                return { ...data, creator: { ...creator, avatar }, sourceMoment };
-            };
-
             const rawMoment = await SocialService.getMomentById(momentId, user?.$id);
-            const enrichedMoment = await enrichMoment(rawMoment);
+            const enrichedMoment = await hydrateMoment(rawMoment);
             setMoment(enrichedMoment);
             seedMomentPreview(enrichedMoment);
             seedIdentityCache(enrichedMoment.creator);
-            const ancestors: any[] = [];
-            let ancestorCursor = enrichedMoment.sourceMoment;
-            while (ancestorCursor) {
-                ancestors.unshift(ancestorCursor);
-                ancestorCursor = ancestorCursor.sourceMoment;
-            }
-            setThreadAncestors(ancestors);
 
             // Fetch replies
             const replyData = await SocialService.getReplies(momentId, user?.$id);
             const enrichedReplies = await Promise.all(replyData.map(async (reply) => {
-                const rCreatorId = reply.userId || reply.creatorId;
-                const rCreator = await UsersService.getProfileById(rCreatorId);
-                let rAvatar = null;
-                if (rCreator?.avatar) {
-                    try {
-                        rAvatar = String(rCreator.avatar).startsWith('http')
-                            ? rCreator.avatar
-                            : await fetchProfilePreview(rCreator.avatar, 48, 48) as unknown as string;
-                    } catch (_e: unknown) {}
-                }
-                const enrichedReply = { ...reply, creator: { ...rCreator, avatar: rAvatar } };
+                const enrichedReply = await hydrateMoment(reply);
                 seedMomentPreview(enrichedReply);
                 seedIdentityCache(enrichedReply.creator);
                 return enrichedReply;
@@ -471,7 +508,7 @@ export function PostViewClient() {
         } finally {
             setLoading(false);
         }
-    }, [momentId, user]);
+        }, [momentId, user, hydrateMoment]);
 
     useEffect(() => {
         loadMoment();
@@ -652,7 +689,44 @@ export function PostViewClient() {
                     </Alert>
                 )}
 
-                {threadAncestors.length > 0 && (
+                {moment.metadata?.sourceId && !showAncestors && (
+                    <Box
+                        onPointerDown={onPullPointerDown}
+                        onPointerMove={onPullPointerMove}
+                        onPointerUp={onPullPointerUp}
+                        onPointerCancel={onPullPointerUp}
+                        sx={{
+                            mb: 1.5,
+                            borderRadius: '20px',
+                            border: '1px dashed rgba(255,255,255,0.08)',
+                            bgcolor: 'rgba(255,255,255,0.02)',
+                            color: 'rgba(255,255,255,0.6)',
+                            minHeight: pullDistance ? `${72 + pullDistance}px` : 72,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexDirection: 'column',
+                            gap: 1,
+                            userSelect: 'none',
+                            touchAction: 'none',
+                            overflow: 'hidden',
+                            transition: pullActiveRef.current ? 'none' : 'min-height 180ms ease, background-color 180ms ease'
+                        }}
+                    >
+                        {ancestorLoading ? (
+                            <CircularProgress size={18} color="inherit" />
+                        ) : (
+                            <>
+                                <ChevronDown size={16} />
+                                <Typography sx={{ fontWeight: 800, fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                                    Pull down to reveal original post
+                                </Typography>
+                            </>
+                        )}
+                    </Box>
+                )}
+
+                {showAncestors && threadAncestors.length > 0 && (
                     <Stack spacing={1.25} sx={{ mb: 2 }}>
                         {threadAncestors.map((ancestor, index) => {
                             const ancestorId = ancestor.userId || ancestor.creatorId;
@@ -663,7 +737,7 @@ export function PostViewClient() {
                                     onClick={() => router.push(`/post/${ancestor.$id}`)}
                                     sx={{
                                         p: 1.5,
-                                        borderRadius: '16px',
+                                        borderRadius: '20px',
                                         bgcolor: 'rgba(255,255,255,0.02)',
                                         border: '1px solid rgba(255,255,255,0.05)',
                                         cursor: 'pointer',
@@ -676,7 +750,7 @@ export function PostViewClient() {
                                         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pt: 0.25 }}>
                                             <Avatar
                                                 src={ancestor.creator?.avatar}
-                                                sx={{ width: 30, height: 30, borderRadius: '8px', bgcolor: 'rgba(255,255,255,0.05)' }}
+                                                sx={{ width: 38, height: 38, borderRadius: '10px', bgcolor: 'rgba(255,255,255,0.05)' }}
                                             >
                                                 {resolvedAncestor.displayName?.charAt(0).toUpperCase()}
                                             </Avatar>
@@ -686,13 +760,13 @@ export function PostViewClient() {
                                         </Box>
                                         <Box sx={{ flex: 1, minWidth: 0 }}>
                                             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
-                                                <Typography sx={{ fontWeight: 800, fontSize: '0.76rem' }}>
+                                                <Typography sx={{ fontWeight: 900, fontSize: '0.94rem' }}>
                                                     {resolvedAncestor.displayName}
                                                 </Typography>
-                                                <Typography variant="caption" sx={{ opacity: 0.35, fontSize: '0.66rem' }}>
+                                                <Typography variant="caption" sx={{ opacity: 0.35, fontSize: '0.68rem', fontFamily: 'var(--font-mono)' }}>
                                                     {resolvedAncestor.handle}
                                                 </Typography>
-                                                <Typography variant="caption" sx={{ opacity: 0.28, fontSize: '0.66rem' }}>
+                                                <Typography variant="caption" sx={{ opacity: 0.28, fontSize: '0.68rem' }}>
                                                     · {format(new Date(ancestor.$createdAt || ancestor.createdAt), 'MMM d')}
                                                 </Typography>
                                             </Stack>
@@ -700,11 +774,11 @@ export function PostViewClient() {
                                                 text={ancestor.caption}
                                                 variant="body2"
                                                 sx={{
-                                                    color: 'rgba(255,255,255,0.78)',
-                                                    fontSize: '0.82rem',
+                                                    color: 'rgba(255,255,255,0.82)',
+                                                    fontSize: '0.95rem',
                                                     lineHeight: 1.45,
                                                     display: '-webkit-box',
-                                                    WebkitLineClamp: 5,
+                                                    WebkitLineClamp: 6,
                                                     WebkitBoxOrient: 'vertical',
                                                     overflow: 'hidden'
                                                 }}
@@ -1141,22 +1215,22 @@ export function PostViewClient() {
                                     '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' }
                                 }}
                             >
-                                <Avatar 
-                                    src={reply.creator?.avatar} 
-                                    sx={{ width: 30, height: 30, borderRadius: '8px', bgcolor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.05)' }}
-                                >
-                                    {rCreatorName.replace(/^@/, '').charAt(0).toUpperCase()}
-                                </Avatar>
-                                <Box sx={{ flex: 1 }}>
+                            <Avatar 
+                                src={reply.creator?.avatar} 
+                                sx={{ width: 38, height: 38, borderRadius: '10px', bgcolor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.05)' }}
+                            >
+                                {rCreatorName.replace(/^@/, '').charAt(0).toUpperCase()}
+                            </Avatar>
+                            <Box sx={{ flex: 1 }}>
                                     <Stack direction="row" spacing={1} alignItems="center">
-                                        <Typography sx={{ fontWeight: 800, fontSize: '0.8rem', color: 'white' }}>{rCreatorName}</Typography>
-                                        <Typography variant="caption" sx={{ opacity: 0.3, fontFamily: 'var(--font-mono)', fontSize: '0.64rem' }}>{rResolvedCreator.handle}</Typography>
-                                        <Typography variant="caption" sx={{ opacity: 0.3, fontSize: '0.64rem' }}>· {format(new Date(reply.$createdAt), 'MMM d')}</Typography>
+                                        <Typography sx={{ fontWeight: 900, fontSize: '0.96rem', color: 'white' }}>{rCreatorName}</Typography>
+                                        <Typography variant="caption" sx={{ opacity: 0.4, fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>{rResolvedCreator.handle}</Typography>
+                                        <Typography variant="caption" sx={{ opacity: 0.3, fontSize: '0.68rem' }}>· {format(new Date(reply.$createdAt), 'MMM d')}</Typography>
                                     </Stack>
                                     <FormattedText 
                                         text={reply.caption}
                                         variant="body1"
-                                        sx={{ mt: 0.5, color: 'rgba(255,255,255,0.85)', fontSize: '0.86rem', lineHeight: 1.45 }}
+                                        sx={{ mt: 0.5, color: 'rgba(255,255,255,0.92)', fontSize: '0.98rem', lineHeight: 1.45, fontWeight: 500 }}
                                     />
                                     
                                     <Stack direction="row" spacing={2} sx={{ mt: 1.25, color: 'rgba(255,255,255,0.3)' }}>
@@ -1164,13 +1238,13 @@ export function PostViewClient() {
                                             <IconButton size="small" sx={{ p: 0.5, '&:hover': { color: '#6366F1', bgcolor: alpha('#6366F1', 0.1) } }}>
                                                 <MessageCircle size={14} strokeWidth={1.5} />
                                             </IconButton>
-                                            <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.62rem' }}>{reply.stats?.replies || 0}</Typography>
+                                            <Typography variant="caption" sx={{ fontWeight: 800, fontSize: '0.68rem' }}>{reply.stats?.replies || 0}</Typography>
                                         </Box>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
                                             <IconButton size="small" sx={{ p: 0.5, '&:hover': { color: '#10B981', bgcolor: alpha('#10B981', 0.1) } }}>
                                                 <Repeat2 size={14} strokeWidth={1.5} />
                                             </IconButton>
-                                            <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.62rem' }}>{reply.stats?.pulses || 0}</Typography>
+                                            <Typography variant="caption" sx={{ fontWeight: 800, fontSize: '0.68rem' }}>{reply.stats?.pulses || 0}</Typography>
                                         </Box>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
                                             <IconButton 
@@ -1187,7 +1261,7 @@ export function PostViewClient() {
                                             >
                                                 <Heart size={14} fill={reply.isLiked ? '#F59E0B' : 'none'} strokeWidth={1.5} />
                                             </IconButton>
-                                            <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.62rem' }}>{reply.stats?.likes || 0}</Typography>
+                                            <Typography variant="caption" sx={{ fontWeight: 800, fontSize: '0.68rem' }}>{reply.stats?.likes || 0}</Typography>
                                         </Box>
                                     </Stack>
                                 </Box>
