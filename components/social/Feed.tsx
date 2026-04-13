@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { SocialService } from '@/lib/services/social';
 import { UsersService } from '@/lib/services/users';
 import { ChatService } from '@/lib/services/chat';
@@ -478,6 +478,173 @@ const PostComposer = React.memo(function PostComposer({
     );
 });
 
+type MobileComposerDockHandle = {
+    open: () => void;
+    close: () => void;
+};
+
+const MobileComposerDock = React.memo(forwardRef<MobileComposerDockHandle, {
+    isMobile: boolean;
+    user: any;
+    userAvatarUrl: string | null;
+    editingMoment: any;
+    selectedNote: any;
+    selectedEvent: any;
+    selectedCall: any;
+    pulseTarget: any;
+    selectedFiles: File[];
+    posting: boolean;
+    onCancel: () => void;
+    onSubmit: (content: string) => Promise<void>;
+    onSelectFiles: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onOpenNote: () => void;
+    onOpenEvent: () => void;
+    onOpenCall: () => void;
+    onClearNote: () => void;
+    onClearEvent: () => void;
+    onClearCall: () => void;
+    onClearPulseTarget: () => void;
+    onRemoveFile: (index: number) => void;
+    composerKey: string;
+    draftInputRef: React.RefObject<FastDraftInputHandle | null>;
+    hasDraftText: boolean;
+    setHasDraftText: React.Dispatch<React.SetStateAction<boolean>>;
+}>(
+function MobileComposerDock({
+    isMobile,
+    user,
+    userAvatarUrl,
+    editingMoment,
+    selectedNote,
+    selectedEvent,
+    selectedCall,
+    pulseTarget,
+    selectedFiles,
+    posting,
+    onCancel,
+    onSubmit,
+    onSelectFiles,
+    onOpenNote,
+    onOpenEvent,
+    onOpenCall,
+    onClearNote,
+    onClearEvent,
+    onClearCall,
+    onClearPulseTarget,
+    onRemoveFile,
+    composerKey,
+    draftInputRef,
+    hasDraftText,
+    setHasDraftText,
+}, ref) {
+    const [open, setOpen] = useState(false);
+    const { setChromeState, resetChromeState } = useAppChrome();
+
+    useImperativeHandle(ref, () => ({
+        open: () => setOpen(true),
+        close: () => setOpen(false),
+    }), []);
+
+    useEffect(() => {
+        if (open) {
+            setChromeState({
+                mode: 'compact',
+                label: editingMoment ? 'Edit moment' : 'Compose',
+            });
+            return;
+        }
+
+        resetChromeState();
+    }, [editingMoment, open, resetChromeState, setChromeState]);
+
+    useEffect(() => {
+        return () => resetChromeState();
+    }, [resetChromeState]);
+
+    const handleCancel = useCallback(() => {
+        onCancel();
+        setOpen(false);
+    }, [onCancel]);
+
+    return (
+        <>
+            {isMobile && user && !open && (
+                <Fab
+                    color="primary"
+                    sx={{
+                        position: 'fixed',
+                        bottom: 'calc(132px + env(safe-area-inset-bottom))',
+                        right: 24,
+                        width: 64,
+                        height: 64,
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        bgcolor: '#000000',
+                        color: '#F59E0B',
+                        backgroundImage: 'linear-gradient(180deg, rgba(245, 158, 11, 0.2) 0%, rgba(245, 158, 11, 0.06) 100%)',
+                        boxShadow: '0 18px 44px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(245, 158, 11, 0.18), 0 0 28px rgba(245, 158, 11, 0.24)',
+                        backdropFilter: 'blur(16px) saturate(180%)',
+                        transform: 'translateZ(0)',
+                        transition: 'transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease',
+                        WebkitTapHighlightColor: 'transparent',
+                        touchAction: 'manipulation',
+                        zIndex: 1400,
+                        '&::before': {
+                            content: '""',
+                            position: 'absolute',
+                            inset: 6,
+                            borderRadius: '50%',
+                            background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.16), transparent 65%)',
+                            pointerEvents: 'none',
+                        },
+                        '&:hover': {
+                            bgcolor: '#000000',
+                            color: '#F59E0B',
+                            transform: 'translateY(-2px) scale(1.04)',
+                            boxShadow: '0 22px 50px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(245, 158, 11, 0.22), 0 0 34px rgba(245, 158, 11, 0.3)',
+                        },
+                        '&:active': {
+                            transform: 'translateY(0) scale(0.98)',
+                        },
+                    }}
+                    onClick={() => setOpen(true)}
+                >
+                    <Plus size={26} strokeWidth={2.1} />
+                </Fab>
+            )}
+
+            <PostComposer
+                key={composerKey}
+                composerKey={composerKey}
+                isMobile={isMobile}
+                isOpen={!isMobile || open}
+                user={user}
+                userAvatarUrl={userAvatarUrl}
+                editingMoment={editingMoment}
+                selectedNote={selectedNote}
+                selectedEvent={selectedEvent}
+                selectedCall={selectedCall}
+                pulseTarget={pulseTarget}
+                selectedFiles={selectedFiles}
+                posting={posting}
+                onCancel={handleCancel}
+                onSubmit={onSubmit}
+                onSelectFiles={onSelectFiles}
+                onOpenNote={onOpenNote}
+                onOpenEvent={onOpenEvent}
+                onOpenCall={onOpenCall}
+                onClearNote={onClearNote}
+                onClearEvent={onClearEvent}
+                onClearCall={onClearCall}
+                onClearPulseTarget={onClearPulseTarget}
+                onRemoveFile={onRemoveFile}
+                draftInputRef={draftInputRef}
+                hasDraftText={hasDraftText}
+                setHasDraftText={setHasDraftText}
+            />
+        </>
+    );
+}));
+
 const NewPostsWidget = ({ pendingMoments, onClick }: { pendingMoments: any[], onClick: () => void }) => {
     const router = useRouter();
     return (
@@ -572,7 +739,6 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
     const [actorsList, setActorsList] = useState<any[]>([]);
     const [actorsTitle, setActorsTitle] = useState('');
     const [isSearchOpen, setIsSearchOpen] = useState(false);
-    const [isComposerOpen, setIsComposerOpen] = useState(false);
     const [editingMoment, setEditingMoment] = useState<any>(null);
     const [hasDraftText, setHasDraftText] = useState(Boolean(editingMoment?.caption?.trim()));
     const momentsRef = React.useRef<any[]>([]);
@@ -581,26 +747,10 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
     const feedLoadSeqRef = React.useRef(0);
     const feedPrefetchRef = React.useRef<Record<string, Promise<void> | undefined>>({});
     const draftInputRef = React.useRef<FastDraftInputHandle | null>(null);
+    const mobileComposerDockRef = React.useRef<MobileComposerDockHandle | null>(null);
 
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'), { noSsr: true });
-    const { setChromeState, resetChromeState } = useAppChrome();
-
-    useEffect(() => {
-        if (isMobile && isComposerOpen) {
-            setChromeState({
-                mode: 'compact',
-                label: editingMoment ? 'Edit moment' : 'Compose',
-            });
-            return;
-        }
-
-        resetChromeState();
-    }, [editingMoment, isComposerOpen, isMobile, resetChromeState, setChromeState]);
-
-    useEffect(() => {
-        return () => resetChromeState();
-    }, [resetChromeState]);
 
     useEffect(() => {
         // Hydrate the current view immediately so tab switches feel instant.
@@ -957,7 +1107,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
         // If there are attachments, we'd ideally load them here, but for now we focus on caption
         setPulseTarget(moment.sourceMoment || null);
         setHasDraftText(Boolean(moment.caption?.trim()));
-        setIsComposerOpen(true);
+        mobileComposerDockRef.current?.open();
         setPostMenuAnchorEl(null);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -972,8 +1122,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
         setPulseTarget(null);
         setSelectedFiles([]);
         setComposerResetToken((value) => value + 1);
-        if (isMobile) setIsComposerOpen(false);
-    }, [isMobile]);
+    }, []);
 
     const handlePost = async (draftText: string) => {
         if (!draftText.trim() && !selectedNote && !selectedEvent && !selectedCall && !pulseTarget && selectedFiles.length === 0) return;
@@ -1037,6 +1186,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
         setPulseTarget(moment);
         setPulseMenuAnchorEl(null);
         // Ensure composer is visible and focused
+        mobileComposerDockRef.current?.open();
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
@@ -1428,11 +1578,11 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
             )}
             {/* Create Post */}
             {user && (
-                <PostComposer
+                <MobileComposerDock
+                    ref={mobileComposerDockRef}
                     key={composerResetToken}
                     composerKey={`${editingMoment?.$id || 'new'}-${composerResetToken}`}
                     isMobile={isMobile}
-                    isOpen={!isMobile || isComposerOpen}
                     user={user}
                     userAvatarUrl={userAvatarUrl}
                     editingMoment={editingMoment}
@@ -2101,51 +2251,6 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                     <Send size={20} strokeWidth={1.5} style={{ opacity: 0.7 }} /> Forward to Chat
                 </MenuItem>
             </Menu>
-
-            {/* Mobile FAB */}
-            {isMobile && user && !isComposerOpen && (
-                <Fab 
-                    color="primary" 
-                    sx={{ 
-                        position: 'fixed', 
-                        bottom: 'calc(132px + env(safe-area-inset-bottom))', 
-                        right: 24, 
-                        width: 64,
-                        height: 64,
-                        border: '1px solid rgba(255, 255, 255, 0.12)',
-                        bgcolor: '#000000',
-                        color: '#F59E0B',
-                        backgroundImage: 'linear-gradient(180deg, rgba(245, 158, 11, 0.2) 0%, rgba(245, 158, 11, 0.06) 100%)',
-                        boxShadow: '0 18px 44px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(245, 158, 11, 0.18), 0 0 28px rgba(245, 158, 11, 0.24)',
-                        backdropFilter: 'blur(16px) saturate(180%)',
-                        transform: 'translateZ(0)',
-                        transition: 'transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease',
-                        WebkitTapHighlightColor: 'transparent',
-                        touchAction: 'manipulation',
-                        zIndex: 1400,
-                        '&::before': {
-                            content: '""',
-                            position: 'absolute',
-                            inset: 6,
-                            borderRadius: '50%',
-                            background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.16), transparent 65%)',
-                            pointerEvents: 'none',
-                        },
-                        '&:hover': {
-                            bgcolor: '#000000',
-                            color: '#F59E0B',
-                            transform: 'translateY(-2px) scale(1.04)',
-                            boxShadow: '0 22px 50px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(245, 158, 11, 0.22), 0 0 34px rgba(245, 158, 11, 0.3)',
-                        },
-                        '&:active': {
-                            transform: 'translateY(0) scale(0.98)',
-                        },
-                    }}
-                    onClick={() => setIsComposerOpen(true)}
-                >
-                    <Plus size={26} strokeWidth={2.1} />
-                </Fab>
-            )}
 
             {moments.length === 0 && (
                 <Box sx={{ textAlign: 'center', py: 10, bgcolor: 'rgba(255, 255, 255, 0.01)', borderRadius: '32px', border: '1px dashed rgba(255, 255, 255, 0.1)' }}>
