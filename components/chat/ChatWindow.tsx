@@ -914,7 +914,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
             if (typeof unsub === 'function') unsub();
             else if (unsub?.unsubscribe) unsub.unsubscribe();
         };
-    }, [conversationId, user?.$id, loadConversation, loadMessages]);
+    }, [conversationId, user, user?.$id, loadConversation, loadMessages]);
 
     useEffect(() => {
         if (conversation?.isEncrypted && !isUnlocked && !unlockModalOpen) {

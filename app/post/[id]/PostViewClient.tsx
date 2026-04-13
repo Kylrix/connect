@@ -1142,9 +1142,9 @@ export function PostViewClient() {
         : null;
     const currentHasPrev = showAncestors || (Boolean(moment.metadata?.sourceId) && !isQuoteMoment);
     const currentThreadLineMode: ThreadPostViewProps['threadLineMode'] = currentHasPrev ? 'up' : 'none';
-    const handleBackToFeed = useCallback(() => {
+    const handleBackToFeed = () => {
         router.push('/');
-    }, [router]);
+    };
 
     return (
         <AppShell>

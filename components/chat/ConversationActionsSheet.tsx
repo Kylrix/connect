@@ -215,7 +215,7 @@ export default function ConversationActionsSheet({
       console.warn('[ConversationActionsSheet] Failed to refresh conversation:', error);
       return currentConversation;
     }
-  }, [currentConversation, currentConversation?.$id, onConversationUpdated, user?.$id]);
+  }, [currentConversation, onConversationUpdated, user?.$id]);
 
   const loadPendingRequests = useCallback(async () => {
     if (!open || !isGroup || !isAdmin || !currentConversation?.$id) {
@@ -277,7 +277,7 @@ export default function ConversationActionsSheet({
     setPendingJoinRequests([]);
     setRequesterProfiles({});
     setDeleteConfirmOpen(false);
-  }, [open, conversation?.$id]);
+  }, [open, conversation]);
 
   useEffect(() => {
     if (!open || !currentConversation) return;
