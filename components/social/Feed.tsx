@@ -118,6 +118,9 @@ const PostComposer = React.memo(function PostComposer({
     onClearPulseTarget,
     onRemoveFile,
     composerKey,
+    draftInputRef,
+    hasDraftText: hasDraftTextProp,
+    setHasDraftText,
 }: {
     isMobile: boolean;
     isOpen: boolean;
@@ -142,18 +145,20 @@ const PostComposer = React.memo(function PostComposer({
     onClearCall: () => void;
     onClearPulseTarget: () => void;
     onRemoveFile: (index: number) => void;
+    draftInputRef: React.RefObject<FastDraftInputHandle | null>;
+    hasDraftText: boolean;
+    setHasDraftText: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
-    const [draft, setDraft] = React.useState(editingMoment?.caption || '');
-    const textRef = React.useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
     const [filePreviews, setFilePreviews] = React.useState<ComposerFilePreview[]>([]);
 
     React.useEffect(() => {
-        setDraft(editingMoment?.caption || '');
+        const value = editingMoment?.caption || '';
+        setHasDraftText(Boolean(value.trim()));
         const t = setTimeout(() => {
-            textRef.current?.focus();
+            draftInputRef.current?.focus();
         }, 0);
         return () => clearTimeout(t);
-    }, [composerKey, editingMoment?.caption]);
+    }, [composerKey, editingMoment?.caption, draftInputRef, setHasDraftText]);
 
     React.useEffect(() => {
         const previews = selectedFiles.map((file) => ({
@@ -167,7 +172,7 @@ const PostComposer = React.memo(function PostComposer({
     }, [selectedFiles]);
 
     const canSubmit = Boolean(
-        draft.trim() || selectedNote || selectedEvent || selectedCall || pulseTarget || selectedFiles.length > 0
+        hasDraftTextProp || selectedNote || selectedEvent || selectedCall || pulseTarget || selectedFiles.length > 0
     );
 
     return (
