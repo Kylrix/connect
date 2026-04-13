@@ -22,6 +22,10 @@ import {
     alpha,
     Stack,
     Tooltip,
+    Drawer,
+    ListItemButton,
+    ListItemIcon,
+    ListItemText,
     useMediaQuery,
     useTheme,
     Skeleton
@@ -31,8 +35,6 @@ import {
     Heart,
     MessageCircle,
     Repeat2,
-    Share,
-    ArrowLeft,
     LogIn,
     MoreHorizontal,
     Calendar,
@@ -41,7 +43,9 @@ import {
     Clock,
     Link2,
     Send,
-    Edit
+    Edit,
+    Image as ImageIcon,
+    Download
 } from 'lucide-react';
 import { fetchProfilePreview } from '@/lib/profile-preview';
 import { getUserProfilePicId } from '@/lib/user-utils';
@@ -52,6 +56,272 @@ import { format } from 'date-fns';
 import { FormattedText } from '@/components/common/FormattedText';
 import toast from 'react-hot-toast';
 import { TextField, InputAdornment, Alert, Menu, MenuItem } from '@mui/material';
+
+const EXPORT_WIDTH = 1400;
+const EXPORT_CARD = '#161412';
+
+const clampText = (value: string, limit: number) => {
+    const clean = String(value || '').trim();
+    return clean.length > limit ? `${clean.slice(0, limit - 1)}…` : clean;
+};
+
+const getMomentTimeLabel = (moment: any) => {
+    const raw = moment?.$createdAt || moment?.createdAt;
+    if (!raw) return 'Just now';
+    return format(new Date(raw), 'MMM d · h:mm a');
+};
+
+const wrapLines = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number) => {
+    const words = String(text || '').split(/\s+/).filter(Boolean);
+    if (!words.length) return [''];
+    const lines: string[] = [];
+    let current = words.shift() || '';
+    for (const word of words) {
+        const next = `${current} ${word}`;
+        if (ctx.measureText(next).width <= maxWidth) {
+            current = next;
+        } else {
+            lines.push(current);
+            current = word;
+        }
+    }
+    lines.push(current);
+    return lines;
+};
+
+const drawRoundedRect = (ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) => {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.arcTo(x + width, y, x + width, y + height, radius);
+    ctx.arcTo(x + width, y + height, x, y + height, radius);
+    ctx.arcTo(x, y + height, x, y, radius);
+    ctx.arcTo(x, y, x + width, y, radius);
+    ctx.closePath();
+};
+
+const loadImage = (src: string) => new Promise<HTMLImageElement | null>((resolve) => {
+    if (!src) return resolve(null);
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = src;
+});
+
+const drawAvatar = async (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, src?: string | null, label = 'U') => {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    ctx.fillRect(x, y, size, size);
+    const avatar = await loadImage(src || '');
+    if (avatar) {
+        ctx.drawImage(avatar, x, y, size, size);
+    } else {
+        ctx.fillStyle = '#F59E0B';
+        ctx.fillRect(x, y, size, size);
+        ctx.fillStyle = '#0A0908';
+        ctx.font = `700 ${Math.floor(size * 0.45)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label.slice(0, 1).toUpperCase(), x + size / 2, y + size / 2 + 2);
+    }
+    ctx.restore();
+};
+
+const estimateCardHeight = (ctx: CanvasRenderingContext2D, moment: any, width: number) => {
+    const textWidth = width - 120;
+    const caption = wrapLines(ctx, String(moment?.caption || ''), textWidth);
+    const attachmentCount = (moment?.metadata?.attachments || []).filter((att: any) => att.type === 'image' || att.type === 'video').length;
+    let height = 340;
+    height += Math.min(8, caption.length) * 48;
+    if (attachmentCount > 0) height += 460;
+    if (moment?.attachedNote) height += 190;
+    if (moment?.attachedEvent) height += 220;
+    return height;
+};
+
+const renderMomentCard = async (
+    ctx: CanvasRenderingContext2D,
+    moment: any,
+    x: number,
+    y: number,
+    width: number,
+    isReplyParent = false,
+): Promise<number> => {
+    const creator = moment?.creator || {};
+    const identityName = resolveIdentity(creator, moment?.userId || moment?.creatorId);
+    const avatarLabel = String(identityName.displayName || identityName.handle || 'User').slice(0, 1);
+    const cardHeight = estimateCardHeight(ctx, moment, width);
+    const radius = 36;
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.35)';
+    ctx.shadowBlur = 32;
+    ctx.shadowOffsetY = 16;
+    ctx.fillStyle = EXPORT_CARD;
+    drawRoundedRect(ctx, x, y, width, cardHeight, radius);
+    ctx.fill();
+    ctx.restore();
+
+    const innerX = x + 40;
+    let cursorY = y + 36;
+
+    if (isReplyParent) {
+        ctx.fillStyle = '#6366F1';
+        ctx.font = '700 22px sans-serif';
+        ctx.fillText('In reply to', innerX, cursorY + 18);
+        cursorY += 36;
+    }
+
+    await drawAvatar(ctx, innerX, cursorY, 64, creator?.avatar, avatarLabel);
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '900 28px sans-serif';
+    ctx.fillText(clampText(identityName.displayName || 'Unknown', 32), innerX + 86, cursorY + 26);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.font = '700 19px monospace';
+    ctx.fillText(clampText(identityName.handle || '', 40), innerX + 86, cursorY + 56);
+    ctx.fillText(getMomentTimeLabel(moment), x + width - 40 - ctx.measureText(getMomentTimeLabel(moment)).width, cursorY + 56);
+
+    cursorY += 106;
+
+    const captionLines = wrapLines(ctx, String(moment?.caption || ''), width - 80);
+    ctx.fillStyle = 'rgba(255,255,255,0.96)';
+    ctx.font = '500 26px sans-serif';
+    captionLines.slice(0, 8).forEach((line, index) => {
+        ctx.fillText(line, innerX, cursorY + index * 38);
+    });
+    cursorY += Math.min(8, captionLines.length) * 38 + 20;
+
+    const attachments = (moment?.metadata?.attachments || []).filter((att: any) => att.type === 'image' || att.type === 'video');
+    if (attachments.length) {
+        const first = attachments[0];
+        const previewSrc = first.type === 'image' ? SocialService.getMediaPreview(first.id, 1200, 800) : SocialService.getMediaPreview(first.id, 1200, 800);
+        const media = await loadImage(previewSrc);
+        const mediaHeight = 420;
+        ctx.save();
+        drawRoundedRect(ctx, innerX, cursorY, width - 80, mediaHeight, 28);
+        ctx.clip();
+        ctx.fillStyle = 'rgba(255,255,255,0.03)';
+        ctx.fillRect(innerX, cursorY, width - 80, mediaHeight);
+        if (media) {
+            const scale = Math.max((width - 80) / media.width, mediaHeight / media.height);
+            const drawWidth = media.width * scale;
+            const drawHeight = media.height * scale;
+            ctx.drawImage(media, innerX + ((width - 80) - drawWidth) / 2, cursorY + (mediaHeight - drawHeight) / 2, drawWidth, drawHeight);
+        }
+        ctx.restore();
+        cursorY += mediaHeight + 24;
+    }
+
+    if (moment?.attachedNote) {
+        ctx.fillStyle = 'rgba(99,102,241,0.12)';
+        drawRoundedRect(ctx, innerX, cursorY, width - 80, 150, 24);
+        ctx.fill();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '900 22px sans-serif';
+        ctx.fillText('Attached Note', innerX + 24, cursorY + 44);
+        ctx.fillStyle = 'rgba(255,255,255,0.78)';
+        ctx.font = '500 20px sans-serif';
+        wrapLines(ctx, clampText(moment.attachedNote.content || '', 220), width - 128).slice(0, 4).forEach((line, idx) => {
+            ctx.fillText(line, innerX + 24, cursorY + 82 + idx * 28);
+        });
+        cursorY += 174;
+    }
+
+    if (moment?.attachedEvent) {
+        ctx.fillStyle = 'rgba(168,85,247,0.12)';
+        drawRoundedRect(ctx, innerX, cursorY, width - 80, 170, 24);
+        ctx.fill();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '900 22px sans-serif';
+        ctx.fillText('Attached Event', innerX + 24, cursorY + 44);
+        ctx.fillStyle = 'rgba(255,255,255,0.78)';
+        ctx.font = '500 20px sans-serif';
+        ctx.fillText(clampText(moment.attachedEvent.title || 'Untitled Event', 42), innerX + 24, cursorY + 82);
+        ctx.fillText(clampText(moment.attachedEvent.location || 'No location', 42), innerX + 24, cursorY + 114);
+        cursorY += 194;
+    }
+
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = '700 18px monospace';
+    ctx.fillText(`replies ${moment?.stats?.replies || 0}  •  likes ${moment?.stats?.likes || 0}  •  pulses ${moment?.stats?.pulses || 0}`, innerX, y + cardHeight - 30);
+
+    return cardHeight;
+};
+
+const exportMomentAsImage = async (rootMoment: any) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas unavailable');
+
+    const parentMoment = rootMoment?.sourceMoment && rootMoment?.metadata?.sourceId ? rootMoment.sourceMoment : null;
+    const margin = 80;
+    const bodyWidth = EXPORT_WIDTH - margin * 2;
+
+    canvas.width = EXPORT_WIDTH;
+    ctx.font = '500 26px sans-serif';
+
+    const headerHeight = 160;
+    const parentHeight = parentMoment ? estimateCardHeight(ctx, parentMoment, bodyWidth) + 38 : 0;
+    const mainHeight = estimateCardHeight(ctx, rootMoment, bodyWidth);
+    const totalHeight = margin + headerHeight + parentHeight + mainHeight + 150 + (parentMoment ? 56 : 0);
+    canvas.height = totalHeight;
+
+    const gradient = ctx.createLinearGradient(0, 0, 0, totalHeight);
+    gradient.addColorStop(0, '#0E0D0B');
+    gradient.addColorStop(1, '#090807');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.03)';
+    for (let i = 0; i < 36; i += 1) {
+        ctx.beginPath();
+        ctx.arc((i * 97) % canvas.width, 60 + (i * 53) % (canvas.height - 120), 1.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    drawRoundedRect(ctx, margin, 36, bodyWidth, 96, 28);
+    ctx.fill();
+    ctx.fillStyle = '#F59E0B';
+    ctx.font = '900 32px sans-serif';
+    ctx.fillText('Kylrix Connect', margin + 32, 78);
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = '700 18px sans-serif';
+    ctx.fillText('Screenshot export', margin + 32, 112);
+
+    let cursorY = margin + headerHeight;
+    if (parentMoment) {
+        ctx.fillStyle = '#6366F1';
+        ctx.fillRect(margin + 74, cursorY - 22, 3, 44);
+        cursorY += 8;
+        const parentCardHeight = await renderMomentCard(ctx, parentMoment, margin, cursorY, bodyWidth, true);
+        cursorY += parentCardHeight + 28;
+        ctx.fillStyle = '#6366F1';
+        ctx.beginPath();
+        ctx.arc(margin + 75.5, cursorY - 18, 5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    await renderMomentCard(ctx, rootMoment, margin, cursorY, bodyWidth, false);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.28)';
+    ctx.font = '700 18px monospace';
+    const footer = `@${resolveIdentity(rootMoment.creator, rootMoment.userId || rootMoment.creatorId).handle?.replace(/^@/, '') || 'connect'} • ${window.location.hostname}`;
+    ctx.fillText(footer, margin, canvas.height - 42);
+
+    return new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+            if (!blob) reject(new Error('Failed to encode image'));
+            else resolve(blob);
+        }, 'image/png', 1);
+    });
+};
 
 export function PostViewClient() {
     const params = useParams();
@@ -65,7 +335,10 @@ export function PostViewClient() {
     const [replying, setReplying] = useState(false);
     const [replyContent, setReplyContent] = useState('');
     const [pulseMenuAnchorEl, setPulseMenuAnchorEl] = useState<null | HTMLElement>(null);
+    const [shareDrawerOpen, setShareDrawerOpen] = useState(false);
+    const [exportingImage, setExportingImage] = useState(false);
     const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
+    const [threadAncestors, setThreadAncestors] = useState<any[]>([]);
     const [actorsDrawerOpen, setActorsDrawerOpen] = useState(false);
     const [actorsList, setActorsList] = useState<any[]>([]);
     const [actorsTitle, setActorsTitle] = useState('');
@@ -136,50 +409,47 @@ export function PostViewClient() {
     const loadMoment = useCallback(async () => {
         if (!momentId) return;
         if (!hasPreviewRef.current) setLoading(true);
+        setThreadAncestors([]);
         try {
-            const data = await SocialService.getMomentById(momentId, user?.$id);
-            seedMomentPreview(data);
-            
-            // Enrich creator
-            const creatorId = data.userId || data.creatorId;
-            const creator = await UsersService.getProfileById(creatorId);
-            
-            let avatar = null;
-            if (creator?.avatar) {
-                try {
-                    avatar = String(creator.avatar).startsWith('http')
-                        ? creator.avatar
-                        : await fetchProfilePreview(creator.avatar, 64, 64) as unknown as string;
-                } catch (_e) {}
-            }
+            const enrichMoment = async (data: any, depth = 0): Promise<any> => {
+                seedMomentPreview(data);
 
-            // If this is a reply, resolve the source moment as well
-            let sourceMoment = data.sourceMoment;
-            if (data.metadata?.sourceId && !sourceMoment) {
-                try {
-                    const source = await SocialService.getMomentById(data.metadata.sourceId, user?.$id);
-                    seedMomentPreview(source);
-                    // Enrich source creator
-                    const sCreatorId = source.userId || source.creatorId;
-                    const sCreator = await UsersService.getProfileById(sCreatorId);
-                    let sAvatar = null;
-                    if (sCreator?.avatar) {
-                        try {
-                            sAvatar = String(sCreator.avatar).startsWith('http')
-                                ? sCreator.avatar
-                                : await fetchProfilePreview(sCreator.avatar, 64, 64) as unknown as string;
-                        } catch (_e: unknown) {}
-                    }
-                    sourceMoment = { ...source, creator: { ...sCreator, avatar: sAvatar } };
-                } catch (_e: unknown) {
-                    console.warn('Failed to resolve source moment in client', _e);
+                const creatorId = data.userId || data.creatorId;
+                const creator = await UsersService.getProfileById(creatorId);
+
+                let avatar = null;
+                if (creator?.avatar) {
+                    try {
+                        avatar = String(creator.avatar).startsWith('http')
+                            ? creator.avatar
+                            : await fetchProfilePreview(creator.avatar, 64, 64) as unknown as string;
+                    } catch (_e) {}
                 }
-            }
 
-            const enrichedMoment = { ...data, creator: { ...creator, avatar }, sourceMoment };
+                let sourceMoment = data.sourceMoment;
+                if (data.metadata?.sourceId && depth < 8) {
+                    try {
+                        const source = await SocialService.getMomentById(data.metadata.sourceId, user?.$id);
+                        sourceMoment = await enrichMoment(source, depth + 1);
+                    } catch (_e: unknown) {
+                        console.warn('Failed to resolve source moment in client', _e);
+                    }
+                }
+
+                return { ...data, creator: { ...creator, avatar }, sourceMoment };
+            };
+
+            const enrichedMoment = await enrichMoment(data);
             setMoment(enrichedMoment);
             seedMomentPreview(enrichedMoment);
             seedIdentityCache(enrichedMoment.creator);
+            const ancestors: any[] = [];
+            let ancestorCursor = enrichedMoment.sourceMoment;
+            while (ancestorCursor) {
+                ancestors.unshift(ancestorCursor);
+                ancestorCursor = ancestorCursor.sourceMoment;
+            }
+            setThreadAncestors(ancestors);
 
             // Fetch replies
             const replyData = await SocialService.getReplies(momentId, user?.$id);
@@ -204,6 +474,7 @@ export function PostViewClient() {
         } catch (_e: unknown) {
             console.error('Failed to load moment:', _e);
             toast.error('Moment not found');
+            setThreadAncestors([]);
         } finally {
             setLoading(false);
         }
@@ -306,6 +577,27 @@ export function PostViewClient() {
         toast.success('Link copied to clipboard');
     };
 
+    const handleExportScreenshot = async () => {
+        if (!moment) return;
+        setExportingImage(true);
+        try {
+            const blob = await exportMomentAsImage(moment);
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = `kylrix-connect-${moment.$id}.png`;
+            anchor.click();
+            window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+            toast.success('Screenshot saved');
+            setShareDrawerOpen(false);
+        } catch (error) {
+            console.error('Failed to export screenshot:', error);
+            toast.error('Failed to export screenshot');
+        } finally {
+            setExportingImage(false);
+        }
+    };
+
     if (loading && !moment) return (
         <AppShell>
             <Box sx={{ maxWidth: 'sm', mx: 'auto', py: 4, px: 2 }}>
@@ -367,52 +659,69 @@ export function PostViewClient() {
                     </Alert>
                 )}
 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                    <IconButton onClick={() => router.back()} size="small" sx={{ color: 'white', bgcolor: 'rgba(255,255,255,0.03)' }}>
-                        <ArrowLeft size={18} />
-                    </IconButton>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 900, fontFamily: 'var(--font-clash)', letterSpacing: '-0.02em' }}>
-                        Thread
-                    </Typography>
-                </Box>
-
-                {/* Parent Post Preview (The Thread Line) */}
-                {moment.metadata?.sourceId && moment.sourceMoment && (
-                    <Box sx={{ position: 'relative', mb: 0 }}>
-                        <Box 
-                            onClick={() => router.push(`/post/${moment.sourceMoment.$id}`)}
-                            sx={{ 
-                                display: 'flex', 
-                                gap: 2, 
-                                px: 2, 
-                                py: 1, 
-                                cursor: 'pointer',
-                                transition: 'background 0.2s',
-                                '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' }
-                            }}
-                        >
-                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <Avatar 
-                                    onClick={(e) => { e.stopPropagation(); const username = resolveIdentityUsername(moment.sourceMoment?.creator, moment.sourceMoment?.userId || moment.sourceMoment?.creatorId); if (username) router.push(`/u/${username}`); }}
-                                    src={moment.sourceMoment.creator?.avatar} 
-                                    sx={{ width: 32, height: 32, borderRadius: '8px', bgcolor: 'rgba(255,255,255,0.05)', cursor: 'pointer' }}
-                                />
-                                <Box sx={{ width: '2px', flex: 1, bgcolor: 'rgba(255,255,255,0.15)', mt: 1, mb: -1 }} />
-                            </Box>
-                            <Box sx={{ flex: 1, pt: 0.2 }}>
-                                <Stack direction="row" spacing={1} alignItems="center">
-                                    <Typography sx={{ fontWeight: 800, fontSize: '0.85rem' }}>{resolveIdentity(moment.sourceMoment.creator, moment.sourceMoment.userId || moment.sourceMoment.creatorId).displayName}</Typography>
-                                    <Typography variant="caption" sx={{ opacity: 0.4 }}>{resolveIdentity(moment.sourceMoment.creator, moment.sourceMoment.userId || moment.sourceMoment.creatorId).handle}</Typography>
-                                    <Typography variant="caption" sx={{ opacity: 0.3 }}>· {format(new Date(moment.sourceMoment.$createdAt || moment.sourceMoment.createdAt), 'MMM d')}</Typography>
-                                </Stack>
-                                <FormattedText 
-                                    text={moment.sourceMoment.caption}
-                                    variant="body2"
-                                    sx={{ mt: 0.2, color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
-                                />
-                            </Box>
-                        </Box>
-                    </Box>
+                {threadAncestors.length > 0 && (
+                    <Stack spacing={1.25} sx={{ mb: 2 }}>
+                        {threadAncestors.map((ancestor, index) => {
+                            const ancestorId = ancestor.userId || ancestor.creatorId;
+                            const resolvedAncestor = resolveIdentity(ancestor.creator, ancestorId);
+                            return (
+                                <Paper
+                                    key={ancestor.$id}
+                                    onClick={() => router.push(`/post/${ancestor.$id}`)}
+                                    sx={{
+                                        p: 2,
+                                        borderRadius: '20px',
+                                        bgcolor: 'rgba(255,255,255,0.02)',
+                                        border: '1px solid rgba(255,255,255,0.05)',
+                                        cursor: 'pointer',
+                                        position: 'relative',
+                                        overflow: 'hidden',
+                                        '&:hover': { bgcolor: 'rgba(255,255,255,0.04)' }
+                                    }}
+                                >
+                                    <Box sx={{ display: 'flex', gap: 1.5 }}>
+                                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pt: 0.25 }}>
+                                            <Avatar
+                                                src={ancestor.creator?.avatar}
+                                                sx={{ width: 34, height: 34, borderRadius: '10px', bgcolor: 'rgba(255,255,255,0.05)' }}
+                                            >
+                                                {resolvedAncestor.displayName?.charAt(0).toUpperCase()}
+                                            </Avatar>
+                                            {index < threadAncestors.length - 1 && (
+                                                <Box sx={{ width: '2px', flex: 1, minHeight: 24, bgcolor: 'rgba(255,255,255,0.12)', mt: 1 }} />
+                                            )}
+                                        </Box>
+                                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                                                <Typography sx={{ fontWeight: 800, fontSize: '0.88rem' }}>
+                                                    {resolvedAncestor.displayName}
+                                                </Typography>
+                                                <Typography variant="caption" sx={{ opacity: 0.35 }}>
+                                                    {resolvedAncestor.handle}
+                                                </Typography>
+                                                <Typography variant="caption" sx={{ opacity: 0.28 }}>
+                                                    · {format(new Date(ancestor.$createdAt || ancestor.createdAt), 'MMM d')}
+                                                </Typography>
+                                            </Stack>
+                                            <FormattedText
+                                                text={ancestor.caption}
+                                                variant="body2"
+                                                sx={{
+                                                    color: 'rgba(255,255,255,0.78)',
+                                                    fontSize: '0.95rem',
+                                                    lineHeight: 1.55,
+                                                    display: '-webkit-box',
+                                                    WebkitLineClamp: 6,
+                                                    WebkitBoxOrient: 'vertical',
+                                                    overflow: 'hidden'
+                                                }}
+                                            />
+                                        </Box>
+                                    </Box>
+                                </Paper>
+                            );
+                        })}
+                    </Stack>
                 )}
 
                 <Card sx={{ 
@@ -698,9 +1007,9 @@ export function PostViewClient() {
                                     <Link2 size={24} strokeWidth={1.5} />
                                 </IconButton>
                             </Tooltip>
-                            <Tooltip title="Share Moment">
-                                <IconButton sx={{ '&:hover': { color: '#6366F1', bgcolor: alpha('#6366F1', 0.1) } }}>
-                                    <Share size={24} strokeWidth={1.5} />
+                            <Tooltip title="Export / Share">
+                                <IconButton onClick={() => setShareDrawerOpen(true)} sx={{ '&:hover': { color: '#6366F1', bgcolor: alpha('#6366F1', 0.1) } }}>
+                                    <Send size={24} strokeWidth={1.5} />
                                 </IconButton>
                             </Tooltip>
                         </Stack>
@@ -747,6 +1056,76 @@ export function PostViewClient() {
                         </Stack>
                     </Box>
                 )}
+
+                <Drawer
+                    anchor="bottom"
+                    open={shareDrawerOpen}
+                    onClose={() => setShareDrawerOpen(false)}
+                    PaperProps={{
+                        sx: {
+                            bgcolor: '#161412',
+                            borderTopLeftRadius: '28px',
+                            borderTopRightRadius: '28px',
+                            border: '1px solid rgba(255,255,255,0.06)',
+                            backgroundImage: 'none',
+                            maxWidth: 720,
+                            mx: 'auto',
+                            width: '100%',
+                            pb: 'env(safe-area-inset-bottom)',
+                        }
+                    }}
+                >
+                    <Box sx={{ px: 2, pt: 1.5, pb: 2 }}>
+                        <Box sx={{ width: 44, height: 4, borderRadius: 999, bgcolor: 'rgba(255,255,255,0.14)', mx: 'auto', mb: 2 }} />
+                        <Typography variant="subtitle1" sx={{ fontWeight: 900, fontFamily: 'var(--font-clash)', mb: 0.5 }}>
+                            Share post
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+                            Export this post as a branded PNG image.
+                        </Typography>
+
+                        <ListItemButton
+                            onClick={handleExportScreenshot}
+                            disabled={exportingImage}
+                            sx={{
+                                mb: 1,
+                                borderRadius: '16px',
+                                bgcolor: 'rgba(245, 158, 11, 0.08)',
+                                border: '1px solid rgba(245, 158, 11, 0.14)',
+                            }}
+                        >
+                            <ListItemIcon sx={{ color: '#F59E0B', minWidth: 40 }}>
+                                {exportingImage ? <CircularProgress size={18} color="inherit" /> : <ImageIcon size={18} />}
+                            </ListItemIcon>
+                            <ListItemText
+                                primary="Screenshot"
+                                secondary="Download an image of this post thread"
+                                primaryTypographyProps={{ fontWeight: 800 }}
+                                secondaryTypographyProps={{ color: 'text.secondary' }}
+                            />
+                            <Download size={18} />
+                        </ListItemButton>
+
+                        <ListItemButton
+                            onClick={() => { handleCopyLink(); setShareDrawerOpen(false); }}
+                            sx={{
+                                borderRadius: '16px',
+                                bgcolor: 'rgba(255,255,255,0.03)',
+                                border: '1px solid rgba(255,255,255,0.06)',
+                            }}
+                        >
+                            <ListItemIcon sx={{ color: '#6366F1', minWidth: 40 }}>
+                                <Link2 size={18} />
+                            </ListItemIcon>
+                            <ListItemText
+                                primary="Copy link"
+                                secondary="Share the direct URL instead"
+                                primaryTypographyProps={{ fontWeight: 800 }}
+                                secondaryTypographyProps={{ color: 'text.secondary' }}
+                            />
+                        </ListItemButton>
+                    </Box>
+                </Drawer>
 
                 <Stack spacing={2} sx={{ mt: 4 }}>
                     {replies.map((reply) => {

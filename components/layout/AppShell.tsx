@@ -74,7 +74,9 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
     const isEmbedded = useMemo(() => searchParams?.get('is_embedded') === 'true', [searchParams]);
     const isExternalProfile = pathname?.startsWith('/u/');
     const isChatActive = pathname?.startsWith('/chat/') || pathname === '/chats';
+    const isPostActive = pathname?.startsWith('/post/');
     const isInsideChat = pathname?.startsWith('/chat/');
+    const isFullscreenContent = isChatActive || isPostActive;
 
     const navItems = [
         { label: 'Home', icon: <Home size={24} />, href: '/' },
@@ -118,7 +120,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
 
     return (
             <Box sx={{ display: 'flex', height: '100dvh', minHeight: '100dvh', overflow: 'hidden', bgcolor: '#0A0908' }}>
-                {!isChatActive && <AppHeader />}
+                {!isFullscreenContent && <AppHeader />}
                 <ProfileSetupDrawer />
 
             {/* Desktop Sidebar */}
@@ -132,8 +134,8 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
                         [`& .MuiDrawer-paper`]: { 
                             width: drawerWidth, 
                             boxSizing: 'border-box', 
-                            top: isChatActive ? 0 : headerHeight, 
-                            height: isChatActive ? '100%' : `calc(100% - ${headerHeight}px)`,
+                            top: isFullscreenContent ? 0 : headerHeight, 
+                            height: isFullscreenContent ? '100%' : `calc(100% - ${headerHeight}px)`,
                             bgcolor: '#0A0908',
                             borderRight: '1px solid',
                             borderColor: 'rgba(255, 255, 255, 0.05)'
@@ -218,34 +220,35 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
                     height: '100%', 
                     overflow: 'hidden', 
                     position: 'relative', 
-                    pt: isChatActive ? 0 : `${headerHeight}px`,
+                    pt: isFullscreenContent ? 0 : `${headerHeight}px`,
                     bgcolor: '#0A0908',
                     transition: 'all 0.3s ease-in-out'
                 }}
             >
                 <Box sx={{ 
                      height: '100%', 
-                     p: isInsideChat ? 0 : { xs: 2, md: 3 },
-                     overflowY: isInsideChat ? 'hidden' : 'auto',
-                     maxWidth: isExternalProfile ? '1200px' : 'auto',
-                     mx: isExternalProfile ? 'auto' : 'unset'
-                 }}>
+                      p: (isInsideChat || isPostActive) ? 0 : { xs: 2, md: 3 },
+                      overflowY: (isInsideChat || isPostActive) ? 'auto' : 'auto',
+                      overscrollBehaviorY: isPostActive ? 'contain' : 'auto',
+                      maxWidth: isExternalProfile ? '1200px' : 'auto',
+                      mx: isExternalProfile ? 'auto' : 'unset'
+                  }}>
 
                     <Paper
                         elevation={0}
                         sx={{
-                            height: isInsideChat ? '100%' : 'auto',
+                            height: (isInsideChat || isPostActive) ? '100%' : 'auto',
                             minHeight: '100%',
-                            bgcolor: isInsideChat ? 'transparent' : '#161412',
-                            borderRadius: isInsideChat ? 0 : '24px',
-                            border: isInsideChat ? 'none' : '1px solid',
+                            bgcolor: (isInsideChat || isPostActive) ? 'transparent' : '#161412',
+                            borderRadius: (isInsideChat || isPostActive) ? 0 : '24px',
+                            border: (isInsideChat || isPostActive) ? 'none' : '1px solid',
                             borderColor: 'rgba(255, 255, 255, 0.05)',
-                            p: isInsideChat ? 0 : { xs: 2, md: 4 },
+                            p: (isInsideChat || isPostActive) ? 0 : { xs: 2, md: 4 },
                             position: 'relative',
-                            display: isInsideChat ? 'flex' : 'block',
+                            display: (isInsideChat || isPostActive) ? 'flex' : 'block',
                             flexDirection: 'column',
                             '&::before': {
-                                content: isInsideChat ? 'none' : '""',
+                                content: (isInsideChat || isPostActive) ? 'none' : '""',
                                 position: 'absolute',
                                 top: 0,
                                 left: 0,
@@ -262,7 +265,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
             </Box>
 
             {/* Mobile Bottom Nav */}
-            {!isInsideChat && (
+            {!isFullscreenContent && (
                 <Paper 
                     elevation={0}
                     sx={{ 
