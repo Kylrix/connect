@@ -36,6 +36,7 @@ import { PresenceProvider } from '@/components/providers/PresenceProvider';
 import { ProfileProvider } from '@/components/providers/ProfileProvider';
 import { NotificationProvider } from '@/components/providers/NotificationProvider';
 import { ChatNotificationProvider } from '@/components/providers/ChatNotificationProvider';
+import { AppChromeProvider } from '@/components/providers/AppChromeProvider';
 import { EcosystemClient } from '@/components/ecosystem/EcosystemClient';
 import { IslandProvider } from '@/components/common/DynamicIsland';
 import { SudoProvider } from '@/context/SudoContext';
@@ -65,29 +66,31 @@ export default function RootLayout({
             <ThemeProvider>
               <IslandProvider>
                 <NotificationProvider>
-                  <SudoProvider>
-                    <ProfileProvider>
-                      <PresenceProvider>
-                        <ChatNotificationProvider>
-                          <AuthOverlay />
-                        <Toaster 
-                          position="bottom-right"
-                          toastOptions={{
-                            style: {
-                              background: '#1A1A1A',
-                              color: '#fff',
-                              borderRadius: '12px',
-                              border: '1px solid rgba(255,255,255,0.1)'
-                            }
-                          }}
-                        />
-                        <Suspense fallback={null}>
-                          {children}
-                        </Suspense>
-                        </ChatNotificationProvider>
-                      </PresenceProvider>
-                    </ProfileProvider>
-                  </SudoProvider>
+                  <AppChromeProvider>
+                    <SudoProvider>
+                      <ProfileProvider>
+                        <PresenceProvider>
+                          <ChatNotificationProvider>
+                            <AuthOverlay />
+                          <Toaster 
+                            position="bottom-right"
+                            toastOptions={{
+                              style: {
+                                background: '#1A1A1A',
+                                color: '#fff',
+                                borderRadius: '12px',
+                                border: '1px solid rgba(255,255,255,0.1)'
+                              }
+                            }}
+                          />
+                          <Suspense fallback={null}>
+                            {children}
+                          </Suspense>
+                          </ChatNotificationProvider>
+                        </PresenceProvider>
+                      </ProfileProvider>
+                    </SudoProvider>
+                  </AppChromeProvider>
                 </NotificationProvider>
               </IslandProvider>
             </ThemeProvider>

@@ -64,6 +64,7 @@ import { EventSelectorModal } from './EventSelectorModal';
 import { EventViewDrawer } from './EventViewDrawer';
 import { CallSelectorModal } from './CallSelectorModal';
 import ActorsListDrawer from './ActorsListDrawer';
+import { useAppChrome } from '@/components/providers/AppChromeProvider';
 
 import toast from 'react-hot-toast';
 
@@ -526,6 +527,23 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
 
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'), { noSsr: true });
+    const { setChromeState, resetChromeState } = useAppChrome();
+
+    useEffect(() => {
+        if (isMobile && isComposerOpen) {
+            setChromeState({
+                mode: 'compact',
+                label: editingMoment ? 'Edit moment' : 'Compose',
+            });
+            return;
+        }
+
+        resetChromeState();
+    }, [editingMoment, isComposerOpen, isMobile, resetChromeState, setChromeState]);
+
+    useEffect(() => {
+        return () => resetChromeState();
+    }, [resetChromeState]);
 
     useEffect(() => {
         // Hydrate the current view immediately so tab switches feel instant.

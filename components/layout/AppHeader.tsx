@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { 
   AppBar, 
   Toolbar, 
@@ -43,6 +43,7 @@ import { WalletSidebar } from '../overlays/WalletSidebar';
 import { getEcosystemUrl } from '@/lib/constants';
 import { UsersService } from '@/lib/services/users';
 import { getCachedIdentityById, seedIdentityCache, subscribeIdentityCache } from '@/lib/identity-cache';
+import { useAppChrome } from '@/components/providers/AppChromeProvider';
 
 export const AppHeader = () => {
   const { user, logout } = useAuth();
@@ -57,6 +58,7 @@ export const AppHeader = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  const { mode, label, headerHeight } = useAppChrome();
 
   useEffect(() => {
     if (searchParams.get('openWallet') === 'true') {
@@ -153,6 +155,20 @@ export const AppHeader = () => {
 
   const { profile: myProfile } = useProfile();
 
+  const routeLabel = useMemo(() => {
+    if (pathname === '/') return 'Feed';
+    if (pathname === '/chats') return 'Chats';
+    if (pathname === '/calls') return 'Calls';
+    if (pathname === '/settings') return 'Settings';
+    if (pathname?.startsWith('/chat/')) return 'Chat';
+    if (pathname?.startsWith('/post/')) return 'Moment';
+    if (pathname?.startsWith('/u/')) return 'Profile';
+    return 'Connect';
+  }, [pathname]);
+
+  const headerTitle = label || routeLabel;
+  const isCompact = mode === 'compact';
+
   const handleLogout = async () => {
     setAnchorElAccount(null);
     await logout();
@@ -169,17 +185,23 @@ export const AppHeader = () => {
         borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
         backgroundImage: 'none',
         display: 'flex',
-        alignItems: 'center'
+        alignItems: 'center',
+        height: `${headerHeight}px`,
+        transform: mode === 'hidden' ? 'translateY(-110%)' : 'translateY(0)',
+        opacity: mode === 'hidden' ? 0 : 1,
+        pointerEvents: mode === 'hidden' ? 'none' : 'auto',
+        transition: 'transform 260ms ease, opacity 260ms ease, height 260ms ease'
       }}
     >
       <Toolbar sx={{ 
-        gap: 2, 
+        gap: isCompact ? 2 : 2, 
         '@media (min-width: 900px)': { gap: 4 },
         px: { xs: 2, md: 4 }, 
-        minHeight: '88px',
+        minHeight: `${headerHeight}px`,
         width: '100%',
         maxWidth: '1440px',
-        margin: '0 auto'
+        margin: '0 auto',
+        justifyContent: 'space-between'
       }}>
         {/* Left: Logo */}
         <Logo 
@@ -190,51 +212,105 @@ export const AppHeader = () => {
           href="/"
         />
 
-        {/* Center: Search */}
-        <Box sx={{ flexGrow: 1, maxWidth: 700, display: { xs: 'none', md: 'block' } }}>
+        {isCompact ? (
           <Box
             sx={{
-              position: 'relative',
+              flexGrow: 1,
               display: 'flex',
-              alignItems: 'center',
-              bgcolor: 'rgba(255, 255, 255, 0.03)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '12px',
-              px: 2,
-              py: 0.5,
-              transition: 'all 0.2s ease',
-              '&:hover': {
-                borderColor: alpha('#6366F1', 0.4),
-                bgcolor: 'rgba(255, 255, 255, 0.05)',
-                boxShadow: '0 0 15px rgba(99, 102, 241, 0.1)'
-              },
-              '&:focus-within': {
-                borderColor: '#6366F1',
-                bgcolor: 'rgba(255, 255, 255, 0.08)',
-                boxShadow: '0 0 20px rgba(99, 102, 241, 0.15)'
-              }
+              justifyContent: 'center',
+              px: 1,
             }}
           >
-            <Search size={18} strokeWidth={1.5} color="rgba(255, 255, 255, 0.4)" />
-            <Box sx={{ width: 12 }} />
-            <InputBase
-              placeholder="Search conversations, contacts, files..."
-              fullWidth
+            <Box
               sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 1,
+                px: 1.5,
+                py: 0.75,
+                borderRadius: '999px',
+                bgcolor: 'rgba(255, 255, 255, 0.04)',
+                border: '1px solid rgba(255, 255, 255, 0.06)',
                 color: 'text.primary',
-                fontSize: '0.9375rem',
-                fontWeight: 500,
-                '& .MuiInputBase-input::placeholder': {
-                  color: 'text.secondary',
-                  opacity: 0.5,
-                },
+                fontWeight: 800,
+                letterSpacing: '0.02em',
+                maxWidth: '100%',
               }}
-            />
+            >
+              <Sparkles size={14} strokeWidth={1.75} color="#F59E0B" />
+              <Typography variant="caption" sx={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }} noWrap>
+                {headerTitle}
+              </Typography>
+            </Box>
           </Box>
-        </Box>
+        ) : (
+          <Box sx={{ flexGrow: 1, maxWidth: 700, display: { xs: 'none', md: 'block' } }}>
+            <Box
+              sx={{
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                bgcolor: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '12px',
+                px: 2,
+                py: 0.5,
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  borderColor: alpha('#6366F1', 0.4),
+                  bgcolor: 'rgba(255, 255, 255, 0.05)',
+                  boxShadow: '0 0 15px rgba(99, 102, 241, 0.1)'
+                },
+                '&:focus-within': {
+                  borderColor: '#6366F1',
+                  bgcolor: 'rgba(255, 255, 255, 0.08)',
+                  boxShadow: '0 0 20px rgba(99, 102, 241, 0.15)'
+                }
+              }}
+            >
+              <Search size={18} strokeWidth={1.5} color="rgba(255, 255, 255, 0.4)" />
+              <Box sx={{ width: 12 }} />
+              <InputBase
+                placeholder="Search conversations, contacts, files..."
+                fullWidth
+                sx={{
+                  color: 'text.primary',
+                  fontSize: '0.9375rem',
+                  fontWeight: 500,
+                  '& .MuiInputBase-input::placeholder': {
+                    color: 'text.secondary',
+                    opacity: 0.5,
+                  },
+                }}
+              />
+            </Box>
+          </Box>
+        )}
 
         {/* Right: Actions */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1.5 }, flexShrink: 0 }}>
+          {!isCompact && (
+            <Tooltip title="Cognitive Link (AI)">
+              <IconButton 
+                sx={{ 
+                  color: '#6366F1',
+                  bgcolor: alpha('#6366F1', 0.03),
+                  border: '1px solid',
+                  borderColor: alpha('#6366F1', 0.1),
+                  borderRadius: '12px',
+                  width: { xs: 36, sm: 42 },
+                  height: { xs: 36, sm: 42 },
+                  '&:hover': { 
+                    bgcolor: alpha('#6366F1', 0.08), 
+                    boxShadow: '0 0 15px rgba(99, 102, 241, 0.2)' 
+                  }
+                }}
+              >
+                <Sparkles size={18} strokeWidth={1.5} />
+              </IconButton>
+            </Tooltip>
+          )}
+
           <Tooltip title="Intelligence Feed">
             <IconButton 
               onClick={(e) => setAnchorElNotifications(e.currentTarget)}
@@ -277,26 +353,6 @@ export const AppHeader = () => {
             </IconButton>
           </Tooltip>
 
-          <Tooltip title="Cognitive Link (AI)">
-            <IconButton 
-              sx={{ 
-                color: '#6366F1',
-                bgcolor: alpha('#6366F1', 0.03),
-                border: '1px solid',
-                borderColor: alpha('#6366F1', 0.1),
-                borderRadius: '12px',
-                width: { xs: 36, sm: 42 },
-                height: { xs: 36, sm: 42 },
-                '&:hover': { 
-                  bgcolor: alpha('#6366F1', 0.08), 
-                  boxShadow: '0 0 15px rgba(99, 102, 241, 0.2)' 
-                }
-              }}
-            >
-              <Sparkles size={18} strokeWidth={1.5} />
-            </IconButton>
-          </Tooltip>
-
           <Tooltip title="Wallet">
             <IconButton 
               onClick={() => setIsWalletOpen(true)}
@@ -318,33 +374,35 @@ export const AppHeader = () => {
             </IconButton>
           </Tooltip>
 
-          <Tooltip title="Kylrix Portal (Ctrl+Space)">
-            <IconButton 
-              onClick={() => setIsPortalOpen(true)}
-              sx={{ 
-                color: '#6366F1',
-                bgcolor: alpha('#6366F1', 0.05),
-                border: '1px solid',
-                borderColor: alpha('#6366F1', 0.1),
-                borderRadius: '12px',
-                width: { xs: 36, sm: 42 },
-                height: { xs: 36, sm: 42 },
-                animation: 'pulse-slow 4s infinite ease-in-out',
-                '@keyframes pulse-slow': {
-                  '0%': { boxShadow: '0 0 0 0 rgba(99, 102, 241, 0.2)' },
-                  '70%': { boxShadow: '0 0 0 10px rgba(99, 102, 241, 0)' },
-                  '100%': { boxShadow: '0 0 0 0 rgba(99, 102, 241, 0)' },
-                },
-                '&:hover': { 
-                  bgcolor: alpha('#6366F1', 0.1), 
-                  borderColor: '#6366F1',
-                  boxShadow: '0 0 15px rgba(99, 102, 241, 0.3)' 
-                }
-              }}
-            >
-              <LayoutGrid size={20} strokeWidth={1.5} />
-            </IconButton>
-          </Tooltip>
+          {!isCompact && (
+            <Tooltip title="Kylrix Portal (Ctrl+Space)">
+              <IconButton 
+                onClick={() => setIsPortalOpen(true)}
+                sx={{ 
+                  color: '#6366F1',
+                  bgcolor: alpha('#6366F1', 0.05),
+                  border: '1px solid',
+                  borderColor: alpha('#6366F1', 0.1),
+                  borderRadius: '12px',
+                  width: { xs: 36, sm: 42 },
+                  height: { xs: 36, sm: 42 },
+                  animation: 'pulse-slow 4s infinite ease-in-out',
+                  '@keyframes pulse-slow': {
+                    '0%': { boxShadow: '0 0 0 0 rgba(99, 102, 241, 0.2)' },
+                    '70%': { boxShadow: '0 0 0 10px rgba(99, 102, 241, 0)' },
+                    '100%': { boxShadow: '0 0 0 0 rgba(99, 102, 241, 0)' },
+                  },
+                  '&:hover': { 
+                    bgcolor: alpha('#6366F1', 0.1), 
+                    borderColor: '#6366F1',
+                    boxShadow: '0 0 15px rgba(99, 102, 241, 0.3)' 
+                  }
+                }}
+              >
+                <LayoutGrid size={20} strokeWidth={1.5} />
+              </IconButton>
+            </Tooltip>
+          )}
 
           {user ? (
             <IconButton 

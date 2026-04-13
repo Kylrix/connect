@@ -33,6 +33,7 @@ import { AppHeader } from './AppHeader';
 import { ChatList } from '../chat/ChatList';
 import { Button } from '@mui/material';
 import { ProfileSetupDrawer } from '../profile/ProfileSetupDrawer';
+import { useAppChrome } from '@/components/providers/AppChromeProvider';
 
 const drawerWidth = 280;
 
@@ -43,6 +44,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
     const router = useRouter();
     const [_anchorEl, _setAnchorEl] = useState<null | HTMLElement>(null);
     const [_profileUrl, setProfileUrl] = useState<string | null>(null);
+    const { headerHeight } = useAppChrome();
 
     useEffect(() => {
         let mounted = true;
@@ -130,8 +132,8 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
                         [`& .MuiDrawer-paper`]: { 
                             width: drawerWidth, 
                             boxSizing: 'border-box', 
-                            top: isChatActive ? 0 : 72, 
-                            height: isChatActive ? '100%' : 'calc(100% - 72px)',
+                            top: isChatActive ? 0 : headerHeight, 
+                            height: isChatActive ? '100%' : `calc(100% - ${headerHeight}px)`,
                             bgcolor: '#0A0908',
                             borderRight: '1px solid',
                             borderColor: 'rgba(255, 255, 255, 0.05)'
@@ -216,7 +218,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
                     height: '100%', 
                     overflow: 'hidden', 
                     position: 'relative', 
-                    pt: isChatActive ? 0 : '72px',
+                    pt: isChatActive ? 0 : `${headerHeight}px`,
                     bgcolor: '#0A0908',
                     transition: 'all 0.3s ease-in-out'
                 }}
