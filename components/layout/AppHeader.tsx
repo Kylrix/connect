@@ -22,11 +22,6 @@ import {
   Settings,
   LogOut,
   User,
-  Sparkles,
-  Bell,
-  CheckCircle,
-  XCircle,
-  Clock,
   Search,
   Wallet,
   ChevronDown,
@@ -35,7 +30,6 @@ import {
 import { useAuth } from '@/lib/auth';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useProfile } from '@/components/providers/ProfileProvider';
-import { useNotifications } from '@/components/providers/NotificationProvider';
 import { getUserProfilePicId } from '@/lib/user-utils';
 import { fetchProfilePreview, getCachedProfilePreview } from '@/lib/profile-preview';
 import { IdentityAvatar, IdentityName, computeIdentityFlags } from '../common/IdentityBadge';
@@ -48,9 +42,7 @@ import { useAppChrome } from '@/components/providers/AppChromeProvider';
 
 export const AppHeader = () => {
   const { user, logout } = useAuth();
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const [anchorElAccount, setAnchorElAccount] = useState<null | HTMLElement>(null);
-  const [anchorElNotifications, setAnchorElNotifications] = useState<null | HTMLElement>(null);
   const [anchorElEcosystem, setAnchorElEcosystem] = useState<null | HTMLElement>(null);
   const [isWalletOpen, setIsWalletOpen] = useState(false);
   const [profileUrl, setProfileUrl] = useState<string | null>(null);
@@ -226,11 +218,11 @@ export const AppHeader = () => {
       }}>
         {/* Left: Logo + app switcher */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
-          <Box sx={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-            <Logo
-              app="connect"
-              size={32}
-              sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 } }}
+                <Box sx={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+                  <Logo
+                    app="connect"
+                    size={32}
+                    sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 } }}
               component="a"
               href="/"
             />
@@ -254,8 +246,8 @@ export const AppHeader = () => {
             >
               <ChevronDown size={11} />
             </IconButton>
-          </Box>
-        </Box>
+              </Box>
+            </Box>
 
         {isCompact ? (
           <Box
@@ -282,7 +274,6 @@ export const AppHeader = () => {
                 maxWidth: '100%',
               }}
             >
-              <Sparkles size={14} strokeWidth={1.75} color="#F59E0B" />
               <Typography variant="caption" sx={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }} noWrap>
                 {headerTitle}
               </Typography>
@@ -290,10 +281,10 @@ export const AppHeader = () => {
           </Box>
         ) : (
           <Box sx={{ flexGrow: 1, maxWidth: 700, display: { xs: 'none', md: 'block' } }}>
-            <Box
-              sx={{
-                position: 'relative',
-                display: 'flex',
+              <Box
+                sx={{
+                  position: 'relative',
+                  display: 'flex',
                 alignItems: 'center',
                 bgcolor: 'rgba(255, 255, 255, 0.03)',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -334,70 +325,6 @@ export const AppHeader = () => {
 
         {/* Right: Actions */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1.5 }, flexShrink: 0 }}>
-          {!isCompact && (
-            <Tooltip title="Cognitive Link (AI)">
-              <IconButton 
-                sx={{ 
-                  color: '#6366F1',
-                  bgcolor: alpha('#6366F1', 0.03),
-                  border: '1px solid',
-                  borderColor: alpha('#6366F1', 0.1),
-                  borderRadius: '12px',
-                  width: { xs: 36, sm: 42 },
-                  height: { xs: 36, sm: 42 },
-                  '&:hover': { 
-                    bgcolor: alpha('#6366F1', 0.08), 
-                    boxShadow: '0 0 15px rgba(99, 102, 241, 0.2)' 
-                  }
-                }}
-              >
-                <Sparkles size={18} strokeWidth={1.5} />
-              </IconButton>
-            </Tooltip>
-          )}
-
-          <Tooltip title="Intelligence Feed">
-            <IconButton 
-              onClick={(e) => setAnchorElNotifications(e.currentTarget)}
-              sx={{ 
-                color: unreadCount > 0 ? '#6366F1' : 'rgba(255, 255, 255, 0.4)',
-                bgcolor: alpha('#6366F1', 0.03),
-                border: '1px solid',
-                borderColor: unreadCount > 0 ? alpha('#6366F1', 0.3) : alpha('#6366F1', 0.1),
-                borderRadius: '12px',
-                width: { xs: 36, sm: 42 },
-                height: { xs: 36, sm: 42 },
-                position: 'relative',
-                '&:hover': { 
-                  bgcolor: alpha('#6366F1', 0.08), 
-                  boxShadow: '0 0 15px rgba(99, 102, 241, 0.2)' 
-                }
-              }}
-            >
-              <Bell size={18} strokeWidth={1.5} />
-              {unreadCount > 0 && (
-                <Box sx={{
-                  position: 'absolute',
-                  top: -4,
-                  right: -4,
-                  bgcolor: '#FF4D4D',
-                  color: 'white',
-                  fontSize: '0.65rem',
-                  fontWeight: 900,
-                  width: 16,
-                  height: 16,
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: '2px solid #0A0A0A',
-                }}>
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </Box>
-              )}
-            </IconButton>
-          </Tooltip>
-
           <Tooltip title="Wallet">
             <IconButton 
               onClick={() => setIsWalletOpen(true)}
@@ -548,114 +475,6 @@ export const AppHeader = () => {
           <MenuItem onClick={handleLogout} sx={{ py: 2, px: 3, color: '#FF4D4D', '&:hover': { bgcolor: alpha('#FF4D4D', 0.05) } }}>
             <ListItemIcon><LogOut size={18} strokeWidth={1.5} color="#FF4D4D" /></ListItemIcon>
             <ListItemText primary="Sign Out" primaryTypographyProps={{ variant: 'caption', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }} />
-          </MenuItem>
-        </Menu>
-
-        {/* Notifications Menu */}
-        <Menu
-          anchorEl={anchorElNotifications}
-          open={Boolean(anchorElNotifications)}
-          onClose={() => setAnchorElNotifications(null)}
-          PaperProps={{
-            sx: {
-              mt: 1.5,
-              width: 360,
-              bgcolor: '#161412',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: '24px',
-              backgroundImage: 'none',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(0, 0, 0, 0.4)',
-              overflow: 'hidden',
-              position: 'relative',
-              '&::before': {
-                content: '""',
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                height: '1px',
-                background: 'rgba(255, 255, 255, 0.03)',
-                borderRadius: '24px',
-              },
-            }
-          }}
-        >
-          <Box sx={{ px: 3, py: 2.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: 'rgba(255, 255, 255, 0.02)', position: 'relative', zIndex: 1 }}>
-            <Typography variant="caption" sx={{ fontWeight: 800, color: 'white', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-              Intelligence Feed
-            </Typography>
-            {unreadCount > 0 && (
-              <Typography 
-                variant="caption" 
-                onClick={() => { markAllAsRead(); setAnchorElNotifications(null); }}
-                sx={{ cursor: 'pointer', fontWeight: 800, color: '#6366F1', '&:hover': { textDecoration: 'underline' } }}
-              >
-                MARK ALL READ
-              </Typography>
-            )}
-          </Box>
-          <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.05)' }} />
-          <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
-            {notifications.length === 0 ? (
-              <Box sx={{ p: 4, textAlign: 'center' }}>
-                <Clock size={32} color="rgba(255, 255, 255, 0.1)" style={{ marginBottom: 12, marginLeft: 'auto', marginRight: 'auto' }} />
-                <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.4)', fontWeight: 600 }}>
-                  No recent activity detected
-                </Typography>
-              </Box>
-            ) : (
-              notifications.slice(0, 10).map((notif) => {
-                const detailsParsed = (() => {
-                  try { return JSON.parse(notif.details || '{}'); } catch { return { read: false }; }
-                })();
-                const isRead = detailsParsed.read;
-                return (
-                  <MenuItem 
-                    key={notif.$id} 
-                    onClick={() => { markAsRead(notif.$id); setAnchorElNotifications(null); }}
-                    sx={{ 
-                      py: 2, 
-                      px: 3, 
-                      gap: 2,
-                      borderLeft: isRead ? 'none' : '3px solid #6366F1',
-                      bgcolor: isRead ? 'transparent' : alpha('#6366F1', 0.03),
-                      '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.05)' } 
-                    }}
-                  >
-                    <Box sx={{ 
-                      width: 40, 
-                      height: 40, 
-                      borderRadius: '12px', 
-                      bgcolor: 'rgba(255, 255, 255, 0.03)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0
-                    }}>
-                      {notif.action.toLowerCase().includes('delete') ? (
-                        <XCircle size={20} color="#FF4D4D" />
-                      ) : (
-                        <CheckCircle size={20} color="#6366F1" />
-                      )}
-                    </Box>
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography variant="caption" sx={{ fontWeight: 800, color: 'white', display: 'block' }}>
-                        {notif.action.toUpperCase()}
-                      </Typography>
-                      <Typography variant="body2" noWrap sx={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {notif.targetType}: {notif.targetId}
-                      </Typography>
-                    </Box>
-                  </MenuItem>
-                );
-              })
-            )}
-          </Box>
-          <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.05)' }} />
-          <MenuItem sx={{ py: 2, justifyContent: 'center' }}>
-            <Typography variant="caption" sx={{ fontWeight: 800, color: 'rgba(255, 255, 255, 0.4)', letterSpacing: '0.05em' }}>
-              VIEW ALL ACTIVITY
-            </Typography>
           </MenuItem>
         </Menu>
 

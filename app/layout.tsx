@@ -64,10 +64,10 @@ export default function RootLayout({
         <DataNexusProvider>
           <SubscriptionProvider>
             <ThemeProvider>
-              <IslandProvider>
-                <NotificationProvider>
-                  <AppChromeProvider>
-                    <SudoProvider>
+              <AppChromeProvider>
+                <SudoProvider>
+                  <IslandProvider>
+                    <NotificationProvider>
                       <ProfileProvider>
                         <PresenceProvider>
                           <ChatNotificationProvider>
@@ -89,10 +89,10 @@ export default function RootLayout({
                           </ChatNotificationProvider>
                         </PresenceProvider>
                       </ProfileProvider>
-                    </SudoProvider>
-                  </AppChromeProvider>
-                </NotificationProvider>
-              </IslandProvider>
+                    </NotificationProvider>
+                  </IslandProvider>
+                </SudoProvider>
+              </AppChromeProvider>
             </ThemeProvider>
           </SubscriptionProvider>
         </DataNexusProvider>

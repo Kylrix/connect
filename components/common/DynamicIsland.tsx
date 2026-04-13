@@ -4,7 +4,6 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import {
   Box,
   Typography,
-  Stack,
   useTheme,
   useMediaQuery,
   Button,
@@ -14,14 +13,14 @@ import {
   ListItemButton,
   ListItemAvatar,
   Avatar,
-  InputAdornment,
   Divider,
   alpha,
 } from '@mui/material';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useSudo } from '@/context/SudoContext';
+import { useAppChrome } from '@/components/providers/AppChromeProvider';
 import { ChatService } from '@/lib/services/chat';
 import { UsersService } from '@/lib/services/users';
 import { ecosystemSecurity } from '@/lib/ecosystem/security';
@@ -32,18 +31,20 @@ import {
   CheckCircle as SuccessIcon, 
   Error as ErrorIcon, 
   Info as InfoIcon, 
-  Warning as WarningIcon,
+  Warning as WarningIcon, 
   Star as ProIcon,
   EmojiObjects as IdeaIcon,
   Message as ConnectIcon,
+} from '@mui/icons-material';
+import {
   Search as SearchIcon,
   Sparkles as SparklesIcon,
   ArrowRight as ArrowRightIcon,
   X as CloseIcon,
   MessageCircle as MessageCircleIcon,
   Phone as PhoneIcon,
-  Settings as SettingsIcon
-} from '@mui/icons-material';
+  Settings as SettingsIcon,
+} from 'lucide-react';
 
 export type IslandType = 'success' | 'error' | 'warning' | 'info' | 'pro' | 'system' | 'suggestion' | 'connect';
 
@@ -131,7 +132,8 @@ export const IslandProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             title: userName || "Quick Sync?",
             message: "You can instantly attach notes from Kylrix Note in any conversation here.",
             action: { label: "Learn How", onClick: () => {} },
-            personal: !!userName
+            personal: !!userName,
+            app: 'note' as KylrixApp,
           },
           {
             type: 'connect' as IslandType,
@@ -139,13 +141,15 @@ export const IslandProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             message: "Your messages are end-to-end encrypted with your Kylrix Vault master password.",
             action: { label: "Security Status", onClick: () => {} },
             majestic: true,
-            personal: !!userName
+            personal: !!userName,
+            app: 'vault' as KylrixApp,
           },
           {
             type: 'suggestion' as IslandType,
             title: "Thinking space",
             message: "Use your self-chat to store ideas, snippets, and secrets for yourself.",
-            action: { label: "Open Vault", onClick: () => {} }
+            action: { label: "Open Vault", onClick: () => {} },
+            app: 'connect' as KylrixApp,
           }
         ];
         
@@ -166,141 +170,715 @@ export const IslandProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   );
 };
 
-const DynamicIslandOverlay: React.FC<{ 
-  notifications: IslandNotification[], 
-  onDismiss: (id: string) => void,
-  isMobile: boolean 
+const APP_TONES: Record<KylrixApp, { primary: string; secondary: string; label: string }> = {
+  root: { primary: '#6366F1', secondary: '#6366F1', label: 'Kylrix' },
+  vault: { primary: '#6366F1', secondary: '#10B981', label: 'Vault' },
+  flow: { primary: '#6366F1', secondary: '#A855F7', label: 'Flow' },
+  note: { primary: '#6366F1', secondary: '#EC4899', label: 'Note' },
+  connect: { primary: '#6366F1', secondary: '#F59E0B', label: 'Connect' },
+};
+
+const TYPE_TONES: Record<IslandType, { primary: string; secondary: string; label: string }> = {
+  success: { primary: '#6366F1', secondary: '#6366F1', label: 'Success' },
+  error: { primary: '#FF3B30', secondary: '#FF6B6B', label: 'Error' },
+  warning: { primary: '#FF9500', secondary: '#FDBA74', label: 'Warning' },
+  info: { primary: '#6366F1', secondary: '#60A5FA', label: 'Info' },
+  pro: { primary: '#6366F1', secondary: '#A855F7', label: 'Pro' },
+  system: { primary: '#6366F1', secondary: '#94A3B8', label: 'System' },
+  suggestion: { primary: '#A855F7', secondary: '#C084FC', label: 'Suggestion' },
+  connect: { primary: '#6366F1', secondary: '#F59E0B', label: 'Connect' },
+};
+
+type SearchAction =
+  | {
+      id: string;
+      kind: 'route';
+      title: string;
+      description: string;
+      color: string;
+      terms: string[];
+      onSelect: () => void;
+      icon: React.ReactNode;
+    }
+  | {
+      id: string;
+      kind: 'person';
+      title: string;
+      description: string;
+      color: string;
+      terms: string[];
+      onSelect: () => void;
+      icon: React.ReactNode;
+      avatar?: string | null;
+    };
+
+function getTone(notification: IslandNotification) {
+  return notification.app ? APP_TONES[notification.app] : TYPE_TONES[notification.type];
+}
+
+function includesAny(text: string, terms: string[]) {
+  return terms.some((term) => text.includes(term));
+}
+
+const DynamicIslandOverlay: React.FC<{
+  notifications: IslandNotification[];
+  onDismiss: (id: string) => void;
+  isMobile: boolean;
 }> = ({ notifications, onDismiss, isMobile }) => {
   const current = notifications[notifications.length - 1];
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [people, setPeople] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const controls = useAnimation();
-  const pathname = usePathname();
+  const router = useRouter();
+  const { user } = useAuth();
+  const { requestSudo } = useSudo();
+  const { headerHeight } = useAppChrome();
 
-  const isHiddenRoute = pathname?.includes('/call/');
+  const currentTone = current ? getTone(current) : APP_TONES.connect;
+  const topOffset = Math.max(12, Math.round(headerHeight / 2 - 26));
+  const openSearch = useCallback(() => {
+    if (current) return;
+    setIsSearchOpen(true);
+  }, [current]);
+  const closeSearch = useCallback(() => {
+    setIsSearchOpen(false);
+    setQuery('');
+    setPeople([]);
+    setSearching(false);
+  }, []);
+
+  const routeActions = React.useMemo<SearchAction[]>(() => {
+    const go = (href: string) => () => {
+      router.push(href);
+      closeSearch();
+    };
+
+    const openExternal = (href: string) => () => {
+      window.location.assign(href);
+      closeSearch();
+    };
+
+    return [
+      {
+        id: 'open-chats',
+        kind: 'route',
+        title: 'Open chats',
+        description: 'Jump to messages and active conversations',
+        color: '#F59E0B',
+        terms: ['chat', 'chats', 'message', 'messages', 'dm', 'inbox', 'conversation'],
+        onSelect: go('/chats'),
+        icon: <MessageCircleIcon size={16} />,
+      },
+      {
+        id: 'open-calls',
+        kind: 'route',
+        title: 'Open calls',
+        description: 'Review voice and call activity',
+        color: '#A855F7',
+        terms: ['call', 'calls', 'phone', 'voice', 'video'],
+        onSelect: go('/calls'),
+        icon: <PhoneIcon size={16} />,
+      },
+      {
+        id: 'open-settings',
+        kind: 'route',
+        title: 'Open settings',
+        description: 'Adjust identity, privacy, and app preferences',
+        color: '#6366F1',
+        terms: ['setting', 'settings', 'preferences', 'profile', 'account', 'security'],
+        onSelect: go('/settings'),
+        icon: <SettingsIcon size={16} />,
+      },
+      ...ECOSYSTEM_APPS.map((app) => ({
+        id: `app-${app.id}`,
+        kind: 'route' as const,
+        title: `Open ${app.label}`,
+        description: app.description,
+        color: app.color,
+        terms: [app.label.toLowerCase(), app.subdomain, app.id, 'open app', 'launch app'],
+        onSelect: openExternal(getEcosystemUrl(app.subdomain)),
+        icon: <SparklesIcon size={16} />,
+      })),
+    ];
+  }, [closeSearch, router]);
+
+  const routeMatches = React.useMemo(() => {
+    const text = query.trim().toLowerCase();
+    if (!text) {
+      return routeActions.slice(0, 5);
+    }
+
+    return routeActions
+      .filter((action) => includesAny(text, action.terms))
+      .slice(0, 6);
+  }, [query, routeActions]);
+
+  const startDirectChat = useCallback(async (targetUser: any) => {
+    if (!user) return;
+    const targetUserId = targetUser.userId || targetUser.$id;
+
+    if (!targetUser.publicKey) {
+      toast.error(`${targetUser.displayName || targetUser.username} hasn't set up secure chatting yet.`);
+      return;
+    }
+
+    try {
+      const existing = await ChatService.getConversations(user.$id);
+      const found = existing.rows.find((conversation: any) => (
+        conversation.type === 'direct' &&
+        conversation.participants?.includes(targetUserId)
+      ));
+
+      if (found) {
+        router.push(`/chat/${found.$id}`);
+        closeSearch();
+        return;
+      }
+    } catch (error) {
+      console.warn('[DynamicIsland] Failed to resolve existing chat:', error);
+    }
+
+    requestSudo({
+      onSuccess: async () => {
+        try {
+          await UsersService.ensureProfileForUser(user);
+          await ecosystemSecurity.ensureE2EIdentity(user.$id);
+          const newConv = await ChatService.createConversation([user.$id, targetUserId], 'direct');
+          router.push(`/chat/${newConv.$id}`);
+          closeSearch();
+        } catch (error: any) {
+          console.error('[DynamicIsland] Failed to create chat:', error);
+          toast.error(`Failed to open chat: ${error?.message || 'Unknown error'}`);
+        }
+      },
+    });
+  }, [closeSearch, requestSudo, router, user]);
 
   useEffect(() => {
-    if (current) {
-      requestAnimationFrame(() => {
-        setIsExpanded(false);
-      });
+    if (!current) {
+      setIsExpanded(false);
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      
-      timeoutRef.current = setTimeout(() => {
-        onDismiss(current.id);
-      }, current.duration || 6000);
-
-      // Float animation
-      controls.start({
-        y: [0, -3, 0],
-        transition: { duration: 5, repeat: Infinity, ease: "easeInOut" }
-      });
+      return;
     }
-  }, [current, onDismiss, controls]);
 
-  if (!current || isHiddenRoute) return null;
+    closeSearch();
+    requestAnimationFrame(() => setIsExpanded(false));
 
-  const getTypeStyle = () => {
-    switch (current.type) {
-      case 'success': return { color: '#6366F1', icon: <SuccessIcon fontSize="small" /> };
-      case 'error': return { color: '#FF3B30', icon: <ErrorIcon fontSize="small" /> };
-      case 'pro': return { color: '#6366F1', icon: <ProIcon fontSize="small" /> };
-      case 'warning': return { color: '#FF9500', icon: <WarningIcon fontSize="small" /> };
-      case 'suggestion': return { color: '#A855F7', icon: <IdeaIcon fontSize="small" /> };
-      case 'connect': return { color: '#6366F1', icon: <ConnectIcon fontSize="small" /> };
-      default: return { color: '#6366F1', icon: <InfoIcon fontSize="small" /> };
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      onDismiss(current.id);
+    }, current.duration || 6000);
+
+    controls.start({
+      y: [0, -2, 0],
+      transition: { duration: 5, repeat: Infinity, ease: 'easeInOut' },
+    });
+  }, [closeSearch, controls, current, onDismiss]);
+
+  useEffect(() => {
+    if (!isSearchOpen || current) return;
+    const frame = requestAnimationFrame(() => inputRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [current, isSearchOpen]);
+
+  useEffect(() => {
+    if (!isSearchOpen || current) return;
+
+    const text = query.trim().toLowerCase();
+    let active = true;
+
+    if (!text) {
+      setPeople([]);
+      setSearching(false);
+      return;
     }
+
+    const timer = setTimeout(async () => {
+      if (text.length < 2) {
+        setPeople([]);
+        setSearching(false);
+        return;
+      }
+
+      setSearching(true);
+      try {
+        const res = await UsersService.searchUsers(text);
+        if (!active) return;
+        const rows = (res.rows || []).filter((candidate: any) => (candidate.userId || candidate.$id) !== user?.$id);
+        rows.forEach((candidate: any) => seedIdentityCache(candidate));
+        setPeople(rows.slice(0, 5));
+      } catch (error) {
+        if (active) {
+          console.warn('[DynamicIsland] People search failed:', error);
+          setPeople([]);
+        }
+      } finally {
+        if (active) setSearching(false);
+      }
+    }, 280);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [current, isSearchOpen, query, user?.$id]);
+
+  const handleSearchSubmit = () => {
+    if (routeMatches.length > 0) {
+      routeMatches[0].onSelect();
+      return;
+    }
+
+    if (people.length > 0) {
+      void startDirectChat(people[0]);
+      return;
+    }
+
+    router.push('/chats');
+    closeSearch();
   };
 
-  const style = getTypeStyle();
+  const currentIcon = current ? (
+    current.type === 'success' ? <SuccessIcon fontSize="small" /> :
+    current.type === 'error' ? <ErrorIcon fontSize="small" /> :
+    current.type === 'warning' ? <WarningIcon fontSize="small" /> :
+    current.type === 'pro' ? <ProIcon fontSize="small" /> :
+    current.type === 'suggestion' ? <IdeaIcon fontSize="small" /> :
+    current.type === 'connect' ? <ConnectIcon fontSize="small" /> :
+    <InfoIcon fontSize="small" />
+  ) : (
+    <SearchIcon size={18} />
+  );
+
+  const glow = current
+    ? {
+        border: `1px solid ${alpha(currentTone.secondary, current.majestic ? 0.65 : 0.4)}`,
+        boxShadow: current.majestic
+          ? `0 0 0 1px ${alpha(currentTone.primary, 0.24)}, 0 0 30px ${alpha(currentTone.secondary, 0.45)}, 0 0 72px ${alpha(currentTone.primary, 0.25)}`
+          : `0 0 0 1px ${alpha(currentTone.primary, 0.18)}, 0 0 18px ${alpha(currentTone.secondary, 0.3)}, 0 0 40px ${alpha(currentTone.primary, 0.14)}`,
+      }
+    : {
+        border: `1px solid ${alpha(APP_TONES.connect.secondary, 0.24)}`,
+        boxShadow: `0 0 0 1px ${alpha(APP_TONES.connect.primary, 0.14)}, 0 0 16px ${alpha(APP_TONES.connect.secondary, 0.22)}, 0 0 36px ${alpha(APP_TONES.connect.primary, 0.12)}`,
+      };
+
+  const searchWidth = isMobile ? 'calc(100vw - 24px)' : 'min(560px, calc(100vw - 48px))';
 
   return (
-    <>
-      {current.majestic && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            background: 'radial-gradient(circle at 50% 0%, rgba(0, 240, 255, 0.12) 0%, transparent 60%)',
-            pointerEvents: 'none', zIndex: 9999
-          }}
-        />
-      )}
-
-      <Box sx={{ position: 'fixed', top: isMobile ? 12 : 24, left: '50%', transform: 'translateX(-50%)', zIndex: 10000, pointerEvents: 'none' }}>
-        <AnimatePresence mode="wait">
+    <Box
+      sx={{
+        position: 'fixed',
+        top: topOffset,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 10000,
+        pointerEvents: 'none',
+        width: searchWidth,
+      }}
+    >
+      <AnimatePresence mode="wait">
+        {current ? (
           <motion.div
             key={current.id}
-            initial={{ y: -100, scale: 0.8, opacity: 0 }}
+            initial={{ y: -40, scale: 0.9, opacity: 0 }}
             animate={{ y: 0, scale: 1, opacity: 1 }}
-            exit={{ y: -100, scale: 0.5, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            exit={{ y: -40, scale: 0.85, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 28 }}
             onHoverStart={() => setIsExpanded(true)}
             onHoverEnd={() => setIsExpanded(false)}
-            onClick={() => setIsExpanded(!isExpanded)}
+            onClick={() => setIsExpanded((value) => !value)}
             style={{ pointerEvents: 'auto', cursor: 'pointer' }}
           >
             <motion.div
               animate={controls}
               style={{
-                width: isExpanded ? (isMobile ? '340px' : '420px') : (isMobile ? (current.shape === 'ball' ? '44px' : '180px') : (current.shape === 'ball' ? '50px' : '240px')),
-                height: isExpanded ? 'auto' : (current.shape === 'ball' ? (isMobile ? '44px' : '50px') : '44px'),
-                borderRadius: isExpanded ? '28px' : (current.shape === 'ball' ? '50%' : '22px'),
-                background: 'rgba(10, 10, 10, 0.95)',
-                backdropFilter: 'blur(32px)',
-                border: current.majestic ? '1.5px solid rgba(0, 240, 255, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)',
-                boxShadow: current.majestic ? '0 0 30px rgba(0, 240, 255, 0.3)' : '0 12px 48px rgba(0,0,0,0.5)',
-                overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative',
-                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+                minHeight: 54,
+                width: isExpanded ? searchWidth : (isMobile ? 'calc(100vw - 24px)' : '260px'),
+                borderRadius: isExpanded ? '28px' : '999px',
+                background: 'rgba(10, 9, 8, 0.94)',
+                backdropFilter: 'blur(28px) saturate(170%)',
+                overflow: 'hidden',
+                display: 'flex',
+                alignItems: 'stretch',
+                flexDirection: 'column',
+                position: 'relative',
+                transition: 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+                ...glow,
               }}
             >
-              {!isExpanded && current.shape !== 'ball' && (
-                <Box sx={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', display: 'flex', gap: 0.6 }}>
-                  {[0, 1, 2].map((i) => (
-                    <motion.div key={i} animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }} transition={{ duration: 2, repeat: Infinity, delay: i * 0.3 }}
-                      style={{ width: 3, height: 3, borderRadius: '50%', background: style.color }} />
-                  ))}
+              <Box
+                sx={{
+                  position: 'absolute',
+                  inset: -2,
+                  borderRadius: 'inherit',
+                  background: `radial-gradient(circle at 50% 50%, ${alpha(currentTone.secondary, current.majestic ? 0.25 : 0.16)} 0%, transparent 72%)`,
+                  opacity: 1,
+                  pointerEvents: 'none',
+                }}
+              />
+
+              <Box
+                sx={{
+                  position: 'relative',
+                  zIndex: 1,
+                  minHeight: 54,
+                  display: 'flex',
+                  alignItems: 'center',
+                  px: 2,
+                  gap: 1.5,
+                }}
+              >
+                <Box sx={{ color: currentTone.secondary, display: 'flex', flexShrink: 0 }}>
+                  {currentIcon}
                 </Box>
-              )}
 
-              <Box sx={{ height: 44, display: 'flex', alignItems: 'center', px: 2, gap: 1.5, opacity: isExpanded ? 0 : 1, transition: 'opacity 0.2s', width: '100%', position: isExpanded ? 'absolute' : 'relative', justifyContent: current.shape === 'ball' ? 'center' : 'flex-start' }}>
-                <Box sx={{ color: style.color, display: 'flex' }}>{style.icon}</Box>
-                {current.shape !== 'ball' && (
-                  <AnimatePresence mode="wait">
-                    <motion.div key={current.title} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
-                      <Typography variant="caption" sx={{ color: 'white', fontWeight: 900, fontSize: '0.8rem', fontFamily: 'var(--font-space-grotesk)' }}>
-                        {current.personal ? `Hey, ${current.title}` : current.title}
-                      </Typography>
-                    </motion.div>
-                  </AnimatePresence>
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={current.id}
+                    initial={{ opacity: 0, x: 8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -8 }}
+                    style={{ flex: 1, minWidth: 0 }}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: 'white',
+                        fontWeight: 900,
+                        fontSize: '0.82rem',
+                        fontFamily: 'var(--font-space-grotesk)',
+                        lineHeight: 1.15,
+                      }}
+                      noWrap={!isExpanded}
+                    >
+                      {current.personal ? `Hey, ${current.title}` : current.title}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        display: isExpanded ? 'block' : 'none',
+                        color: alpha('#fff', 0.6),
+                        mt: 0.25,
+                        fontWeight: 600,
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {current.message || 'Tap to expand'}
+                    </Typography>
+                  </motion.div>
+                </AnimatePresence>
+
+                {!isExpanded && current.shape !== 'ball' && (
+                  <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexShrink: 0 }}>
+                    {[0, 1, 2].map((index) => (
+                      <motion.div
+                        key={index}
+                        animate={{ scale: [1, 1.35, 1], opacity: [0.35, 1, 0.35] }}
+                        transition={{ duration: 2, repeat: Infinity, delay: index * 0.22 }}
+                        style={{
+                          width: 3,
+                          height: 3,
+                          borderRadius: '50%',
+                          background: currentTone.secondary,
+                        }}
+                      />
+                    ))}
+                  </Box>
                 )}
-              </Box>
-
-              <Box sx={{ p: 2.5, opacity: isExpanded ? 1 : 0, transition: 'opacity 0.3s 0.1s', display: isExpanded ? 'block' : 'none' }}>
-                <Stack spacing={2}>
-                  <Stack direction="row" spacing={2} alignItems="center">
-                    <Box sx={{ width: 44, height: 44, borderRadius: '12px', bgcolor: `${style.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: style.color, border: `1px solid ${style.color}30` }}>
-                      {style.icon}
-                    </Box>
-                    <Box>
-                      <Typography sx={{ color: 'white', fontWeight: 900, fontFamily: 'var(--font-space-grotesk)', fontSize: '1rem', lineHeight: 1.2 }}>{current.title}</Typography>
-                      {current.majestic && <Typography variant="caption" sx={{ color: style.color, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', fontSize: '0.65rem' }}>Ecosystem Status</Typography>}
-                    </Box>
-                  </Stack>
-                  {current.message && <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.6, fontSize: '0.875rem' }}>{current.message}</Typography>}
-                  <Stack direction="row" spacing={1} justifyContent="flex-end">
-                    <Button size="small" onClick={(e) => { e.stopPropagation(); onDismiss(current.id); }} sx={{ color: 'rgba(255, 255, 255, 0.4)', textTransform: 'none', fontWeight: 700 }}>Later</Button>
-                    {current.action && <Button variant="contained" size="small" onClick={(e) => { e.stopPropagation(); current.action?.onClick(); onDismiss(current.id); }}
-                      sx={{ background: style.color, color: 'black', fontWeight: 900, borderRadius: '10px', textTransform: 'none' }}>{current.action.label}</Button>}
-                  </Stack>
-                </Stack>
               </Box>
             </motion.div>
           </motion.div>
-        </AnimatePresence>
-      </Box>
-    </>
+        ) : isSearchOpen ? (
+          <motion.div
+            key="search-island"
+            initial={{ y: -20, scale: 0.96, opacity: 0 }}
+            animate={{ y: 0, scale: 1, opacity: 1 }}
+            exit={{ y: -20, scale: 0.96, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 280, damping: 28 }}
+            style={{ pointerEvents: 'auto' }}
+          >
+            <Paper
+              elevation={0}
+              sx={{
+                width: searchWidth,
+                borderRadius: '30px',
+                bgcolor: 'rgba(10, 9, 8, 0.96)',
+                backdropFilter: 'blur(30px) saturate(180%)',
+                border: `1px solid ${alpha(APP_TONES.connect.secondary, 0.28)}`,
+                boxShadow: `0 0 0 1px ${alpha(APP_TONES.connect.primary, 0.14)}, 0 0 28px ${alpha(APP_TONES.connect.secondary, 0.22)}, 0 20px 55px rgba(0, 0, 0, 0.5)`,
+                overflow: 'hidden',
+                position: 'relative',
+              }}
+            >
+              <Box
+                sx={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: `radial-gradient(circle at 50% 0%, ${alpha(APP_TONES.connect.secondary, 0.18)} 0%, transparent 55%)`,
+                  pointerEvents: 'none',
+                }}
+              />
+              <Box sx={{ position: 'relative', zIndex: 1, p: 1.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 0.5 }}>
+                  <Box
+                    sx={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: '999px',
+                      display: 'grid',
+                      placeItems: 'center',
+                      color: APP_TONES.connect.secondary,
+                      bgcolor: alpha(APP_TONES.connect.secondary, 0.12),
+                      border: `1px solid ${alpha(APP_TONES.connect.secondary, 0.18)}`,
+                      boxShadow: `0 0 18px ${alpha(APP_TONES.connect.secondary, 0.18)}`,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <SearchIcon size={18} />
+                  </Box>
+                  <TextField
+                    inputRef={inputRef}
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Escape') {
+                        closeSearch();
+                      }
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        handleSearchSubmit();
+                      }
+                    }}
+                    placeholder="Search chats, people, apps..."
+                    variant="standard"
+                    fullWidth
+                    InputProps={{
+                      disableUnderline: true,
+                      sx: {
+                        color: 'white',
+                        fontSize: '0.95rem',
+                        fontWeight: 700,
+                        '& .MuiInputBase-input::placeholder': {
+                          color: alpha('#fff', 0.42),
+                          opacity: 1,
+                        },
+                      },
+                    }}
+                    sx={{ flex: 1 }}
+                  />
+                  <Button
+                    onClick={closeSearch}
+                    sx={{
+                      minWidth: 0,
+                      width: 36,
+                      height: 36,
+                      borderRadius: '999px',
+                      color: alpha('#fff', 0.62),
+                      bgcolor: alpha('#fff', 0.04),
+                    }}
+                  >
+                    <CloseIcon size={16} />
+                  </Button>
+                </Box>
+
+                <Box sx={{ mt: 1.5, display: 'grid', gap: 1.25 }}>
+                  <Box>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: alpha('#fff', 0.42),
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.12em',
+                        px: 0.75,
+                      }}
+                    >
+                      Offline suggestions
+                    </Typography>
+                    <List sx={{ display: 'grid', gap: 0.75, mt: 0.75, p: 0 }}>
+                      {routeMatches.map((action) => (
+                        <ListItemButton
+                          key={action.id}
+                          onClick={action.onSelect}
+                          sx={{
+                            borderRadius: '18px',
+                            bgcolor: 'rgba(255,255,255,0.03)',
+                            border: '1px solid rgba(255,255,255,0.05)',
+                            px: 1.5,
+                            py: 1.25,
+                            gap: 1.25,
+                            '&:hover': {
+                              bgcolor: 'rgba(255,255,255,0.05)',
+                              borderColor: alpha(action.color, 0.28),
+                            },
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              width: 34,
+                              height: 34,
+                              borderRadius: '12px',
+                              display: 'grid',
+                              placeItems: 'center',
+                              color: action.color,
+                              bgcolor: alpha(action.color, 0.12),
+                              flexShrink: 0,
+                            }}
+                          >
+                            {action.icon}
+                          </Box>
+                          <Box sx={{ minWidth: 0, flex: 1 }}>
+                            <Typography sx={{ color: 'white', fontWeight: 800, fontSize: '0.88rem', lineHeight: 1.15 }}>
+                              {action.title}
+                            </Typography>
+                            <Typography sx={{ color: alpha('#fff', 0.56), fontWeight: 600, fontSize: '0.76rem', lineHeight: 1.35 }}>
+                              {action.description}
+                            </Typography>
+                          </Box>
+                          <ArrowRightIcon size={15} color={action.color} />
+                        </ListItemButton>
+                      ))}
+                    </List>
+                  </Box>
+
+                  <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)' }} />
+
+                  <Box>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: alpha('#fff', 0.42),
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.12em',
+                        px: 0.75,
+                      }}
+                    >
+                      People
+                    </Typography>
+
+                    <Box sx={{ mt: 0.75, display: 'grid', gap: 0.75 }}>
+                      {searching && (
+                        <Box sx={{ px: 1, py: 1.25, color: alpha('#fff', 0.52) }}>
+                          <Typography sx={{ fontSize: '0.82rem', fontWeight: 700 }}>Searching locally first...</Typography>
+                        </Box>
+                      )}
+
+                      {people.map((person) => {
+                        const avatar = person.avatar;
+                        return (
+                          <ListItemButton
+                            key={person.$id || person.userId}
+                            onClick={() => void startDirectChat(person)}
+                            sx={{
+                              borderRadius: '18px',
+                              bgcolor: 'rgba(255,255,255,0.03)',
+                              border: '1px solid rgba(255,255,255,0.05)',
+                              px: 1.5,
+                              py: 1.1,
+                              gap: 1.25,
+                              '&:hover': {
+                                bgcolor: 'rgba(255,255,255,0.05)',
+                                borderColor: alpha('#F59E0B', 0.28),
+                              },
+                            }}
+                          >
+                            <ListItemAvatar sx={{ minWidth: 0 }}>
+                              <Avatar
+                                src={avatar || undefined}
+                                sx={{
+                                  width: 34,
+                                  height: 34,
+                                  bgcolor: alpha('#F59E0B', 0.1),
+                                  color: '#F59E0B',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 800,
+                                }}
+                              >
+                                {!avatar && String(person.displayName || person.username || '?').charAt(0).toUpperCase()}
+                              </Avatar>
+                            </ListItemAvatar>
+                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                              <Typography sx={{ color: 'white', fontWeight: 800, fontSize: '0.88rem', lineHeight: 1.15 }} noWrap>
+                                {person.displayName || person.username || 'Unknown'}
+                              </Typography>
+                              <Typography sx={{ color: alpha('#fff', 0.56), fontWeight: 600, fontSize: '0.76rem' }} noWrap>
+                                @{person.username || person.userId || person.$id}
+                              </Typography>
+                            </Box>
+                            <ArrowRightIcon size={15} color="#F59E0B" />
+                          </ListItemButton>
+                        );
+                      })}
+
+                      {!searching && query.trim().length >= 2 && people.length === 0 && (
+                        <Box sx={{ px: 1, py: 1.25, color: alpha('#fff', 0.52) }}>
+                          <Typography sx={{ fontSize: '0.82rem', fontWeight: 700 }}>No local matches yet.</Typography>
+                        </Box>
+                      )}
+                    </Box>
+                  </Box>
+                </Box>
+              </Box>
+            </Paper>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="idle-island"
+            initial={{ opacity: 0, scale: 0.92 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.92 }}
+            transition={{ type: 'spring', stiffness: 280, damping: 24 }}
+            onClick={openSearch}
+            style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+          >
+            <Box
+              sx={{
+                width: 52,
+                height: 52,
+                borderRadius: '999px',
+                display: 'grid',
+                placeItems: 'center',
+                bgcolor: 'rgba(10, 9, 8, 0.9)',
+                backdropFilter: 'blur(28px) saturate(170%)',
+                position: 'relative',
+                overflow: 'hidden',
+                ...glow,
+              }}
+            >
+              <Box
+                sx={{
+                  position: 'absolute',
+                  inset: 0,
+                  borderRadius: 'inherit',
+                  background: `radial-gradient(circle at 50% 50%, ${alpha(APP_TONES.connect.secondary, 0.18)} 0%, transparent 72%)`,
+                  opacity: 1,
+                }}
+              />
+              <motion.div
+                animate={{
+                  scale: [1, 1.06, 1],
+                  opacity: [0.9, 1, 0.9],
+                }}
+                transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                style={{
+                  position: 'relative',
+                  zIndex: 1,
+                  color: APP_TONES.connect.secondary,
+                  display: 'flex',
+                }}
+              >
+                <SearchIcon size={18} />
+              </motion.div>
+            </Box>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </Box>
   );
 };
