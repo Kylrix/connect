@@ -44,11 +44,14 @@ import {
   MessageCircle as MessageCircleIcon,
   Phone as PhoneIcon,
   Settings as SettingsIcon,
+  User as UserIcon,
+  LogOut as LogOutIcon,
 } from 'lucide-react';
 
 export type IslandType = 'success' | 'error' | 'warning' | 'info' | 'pro' | 'system' | 'suggestion' | 'connect';
 
 export type KylrixApp = 'root' | 'vault' | 'flow' | 'note' | 'connect';
+export type IslandPanel = 'ecosystem' | 'profile';
 
 export interface IslandNotification {
   id: string;
@@ -69,6 +72,10 @@ export interface IslandNotification {
 interface IslandContextType {
   showIsland: (notification: Omit<IslandNotification, 'id'>) => void;
   dismissIsland: (id: string) => void;
+  openPanel: (panel: IslandPanel) => void;
+  closePanel: () => void;
+  isActive: boolean;
+  panel: IslandPanel | null;
 }
 
 const IslandContext = createContext<IslandContextType | undefined>(undefined);
@@ -83,13 +90,14 @@ export function useIsland() {
 
 export const IslandProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<IslandNotification[]>([]);
+  const [panel, setPanel] = useState<IslandPanel | null>(null);
   const [lastActivity, setLastActivity] = useState(0);
 
   useEffect(() => {
     const timer = setTimeout(() => setLastActivity(Date.now()), 0);
     return () => clearTimeout(timer);
   }, []);
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
 
@@ -101,6 +109,14 @@ export const IslandProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const dismissIsland = useCallback((id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
+  }, []);
+
+  const openPanel = useCallback((nextPanel: IslandPanel) => {
+    setPanel((current) => (current === nextPanel ? null : nextPanel));
+  }, []);
+
+  const closePanel = useCallback(() => {
+    setPanel(null);
   }, []);
 
   // Track user activity
@@ -163,9 +179,9 @@ export const IslandProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }, [lastActivity, notifications.length, showIsland, user]);
 
   return (
-    <IslandContext.Provider value={{ showIsland, dismissIsland }}>
+    <IslandContext.Provider value={{ showIsland, dismissIsland, openPanel, closePanel, isActive: Boolean(panel || notifications.length), panel }}>
       {children}
-      <DynamicIslandOverlay notifications={notifications} onDismiss={dismissIsland} isMobile={isMobile} />
+      <DynamicIslandOverlay notifications={notifications} onDismiss={dismissIsland} isMobile={isMobile} panel={panel} onClosePanel={closePanel} />
     </IslandContext.Provider>
   );
 };
@@ -322,8 +338,10 @@ const DynamicIslandOverlay: React.FC<{
   notifications: IslandNotification[];
   onDismiss: (id: string) => void;
   isMobile: boolean;
-}> = ({ notifications, onDismiss, isMobile }) => {
-  const current = notifications[notifications.length - 1];
+  panel: IslandPanel | null;
+  onClosePanel: () => void;
+}> = ({ notifications, onDismiss, isMobile, panel, onClosePanel }) => {
+  const current = panel ? null : notifications[notifications.length - 1];
   const [isExpanded, setIsExpanded] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -415,6 +433,8 @@ const DynamicIslandOverlay: React.FC<{
       .filter((action) => includesAny(text, action.terms))
       .slice(0, 6);
   }, [query, routeActions]);
+
+  const panelTone = panel === 'profile' ? '#6366F1' : APP_TONES.connect.secondary;
 
   const startDirectChat = useCallback(async (targetUser: any) => {
     if (!user) return;
@@ -577,6 +597,7 @@ const DynamicIslandOverlay: React.FC<{
       };
 
   const searchWidth = isMobile ? 'calc(100vw - 24px)' : 'min(560px, calc(100vw - 48px))';
+  const panelWidth = isMobile ? 'calc(100vw - 24px)' : 'min(680px, calc(100vw - 48px))';
   const restingSize = '42px';
   const collapsedSize = '52px';
   const islandHeight = current || isSearchOpen ? 52 : 42;
@@ -601,7 +622,201 @@ const DynamicIslandOverlay: React.FC<{
       }}
     >
       <AnimatePresence mode="wait">
-        {current ? (
+        {panel ? (
+          <motion.div
+            key={`panel-${panel}`}
+            layout
+            initial={{ y: -24, scale: 0.96, opacity: 0 }}
+            animate={{ y: 0, scale: 1, opacity: 1 }}
+            exit={{ y: -24, scale: 0.96, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 26 }}
+            style={{ pointerEvents: 'auto' }}
+          >
+            <Paper
+              elevation={0}
+              sx={{
+                width: panelWidth,
+                borderRadius: '30px',
+                bgcolor: 'rgba(10, 9, 8, 0.96)',
+                backdropFilter: 'blur(30px) saturate(180%)',
+                border: `1px solid ${alpha(panelTone, 0.28)}`,
+                boxShadow: `0 0 0 1px ${alpha(APP_TONES.connect.primary, 0.12)}, 0 0 28px ${alpha(panelTone, 0.2)}, 0 20px 55px rgba(0, 0, 0, 0.5)`,
+                overflow: 'hidden',
+                position: 'relative',
+              }}
+            >
+              <Box
+                sx={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: `radial-gradient(circle at 50% 0%, ${alpha(panelTone, 0.18)} 0%, transparent 55%)`,
+                  pointerEvents: 'none',
+                }}
+              />
+              <Box sx={{ position: 'relative', zIndex: 1, p: 1.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, px: 0.5, mb: 1.25 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box
+                      sx={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: '14px',
+                        display: 'grid',
+                        placeItems: 'center',
+                        color: panelTone,
+                        bgcolor: 'rgba(0,0,0,0.96)',
+                        border: `1px solid ${alpha(panelTone, 0.24)}`,
+                        boxShadow: `0 0 18px ${alpha(panelTone, 0.24)}`,
+                      }}
+                    >
+                      {panel === 'profile' ? <UserIcon size={18} /> : <SparklesIcon size={18} />}
+                    </Box>
+                    <Box>
+                      <Typography sx={{ color: 'white', fontWeight: 900, fontSize: '0.9rem', lineHeight: 1.1 }}>
+                        {panel === 'profile' ? (user?.name || user?.email || 'Profile') : 'Ecosystem apps'}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: alpha('#fff', 0.52), fontWeight: 700 }}>
+                        {panel === 'profile' ? 'Profile commands' : 'Jump between apps'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Button
+                    onClick={onClosePanel}
+                    sx={{
+                      minWidth: 0,
+                      width: 34,
+                      height: 34,
+                      borderRadius: '999px',
+                      color: alpha('#fff', 0.66),
+                      bgcolor: alpha('#fff', 0.04),
+                    }}
+                  >
+                    <CloseIcon size={16} />
+                  </Button>
+                </Box>
+
+                {panel === 'ecosystem' ? (
+                  <Box sx={{ display: 'grid', gap: 0.75 }}>
+                    {ECOSYSTEM_APPS.map((app) => {
+                      const selected = app.subdomain === 'connect';
+                      return (
+                        <ListItemButton
+                          key={app.id}
+                          onClick={() => window.location.assign(getEcosystemUrl(app.subdomain))}
+                          sx={{
+                            borderRadius: '18px',
+                            bgcolor: selected ? alpha(app.color, 0.1) : 'rgba(255,255,255,0.03)',
+                            border: `1px solid ${selected ? alpha(app.color, 0.28) : 'rgba(255,255,255,0.05)'}`,
+                            px: 1.5,
+                            py: 1.25,
+                            gap: 1.25,
+                            '&:hover': {
+                              bgcolor: alpha(app.color, 0.12),
+                              borderColor: alpha(app.color, 0.32),
+                            },
+                          }}
+                        >
+                          <Box sx={{ width: 34, height: 34, borderRadius: '12px', display: 'grid', placeItems: 'center', bgcolor: alpha(app.color, 0.12), color: app.color, flexShrink: 0 }}>
+                            <SparklesIcon size={16} />
+                          </Box>
+                          <Box sx={{ minWidth: 0, flex: 1 }}>
+                            <Typography sx={{ color: 'white', fontWeight: 800, fontSize: '0.88rem', lineHeight: 1.15 }}>
+                              {app.label}
+                            </Typography>
+                            <Typography sx={{ color: alpha('#fff', 0.56), fontWeight: 600, fontSize: '0.76rem', lineHeight: 1.35 }}>
+                              {app.description}
+                            </Typography>
+                          </Box>
+                        </ListItemButton>
+                      );
+                    })}
+                  </Box>
+                ) : (
+                  <Box sx={{ display: 'grid', gap: 0.75 }}>
+                    <ListItemButton
+                      onClick={() => {
+                        onClosePanel();
+                        router.push('/settings');
+                      }}
+                      sx={{
+                        borderRadius: '18px',
+                        bgcolor: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        px: 1.5,
+                        py: 1.25,
+                        gap: 1.25,
+                      }}
+                    >
+                      <Box sx={{ width: 34, height: 34, borderRadius: '12px', display: 'grid', placeItems: 'center', bgcolor: alpha(panelTone, 0.12), color: panelTone, flexShrink: 0 }}>
+                        <UserIcon size={16} />
+                      </Box>
+                      <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography sx={{ color: 'white', fontWeight: 800, fontSize: '0.88rem', lineHeight: 1.15 }}>
+                          Profile
+                        </Typography>
+                        <Typography sx={{ color: alpha('#fff', 0.56), fontWeight: 600, fontSize: '0.76rem', lineHeight: 1.35 }}>
+                          Open your public profile
+                        </Typography>
+                      </Box>
+                    </ListItemButton>
+                    <ListItemButton
+                      onClick={() => {
+                        onClosePanel();
+                        router.push('/settings');
+                      }}
+                      sx={{
+                        borderRadius: '18px',
+                        bgcolor: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        px: 1.5,
+                        py: 1.25,
+                        gap: 1.25,
+                      }}
+                    >
+                      <Box sx={{ width: 34, height: 34, borderRadius: '12px', display: 'grid', placeItems: 'center', bgcolor: alpha('#6366F1', 0.12), color: '#6366F1', flexShrink: 0 }}>
+                        <SettingsIcon size={16} />
+                      </Box>
+                      <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography sx={{ color: 'white', fontWeight: 800, fontSize: '0.88rem', lineHeight: 1.15 }}>
+                          Settings
+                        </Typography>
+                        <Typography sx={{ color: alpha('#fff', 0.56), fontWeight: 600, fontSize: '0.76rem', lineHeight: 1.35 }}>
+                          Adjust your Connect preferences
+                        </Typography>
+                      </Box>
+                    </ListItemButton>
+                    <ListItemButton
+                      onClick={() => {
+                        onClosePanel();
+                        void logout();
+                      }}
+                      sx={{
+                        borderRadius: '18px',
+                        bgcolor: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        px: 1.5,
+                        py: 1.25,
+                        gap: 1.25,
+                      }}
+                    >
+                      <Box sx={{ width: 34, height: 34, borderRadius: '12px', display: 'grid', placeItems: 'center', bgcolor: alpha('#FF4D4D', 0.12), color: '#FF4D4D', flexShrink: 0 }}>
+                        <LogOutIcon size={16} />
+                      </Box>
+                      <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography sx={{ color: 'white', fontWeight: 800, fontSize: '0.88rem', lineHeight: 1.15 }}>
+                          Sign out
+                        </Typography>
+                        <Typography sx={{ color: alpha('#fff', 0.56), fontWeight: 600, fontSize: '0.76rem', lineHeight: 1.35 }}>
+                          End this Connect session
+                        </Typography>
+                      </Box>
+                    </ListItemButton>
+                  </Box>
+                )}
+              </Box>
+            </Paper>
+          </motion.div>
+        ) : current ? (
           <motion.div
             key={current.id}
             layout
