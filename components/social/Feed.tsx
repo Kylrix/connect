@@ -217,19 +217,13 @@ const PostComposer = React.memo(function PostComposer({
                                 >
                                     {user.name?.charAt(0).toUpperCase() || 'U'}
                                 </Avatar>
-                                <TextField
-                                    fullWidth
+                                <FastDraftInput
+                                    ref={draftInputRef}
+                                    initialValue={editingMoment?.caption || ''}
                                     placeholder={editingMoment ? 'Update your moment...' : 'Share an update with the ecosystem...'}
-                                    multiline
                                     rows={isMobile ? 4 : 2}
-                                    variant="standard"
-                                    inputRef={textRef}
-                                    InputProps={{
-                                        disableUnderline: true,
-                                        sx: { fontSize: '1.1rem', fontWeight: 500 }
-                                    }}
-                                    value={draft}
-                                    onChange={(e) => setDraft(e.target.value)}
+                                    autoFocus
+                                    onEmptyChange={setHasDraftText}
                                 />
                             </Box>
                             {editingMoment && (
@@ -403,12 +397,12 @@ const PostComposer = React.memo(function PostComposer({
                                     {!isMobile && 'Call'}
                                 </Button>
                             </Box>
-                            <Button
-                                variant="contained"
-                                disabled={!canSubmit || posting}
-                                onClick={async () => {
-                                    await onSubmit(draft);
-                                }}
+                                <Button
+                                    variant="contained"
+                                    disabled={!canSubmit || posting}
+                                    onClick={async () => {
+                                        await onSubmit(draftInputRef.current?.getValue() || '');
+                                    }}
                                 sx={{
                                     borderRadius: '12px',
                                     px: 4,
@@ -916,6 +910,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
     const handleCancelComposer = useCallback(() => {
         setEditingMoment(null);
         setHasDraftText(false);
+        draftInputRef.current?.clear();
         setSelectedNote(null);
         setSelectedEvent(null);
         setSelectedCall(null);
