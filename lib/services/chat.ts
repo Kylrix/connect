@@ -4,6 +4,7 @@ import { APPWRITE_CONFIG } from '../appwrite/config';
 import { KYLRIX_AUTH_URI } from '../constants';
 import { ecosystemSecurity } from '../ecosystem/security';
 import { UsersService } from './users';
+import { seedIdentityCache } from '@/lib/identity-cache';
 
 
 const DB_ID = APPWRITE_CONFIG.DATABASES.CHAT;
@@ -17,6 +18,7 @@ const ACCOUNTS_API_URL = `${KYLRIX_AUTH_URI}/api/permissions`;
 const ACCOUNTS_MESSAGE_API_URL = `${KYLRIX_AUTH_URI}/api/connect/messages`;
 const ACCOUNTS_MESSAGE_REACTIONS_API_URL = `${KYLRIX_AUTH_URI}/api/connect/message-reactions`;
 const ACCOUNTS_JOIN_REQUESTS_API_URL = `${KYLRIX_AUTH_URI}/api/connect/join-requests`;
+const ACCOUNTS_KEY_REPAIR_API_URL = `${KYLRIX_AUTH_URI}/api/connect/repair`;
 const GROUP_AVATAR_ROUTE = `${KYLRIX_AUTH_URI}/api/connect/group-avatar`;
 const conversationKeyCache = new Map<string, CryptoKey>();
 const conversationPreviewCache = new Map<string, {
@@ -275,6 +277,28 @@ async function callMessageReactionApi(
     return response.json().catch(() => ({}));
 }
 
+async function callConversationRepairApi(
+    payload: Record<string, unknown>,
+    auth?: { jwt?: string; cookie?: string }
+) {
+    const headers = await getPermissionUpdateAuth(auth);
+    const response = await fetch(ACCOUNTS_KEY_REPAIR_API_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...headers,
+        },
+        body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Conversation repair failed');
+    }
+
+    return response.json().catch(() => ({}));
+}
+
 async function callJoinRequestApi(
     method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
     payload?: Record<string, unknown>,
@@ -375,7 +399,9 @@ async function fetchEpochKeyForConversation(conversationId: string, userId: stri
 async function resolveConversationKey(
     conversation: any,
     userId: string,
-    messageCreatedAt?: string | null
+    messageCreatedAt?: string | null,
+    auth?: { jwt?: string; cookie?: string },
+    repairAttempted = false,
 ) {
     if (!conversation?.$id || !userId) return null;
 
@@ -440,6 +466,26 @@ async function resolveConversationKey(
         ]);
 
         return rebuiltKey;
+    }
+
+    if (!repairAttempted) {
+        try {
+          const repairResult = await callConversationRepairApi({
+            userId,
+            conversationId: conversation.$id,
+          }, auth);
+
+          if (repairResult?.identity) {
+            const repairedProfile = await UsersService.getProfileById(userId, true);
+            seedIdentityCache(repairedProfile);
+          }
+
+          conversationKeyCache.delete(conversation.$id);
+          ecosystemSecurity.clearConversationKey(conversation.$id);
+          return await resolveConversationKey(conversation, userId, messageCreatedAt, auth, true);
+        } catch (error) {
+          console.warn('[ChatService] Conversation repair failed:', error);
+        }
     }
 
     return null;
@@ -536,8 +582,15 @@ export const ChatService = {
         conversationPreviewCache.clear();
     },
 
-    async rewrapConversationKeys(_conversationId: string) {
-        return;
+    async rewrapConversationKeys(conversationId: string, auth?: { jwt?: string; cookie?: string }) {
+        if (!conversationId) return null;
+        const repairResult = await callConversationRepairApi({
+            conversationId,
+        }, auth);
+
+        conversationKeyCache.delete(conversationId);
+        ecosystemSecurity.clearConversationKey(conversationId);
+        return repairResult;
     },
     async getConversationById(conversationId: string, userId?: string) {
         const conv = await tablesDB.getRow(DB_ID, CONV_TABLE, conversationId);
@@ -931,7 +984,7 @@ export const ChatService = {
         }
 
         if ((type === 'text' || type === 'attachment') && ecosystemSecurity.status.isUnlocked) {
-            const convKey = conversation ? await resolveConversationKey(conversation, senderId) : null;
+            const convKey = conversation ? await resolveConversationKey(conversation, senderId, null, permissionSyncAuth) : null;
             if (!convKey) throw new Error('Conversation key not available');
             finalContent = await ecosystemSecurity.encryptWithKey(content, convKey);
         }
@@ -970,7 +1023,7 @@ export const ChatService = {
 
         // 3. (Background) Re-keying check
         if (ecosystemSecurity.status.isUnlocked && conversation?.creatorId === senderId) {
-            this.rewrapConversationKeys(conversationId).catch(err =>
+            this.rewrapConversationKeys(conversationId, permissionSyncAuth).catch(err =>
                 console.warn("[ChatService] Background re-wrap failed:", err)
             );
         }

@@ -371,6 +371,10 @@ export class EcosystemSecurity {
     this.conversationKeys.set(conversationId, key);
   }
 
+  clearConversationKey(conversationId: string) {
+    this.conversationKeys.delete(conversationId);
+  }
+
   // --- ECDH UNIVERSAL HANDSHAKE PROTOCOL --- //
 
   async generateConversationKey(): Promise<CryptoKey> {
