@@ -8,20 +8,13 @@ import { UsersService } from '@/lib/services/users';
 import { useAuth } from '@/lib/auth';
 import {
     Box,
-    Card,
-    CardHeader,
-    CardContent,
     Avatar,
     Typography,
     IconButton,
     Button,
     CircularProgress,
-    Divider,
-    Paper,
-    Container,
     alpha,
     Stack,
-    Tooltip,
     Drawer,
     ListItemButton,
     ListItemIcon,
@@ -36,31 +29,27 @@ import {
     MessageCircle,
     Repeat2,
     LogIn,
-    MoreHorizontal,
-    Calendar,
-    FileText,
-    MapPin,
-    Clock,
     Link2,
     Send,
     Edit,
     Image as ImageIcon,
     Download,
-    ChevronDown
+    BarChart3,
 } from 'lucide-react';
 import { fetchProfilePreview } from '@/lib/profile-preview';
 import { getUserProfilePicId } from '@/lib/user-utils';
 import { getCachedIdentityById, seedIdentityCache } from '@/lib/identity-cache';
-import { resolveIdentity, resolveIdentityUsername } from '@/lib/identity-format';
+import { resolveIdentity } from '@/lib/identity-format';
 import { getCachedMomentPreview, seedMomentPreview } from '@/lib/moment-preview';
 import { format } from 'date-fns';
 import { FormattedText } from '@/components/common/FormattedText';
 import toast from 'react-hot-toast';
 import { TextField, InputAdornment, Alert, Menu, MenuItem } from '@mui/material';
 
-const EXPORT_WIDTH = 1080;
 const EXPORT_CARD = '#161412';
-const EXPORT_COLUMN = 640;
+const EXPORT_PAD = 16;
+const EXPORT_MIN_WIDTH = 375;
+const EXPORT_MAX_WIDTH = 430;
 
 const clampText = (value: string, limit: number) => {
     const clean = String(value || '').trim();
@@ -110,6 +99,21 @@ const loadImage = (src: string) => new Promise<HTMLImageElement | null>((resolve
     image.src = src;
 });
 
+const resolveExportImageSrc = async (src?: string | null) => {
+    if (!src) return null;
+    if (/^(https?:|data:|blob:)/.test(src)) return src;
+    try {
+        return await fetchProfilePreview(src, 96, 96);
+    } catch (_e) {
+        return null;
+    }
+};
+
+const resolveExportAvatarSource = async (identity: any) => {
+    const rawSource = identity?.avatar || identity?.profilePicId || identity?.preferences?.avatar || identity?.preferences?.profilePicId || null;
+    return resolveExportImageSrc(rawSource);
+};
+
 const drawAvatar = async (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, src?: string | null, label = 'U') => {
     ctx.save();
     ctx.beginPath();
@@ -118,7 +122,7 @@ const drawAvatar = async (ctx: CanvasRenderingContext2D, x: number, y: number, s
     ctx.clip();
     ctx.fillStyle = 'rgba(255,255,255,0.06)';
     ctx.fillRect(x, y, size, size);
-    const avatar = await loadImage(src || '');
+    const avatar = await loadImage((await resolveExportImageSrc(src)) || '');
     if (avatar) {
         ctx.drawImage(avatar, x, y, size, size);
     } else {
@@ -133,11 +137,240 @@ const drawAvatar = async (ctx: CanvasRenderingContext2D, x: number, y: number, s
     ctx.restore();
 };
 
+const drawMetricBlock = (ctx: CanvasRenderingContext2D, x: number, y: number, value: number, label: string, color: string) => {
+    ctx.fillStyle = color;
+    ctx.font = '900 14px sans-serif';
+    ctx.fillText(String(value), x, y);
+    ctx.fillStyle = 'rgba(255,255,255,0.72)';
+    ctx.font = '800 10px sans-serif';
+    ctx.fillText(label.toUpperCase(), x + 18, y);
+};
+
+const drawCommentIcon = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string) => {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 1.8;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x + 4, y + 5);
+    ctx.arc(x + size / 2, y + size / 2, size / 2 - 4, Math.PI * 1.08, Math.PI * 1.98, false);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + size * 0.42, y + size - 6);
+    ctx.lineTo(x + size * 0.3, y + size - 1);
+    ctx.lineTo(x + size * 0.52, y + size - 3);
+    ctx.stroke();
+    ctx.restore();
+};
+
+const drawRepeatIcon = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string) => {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 1.8;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.arc(x + size * 0.42, y + size * 0.42, size * 0.24, Math.PI * 1.15, Math.PI * 0.15, true);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + size * 0.68, y + size * 0.18);
+    ctx.lineTo(x + size * 0.84, y + size * 0.21);
+    ctx.lineTo(x + size * 0.74, y + size * 0.36);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x + size * 0.58, y + size * 0.58, size * 0.24, Math.PI * 0.15, Math.PI * 1.15, true);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + size * 0.32, y + size * 0.82);
+    ctx.lineTo(x + size * 0.16, y + size * 0.79);
+    ctx.lineTo(x + size * 0.26, y + size * 0.64);
+    ctx.stroke();
+    ctx.restore();
+};
+
+const drawHeartIcon = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string, filled = false) => {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = filled ? color : 'transparent';
+    ctx.lineWidth = 1.8;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    const left = x + size * 0.5;
+    const top = y + size * 0.28;
+    ctx.moveTo(left, y + size * 0.85);
+    ctx.bezierCurveTo(x + size * 0.12, y + size * 0.6, x + size * 0.1, top, x + size * 0.33, top);
+    ctx.bezierCurveTo(x + size * 0.48, top, x + size * 0.5, y + size * 0.46, left, y + size * 0.36);
+    ctx.bezierCurveTo(x + size * 0.5, y + size * 0.46, x + size * 0.52, top, x + size * 0.67, top);
+    ctx.bezierCurveTo(x + size * 0.9, top, x + size * 0.88, y + size * 0.6, left, y + size * 0.85);
+    if (filled) ctx.fill(); else ctx.stroke();
+    ctx.restore();
+};
+
+const drawLinkIcon = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string) => {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.8;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.arc(x + size * 0.36, y + size * 0.52, size * 0.2, Math.PI * 0.2, Math.PI * 1.35);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x + size * 0.64, y + size * 0.48, size * 0.2, Math.PI * 1.2, Math.PI * 0.85, true);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + size * 0.48, y + size * 0.4);
+    ctx.lineTo(x + size * 0.56, y + size * 0.4);
+    ctx.stroke();
+    ctx.restore();
+};
+
+const drawSendIcon = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string) => {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 1.8;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x + 3, y + size * 0.58);
+    ctx.lineTo(x + size - 2, y + 4);
+    ctx.lineTo(x + size * 0.56, y + size * 0.9);
+    ctx.lineTo(x + size * 0.48, y + size * 0.62);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.restore();
+};
+
+type ThreadPostViewProps = {
+    name: string;
+    handle: string;
+    timeLabel: string;
+    caption: string;
+    avatarSrc?: string | null;
+    avatarLabel: string;
+    replyingTo?: string | null;
+    stats: { replies?: number; pulses?: number; likes?: number; views?: number };
+    showThreadLine?: boolean;
+    onClick?: () => void;
+    onLike?: (event: React.MouseEvent) => void;
+    onPulse?: (event: React.MouseEvent) => void;
+    liked?: boolean;
+};
+
+const ThreadPostView = ({
+    name,
+    handle,
+    timeLabel,
+    caption,
+    avatarSrc,
+    avatarLabel,
+    replyingTo,
+    stats,
+    showThreadLine,
+    onClick,
+    onLike,
+    onPulse,
+    liked,
+}: ThreadPostViewProps) => (
+    <Box
+        component="article"
+        onClick={onClick}
+        sx={{
+            display: 'flex',
+            px: 2,
+            py: 1.5,
+            position: 'relative',
+            cursor: onClick ? 'pointer' : 'default',
+            '&:hover': onClick ? { bgcolor: 'rgba(255,255,255,0.02)' } : undefined,
+        }}
+    >
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mr: 1.5, flexShrink: 0, width: 48 }}>
+            <Avatar
+                src={avatarSrc || undefined}
+                sx={{
+                    width: 48,
+                    height: 48,
+                    bgcolor: 'rgba(255,255,255,0.05)',
+                    color: '#fff',
+                    fontWeight: 800,
+                    fontSize: '0.95rem',
+                }}
+            >
+                {avatarLabel}
+            </Avatar>
+            {showThreadLine && <Box sx={{ width: '2px', flexGrow: 1, minHeight: 18, bgcolor: 'rgba(255,255,255,0.16)', mt: 0.5 }} />}
+        </Box>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'baseline', flexWrap: 'wrap', mb: 0.25 }}>
+                <Typography sx={{ fontWeight: 800, color: 'text.primary', fontSize: '0.95rem', lineHeight: 1.2 }}>
+                    {name}
+                </Typography>
+                <Typography sx={{ color: 'text.secondary', fontSize: '0.93rem', lineHeight: 1.2 }}>
+                    {handle}
+                </Typography>
+                <Typography sx={{ color: 'text.secondary', fontSize: '0.93rem', lineHeight: 1.2 }}>
+                    ·
+                </Typography>
+                <Typography sx={{ color: 'text.secondary', fontSize: '0.93rem', lineHeight: 1.2 }}>
+                    {timeLabel}
+                </Typography>
+            </Box>
+            {replyingTo && (
+                <Typography sx={{ color: 'text.secondary', fontSize: '0.93rem', mb: 0.25 }}>
+                    Replying to <Box component="span" sx={{ color: '#6366F1' }}>{replyingTo}</Box>
+                </Typography>
+            )}
+            <FormattedText
+                text={caption}
+                variant="body2"
+                sx={{
+                    color: 'text.primary',
+                    fontSize: '0.95rem',
+                    lineHeight: 1.35,
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                }}
+            />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', maxWidth: 425, mt: 1.25, color: 'text.secondary', fontSize: '0.8rem' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                    <IconButton size="small" sx={{ p: 0.35, color: '#536471' }}>
+                        <MessageCircle size={16} strokeWidth={1.8} />
+                    </IconButton>
+                    <Typography sx={{ fontSize: '0.8rem', color: '#536471' }}>{stats.replies || 0}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                    <IconButton size="small" onClick={onPulse} sx={{ p: 0.35, color: '#10B981' }}>
+                        <Repeat2 size={16} strokeWidth={1.8} />
+                    </IconButton>
+                    <Typography sx={{ fontSize: '0.8rem', color: '#10B981' }}>{stats.pulses || 0}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                    <IconButton size="small" onClick={onLike} sx={{ p: 0.35, color: liked ? '#F59E0B' : '#536471' }}>
+                        <Heart size={16} fill={liked ? '#F59E0B' : 'none'} strokeWidth={1.8} />
+                    </IconButton>
+                    <Typography sx={{ fontSize: '0.8rem', color: liked ? '#F59E0B' : '#536471' }}>{stats.likes || 0}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                    <IconButton size="small" sx={{ p: 0.35, color: '#536471' }}>
+                        <BarChart3 size={16} strokeWidth={1.8} />
+                    </IconButton>
+                    <Typography sx={{ fontSize: '0.8rem', color: '#536471' }}>{stats.views || 0}</Typography>
+                </Box>
+            </Box>
+        </Box>
+    </Box>
+);
+
 const estimateCardHeight = (ctx: CanvasRenderingContext2D, moment: any, width: number) => {
     const textWidth = width - 72;
     const caption = wrapLines(ctx, String(moment?.caption || ''), textWidth);
     const attachmentCount = (moment?.metadata?.attachments || []).filter((att: any) => att.type === 'image' || att.type === 'video').length;
-    let height = 196;
+    let height = 236;
     height += Math.min(8, caption.length) * 26;
     if (attachmentCount > 0) height += 270;
     if (moment?.attachedNote) height += 118;
@@ -178,7 +411,8 @@ const renderMomentCard = async (
         cursorY += 18;
     }
 
-    await drawAvatar(ctx, innerX, cursorY, 38, creator?.avatar, avatarLabel);
+    const avatarSource = await resolveExportAvatarSource(creator);
+    await drawAvatar(ctx, innerX, cursorY, 38, avatarSource, avatarLabel);
 
     ctx.fillStyle = '#FFFFFF';
     ctx.font = '800 17px sans-serif';
@@ -249,9 +483,27 @@ const renderMomentCard = async (
         cursorY += 126;
     }
 
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    ctx.font = '700 11px monospace';
-    ctx.fillText(`replies ${moment?.stats?.replies || 0}  •  likes ${moment?.stats?.likes || 0}  •  pulses ${moment?.stats?.pulses || 0}`, innerX, y + cardHeight - 18);
+    const metricsY = y + cardHeight - 48;
+    drawMetricBlock(ctx, innerX, metricsY, moment?.stats?.replies || 0, 'replies', '#6366F1');
+    drawMetricBlock(ctx, innerX + 124, metricsY, moment?.stats?.pulses || 0, 'pulses', '#10B981');
+    drawMetricBlock(ctx, innerX + 236, metricsY, moment?.stats?.likes || 0, 'likes', '#F59E0B');
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.beginPath();
+    ctx.moveTo(innerX, y + cardHeight - 34);
+    ctx.lineTo(x + width - 20, y + cardHeight - 34);
+    ctx.stroke();
+
+    const actionsY = y + cardHeight - 26;
+    const iconSize = 18;
+    const actionSlots = [
+        { x: innerX + 4, draw: (ix: number, iy: number) => drawCommentIcon(ctx, ix, iy, iconSize, 'rgba(255,255,255,0.55)') },
+        { x: innerX + 82, draw: (ix: number, iy: number) => drawRepeatIcon(ctx, ix, iy, iconSize, 'rgba(255,255,255,0.55)') },
+        { x: innerX + 160, draw: (ix: number, iy: number) => drawHeartIcon(ctx, ix, iy, iconSize, 'rgba(255,255,255,0.55)', false) },
+        { x: innerX + 238, draw: (ix: number, iy: number) => drawLinkIcon(ctx, ix, iy, iconSize, 'rgba(255,255,255,0.55)') },
+        { x: innerX + 316, draw: (ix: number, iy: number) => drawSendIcon(ctx, ix, iy, iconSize, 'rgba(255,255,255,0.55)') },
+    ];
+    actionSlots.forEach((slot) => slot.draw(slot.x, actionsY));
 
     return cardHeight;
 };
@@ -262,17 +514,18 @@ const exportMomentAsImage = async (rootMoment: any) => {
     if (!ctx) throw new Error('Canvas unavailable');
 
     const parentMoment = rootMoment?.sourceMoment && rootMoment?.metadata?.sourceId ? rootMoment.sourceMoment : null;
-    const margin = 32;
-    const bodyWidth = EXPORT_COLUMN;
-    const bodyX = Math.floor((EXPORT_WIDTH - bodyWidth) / 2);
+    const exportWidth = Math.min(EXPORT_MAX_WIDTH, Math.max(EXPORT_MIN_WIDTH, Math.floor((window.innerWidth || EXPORT_MAX_WIDTH) - (EXPORT_PAD * 2))));
+    const margin = 14;
+    const bodyWidth = exportWidth - (EXPORT_PAD * 2);
+    const bodyX = EXPORT_PAD;
 
-    canvas.width = EXPORT_WIDTH;
-    ctx.font = '500 26px sans-serif';
+    canvas.width = exportWidth;
+    ctx.font = '500 18px sans-serif';
 
-    const headerHeight = 24;
+    const headerHeight = 8;
     const parentHeight = parentMoment ? estimateCardHeight(ctx, parentMoment, bodyWidth) + 20 : 0;
     const mainHeight = estimateCardHeight(ctx, rootMoment, bodyWidth);
-    const totalHeight = margin + headerHeight + parentHeight + mainHeight + 48 + (parentMoment ? 20 : 0);
+    const totalHeight = margin + headerHeight + parentHeight + mainHeight + 32 + (parentMoment ? 20 : 0);
     canvas.height = totalHeight;
 
     const gradient = ctx.createLinearGradient(0, 0, 0, totalHeight);
@@ -284,20 +537,20 @@ const exportMomentAsImage = async (rootMoment: any) => {
     ctx.fillStyle = 'rgba(255,255,255,0.03)';
     for (let i = 0; i < 36; i += 1) {
         ctx.beginPath();
-        ctx.arc((i * 97) % canvas.width, 60 + (i * 53) % (canvas.height - 120), 1.5, 0, Math.PI * 2);
+        ctx.arc((i * 97) % canvas.width, 60 + (i * 53) % Math.max(1, (canvas.height - 120)), 1.5, 0, Math.PI * 2);
         ctx.fill();
     }
 
     let cursorY = margin + headerHeight;
     if (parentMoment) {
-        ctx.fillStyle = '#6366F1';
-        ctx.fillRect(bodyX + 18, cursorY - 8, 2, 20);
+        ctx.fillStyle = 'rgba(255,255,255,0.82)';
+        ctx.fillRect(bodyX + 8, cursorY - 8, 2, 20);
         cursorY += 2;
         const parentCardHeight = await renderMomentCard(ctx, parentMoment, bodyX, cursorY, bodyWidth, true);
         cursorY += parentCardHeight + 14;
-        ctx.fillStyle = '#6366F1';
+        ctx.fillStyle = 'rgba(255,255,255,0.82)';
         ctx.beginPath();
-        ctx.arc(bodyX + 19, cursorY - 10, 3, 0, Math.PI * 2);
+        ctx.arc(bodyX + 9, cursorY - 10, 3, 0, Math.PI * 2);
         ctx.fill();
     }
 
@@ -306,7 +559,7 @@ const exportMomentAsImage = async (rootMoment: any) => {
     ctx.fillStyle = 'rgba(255,255,255,0.28)';
     ctx.font = '700 11px monospace';
     const footer = `@${resolveIdentity(rootMoment.creator, rootMoment.userId || rootMoment.creatorId).handle?.replace(/^@/, '') || 'connect'} • ${window.location.hostname}`;
-    ctx.fillText(footer, bodyX, canvas.height - 20);
+    ctx.fillText(footer, bodyX, canvas.height - 14);
 
     return new Promise<Blob>((resolve, reject) => {
         canvas.toBlob((blob) => {
@@ -338,31 +591,10 @@ export function PostViewClient() {
     const [actorsDrawerOpen, setActorsDrawerOpen] = useState(false);
     const [actorsList, setActorsList] = useState<any[]>([]);
     const [actorsTitle, setActorsTitle] = useState('');
-    const [expandedCaption, setExpandedCaption] = useState(false);
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'), { noSsr: true });
     const pullStartYRef = React.useRef<number | null>(null);
     const pullActiveRef = React.useRef(false);
-
-    const fetchActorsForLikes = async (momentId: string) => {
-        try {
-            const interactions = await SocialService._listInteractionsFor(momentId, 'like');
-            const actors = await Promise.all(interactions.map(async (i: any) => {
-                try {
-                    const p = await UsersService.getProfileById(i.userId);
-                    let avatar = null;
-                    if (p?.avatar) {
-                        try { avatar = String(p.avatar).startsWith('http') ? p.avatar : await fetchProfilePreview(p.avatar, 64, 64) as unknown as string; } catch (_e) {}
-                    }
-                    return { $id: i.userId, username: p?.username, displayName: p?.displayName, avatar };
-                } catch (_e) { return { $id: i.userId }; }
-            }));
-            return actors;
-        } catch (e) {
-            console.error('Failed to fetch like actors', e);
-            return [];
-        }
-    };
 
     const fetchActorsForPulses = async (momentId: string) => {
         try {
@@ -422,6 +654,7 @@ export function PostViewClient() {
         try {
             const ancestors = await fetchAncestorThread(moment.metadata.sourceId);
             setThreadAncestors(ancestors);
+            setMoment((prev: any) => prev ? ({ ...prev, sourceMoment: ancestors[ancestors.length - 1] || null }) : prev);
             setShowAncestors(true);
         } catch (error) {
             console.error('Failed to reveal ancestor thread', error);
@@ -484,6 +717,8 @@ export function PostViewClient() {
         setThreadAncestors([]);
         setShowAncestors(false);
         setPullDistance(0);
+        pullStartYRef.current = null;
+        pullActiveRef.current = false;
         try {
             const rawMoment = await SocialService.getMomentById(momentId, user?.$id);
             const enrichedMoment = await hydrateMoment(rawMoment);
@@ -661,11 +896,21 @@ export function PostViewClient() {
     const resolvedCreator = resolveIdentity(moment.creator || cachedCreator, creatorId);
     const creatorName = isOwnPost ? (user?.name || 'You') : resolvedCreator.displayName;
     const creatorAvatar = isOwnPost ? userAvatarUrl : (moment.creator?.avatar || cachedCreator?.avatar);
-    const captionIsLong = (moment?.caption || '').length > 280;
 
     return (
         <AppShell>
-            <Container maxWidth="sm" sx={{ py: { xs: 0.5, sm: 1 } }}>
+            <Box
+                sx={{
+                    width: '100%',
+                    maxWidth: 600,
+                    mx: 'auto',
+                    py: 0,
+                    px: 0,
+                    pb: { xs: 3, sm: 4 },
+                    borderLeft: '1px solid rgba(255,255,255,0.08)',
+                    borderRight: '1px solid rgba(255,255,255,0.08)',
+                }}
+            >
                 {/* Public Access Banner */}
                 {!user && (
                     <Alert 
@@ -697,16 +942,15 @@ export function PostViewClient() {
                         onPointerCancel={onPullPointerUp}
                         sx={{
                             mb: 1.5,
-                            borderRadius: '20px',
-                            border: '1px dashed rgba(255,255,255,0.08)',
-                            bgcolor: 'rgba(255,255,255,0.02)',
-                            color: 'rgba(255,255,255,0.6)',
+                            borderRadius: 0,
+                            border: 'none',
+                            bgcolor: 'transparent',
                             minHeight: pullDistance ? `${72 + pullDistance}px` : 72,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             flexDirection: 'column',
-                            gap: 1,
+                            gap: 0,
                             userSelect: 'none',
                             touchAction: 'none',
                             overflow: 'hidden',
@@ -714,377 +958,119 @@ export function PostViewClient() {
                         }}
                     >
                         {ancestorLoading ? (
-                            <CircularProgress size={18} color="inherit" />
+                            <Stack spacing={1.25} sx={{ width: '100%', px: 2, py: 1.5 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                                    <Box sx={{ flex: 1 }}>
+                                        <Skeleton variant="rounded" width={96} height={12} sx={{ bgcolor: 'rgba(255,255,255,0.08)', mb: 0.75 }} />
+                                        <Skeleton variant="rounded" width="70%" height={10} sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} />
+                                    </Box>
+                                </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                                    <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                                        <Skeleton variant="rounded" width="42%" height={12} sx={{ bgcolor: 'rgba(255,255,255,0.08)' }} />
+                                        <Skeleton variant="rounded" width="88%" height={12} sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} />
+                                        <Skeleton variant="rounded" width="76%" height={12} sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} />
+                                        <Stack direction="row" spacing={1.2} sx={{ pt: 0.5 }}>
+                                            <Skeleton variant="rounded" width={42} height={18} sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} />
+                                            <Skeleton variant="rounded" width={42} height={18} sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} />
+                                            <Skeleton variant="rounded" width={42} height={18} sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} />
+                                        </Stack>
+                                    </Box>
+                                </Box>
+                            </Stack>
                         ) : (
-                            <>
-                                <ChevronDown size={16} />
-                                <Typography sx={{ fontWeight: 800, fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                                    Pull down to reveal original post
-                                </Typography>
-                            </>
+                            <Box sx={{ width: '100%', minHeight: 12 }} />
                         )}
                     </Box>
                 )}
 
                 {showAncestors && threadAncestors.length > 0 && (
-                    <Stack spacing={1.25} sx={{ mb: 2 }}>
+                    <Box sx={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                         {threadAncestors.map((ancestor, index) => {
                             const ancestorId = ancestor.userId || ancestor.creatorId;
                             const resolvedAncestor = resolveIdentity(ancestor.creator, ancestorId);
                             return (
-                                <Paper
+                                <ThreadPostView
                                     key={ancestor.$id}
-                                    onClick={() => router.push(`/post/${ancestor.$id}`)}
-                                    sx={{
-                                        p: 1.5,
-                                        borderRadius: '20px',
-                                        bgcolor: 'rgba(255,255,255,0.02)',
-                                        border: '1px solid rgba(255,255,255,0.05)',
-                                        cursor: 'pointer',
-                                        position: 'relative',
-                                        overflow: 'hidden',
-                                        '&:hover': { bgcolor: 'rgba(255,255,255,0.04)' }
+                                    name={resolvedAncestor.displayName}
+                                    handle={resolvedAncestor.handle}
+                                    timeLabel={format(new Date(ancestor.$createdAt || ancestor.createdAt), 'h:mm a')}
+                                    caption={ancestor.caption}
+                                    avatarSrc={ancestor.creator?.avatar}
+                                    avatarLabel={resolvedAncestor.displayName?.charAt(0).toUpperCase()}
+                                    stats={{
+                                        replies: ancestor.stats?.replies || 0,
+                                        pulses: ancestor.stats?.pulses || 0,
+                                        likes: ancestor.stats?.likes || 0,
+                                        views: ancestor.stats?.views || 0,
                                     }}
-                                >
-                                    <Box sx={{ display: 'flex', gap: 1.5 }}>
-                                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pt: 0.25 }}>
-                                            <Avatar
-                                                src={ancestor.creator?.avatar}
-                                                sx={{ width: 38, height: 38, borderRadius: '10px', bgcolor: 'rgba(255,255,255,0.05)' }}
-                                            >
-                                                {resolvedAncestor.displayName?.charAt(0).toUpperCase()}
-                                            </Avatar>
-                                            {index < threadAncestors.length - 1 && (
-                                                <Box sx={{ width: '2px', flex: 1, minHeight: 18, bgcolor: 'rgba(255,255,255,0.12)', mt: 1 }} />
-                                            )}
-                                        </Box>
-                                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
-                                                <Typography sx={{ fontWeight: 900, fontSize: '0.94rem' }}>
-                                                    {resolvedAncestor.displayName}
-                                                </Typography>
-                                                <Typography variant="caption" sx={{ opacity: 0.35, fontSize: '0.68rem', fontFamily: 'var(--font-mono)' }}>
-                                                    {resolvedAncestor.handle}
-                                                </Typography>
-                                                <Typography variant="caption" sx={{ opacity: 0.28, fontSize: '0.68rem' }}>
-                                                    · {format(new Date(ancestor.$createdAt || ancestor.createdAt), 'MMM d')}
-                                                </Typography>
-                                            </Stack>
-                                            <FormattedText
-                                                text={ancestor.caption}
-                                                variant="body2"
-                                                sx={{
-                                                    color: 'rgba(255,255,255,0.82)',
-                                                    fontSize: '0.95rem',
-                                                    lineHeight: 1.45,
-                                                    display: '-webkit-box',
-                                                    WebkitLineClamp: 6,
-                                                    WebkitBoxOrient: 'vertical',
-                                                    overflow: 'hidden'
-                                                }}
-                                            />
-                                        </Box>
-                                    </Box>
-                                </Paper>
+                                    showThreadLine={index < threadAncestors.length - 1 || Boolean(moment?.metadata?.sourceId)}
+                                    onClick={() => router.push(`/post/${ancestor.$id}`)}
+                                    onLike={(e) => { e.stopPropagation(); handleToggleLike(ancestor); }}
+                                    onPulse={(e) => {
+                                        e.stopPropagation();
+                                        openActorsList('Pulsed by', async () => await fetchActorsForPulses(ancestor.$id));
+                                    }}
+                                    liked={ancestor.isLiked}
+                                />
                             );
                         })}
-                    </Stack>
+                    </Box>
                 )}
 
-                <Card sx={{ 
-                    borderRadius: '24px', 
-                    bgcolor: '#161412', 
-                    border: '1px solid rgba(255, 255, 255, 0.05)',
-                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-                    overflow: 'visible',
-                    position: 'relative',
-                    '&::before': {
-                        content: '""',
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: '1px',
-                        background: 'rgba(255, 255, 255, 0.05)',
-                        borderRadius: '24px 24px 0 0',
-                    }
-                }} elevation={0}>
-                    <CardHeader
-                        avatar={
-                                <Avatar 
-                                    onClick={(e) => { e.stopPropagation(); const username = resolveIdentityUsername(moment.creator || cachedCreator, creatorId); if (username) router.push(`/u/${username}`); }}
-                                    src={creatorAvatar}
-                                    sx={{ 
-                                        width: 38, 
-                                        height: 38, 
-                                        bgcolor: isOwnPost ? '#F59E0B' : 'rgba(255, 255, 255, 0.05)',
-                                        color: isOwnPost ? '#000' : 'text.secondary',
-                                        borderRadius: '10px',
-                                        fontWeight: 900,
-                                        border: '1px solid rgba(255,255,255,0.1)',
-                                        position: 'relative',
-                                        zIndex: 1,
-                                        boxShadow: '0 8px 16px rgba(0,0,0,0.3)',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    {creatorName.replace(/^@/, '').charAt(0).toUpperCase()}
-                                </Avatar>
+                <ThreadPostView
+                    name={creatorName}
+                    handle={resolvedCreator.handle}
+                    timeLabel={format(new Date(moment.$createdAt), 'h:mm a')}
+                    caption={moment.caption}
+                    avatarSrc={creatorAvatar}
+                    avatarLabel={creatorName.replace(/^@/, '').charAt(0).toUpperCase()}
+                    replyingTo={moment.metadata?.sourceId && moment.sourceMoment
+                        ? `@${resolveIdentity(moment.sourceMoment.creator, moment.sourceMoment.userId || moment.sourceMoment.creatorId).handle?.replace(/^@/, '') || ''}`
+                        : null}
+                    stats={{
+                        replies: moment.stats?.replies || 0,
+                        pulses: moment.stats?.pulses || 0,
+                        likes: moment.stats?.likes || 0,
+                        views: moment.stats?.views || 0,
+                    }}
+                    showThreadLine={Boolean(moment.metadata?.sourceId || replies.length)}
+                    onLike={(e) => { e.stopPropagation(); handleToggleLike(); }}
+                    onPulse={(e) => {
+                        e.stopPropagation();
+                        setPulseMenuAnchorEl(e.currentTarget as HTMLElement);
+                    }}
+                    liked={moment.isLiked}
+                />
+
+                <Menu
+                    anchorEl={pulseMenuAnchorEl}
+                    open={Boolean(pulseMenuAnchorEl)}
+                    onClose={() => setPulseMenuAnchorEl(null)}
+                    PaperProps={{
+                        sx: {
+                            mt: 1,
+                            borderRadius: '16px',
+                            bgcolor: 'rgba(15, 15, 15, 0.95)',
+                            backdropFilter: 'blur(20px)',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            minWidth: 180
                         }
-                        title={
-                            <Typography sx={{ fontWeight: 900, fontSize: '0.96rem', color: isOwnPost ? '#F59E0B' : 'text.primary', fontFamily: 'var(--font-clash)', letterSpacing: '-0.01em' }}>
-                                {creatorName}
-                            </Typography>
-                        }
-                        subheader={
-                            <Typography variant="caption" sx={{ opacity: 0.4, fontWeight: 700, fontFamily: 'var(--font-mono)', letterSpacing: '0.02em', fontSize: '0.68rem' }}>
-                                {resolvedCreator.handle}
-                            </Typography>
-                        }
-                        action={
-                            <IconButton sx={{ color: 'rgba(255, 255, 255, 0.2)', '&:hover': { color: 'white', bgcolor: 'rgba(255,255,255,0.05)' }, p: 0.75 }}>
-                                <MoreHorizontal size={16} />
-                            </IconButton>
-                        }
-                    />
-
-                    <CardContent sx={{ pt: 0.5, px: { xs: 2, sm: 3 }, pb: 2.5 }}>
-                        <Box sx={{ mb: 2.5 }}>
-                            <FormattedText 
-                                text={moment.caption}
-                                variant="h5"
-                                sx={{ 
-                                    lineHeight: 1.45, 
-                                    fontSize: { xs: '0.98rem', sm: '1.02rem' }, 
-                                    fontWeight: 500,
-                                    color: 'rgba(255,255,255,0.95)',
-                                    fontFamily: 'var(--font-satoshi)',
-                                    letterSpacing: '-0.01em',
-                                    display: expandedCaption ? 'block' : '-webkit-box',
-                                    WebkitBoxOrient: 'vertical',
-                                    WebkitLineClamp: expandedCaption ? undefined : 6,
-                                    overflow: expandedCaption ? 'visible' : 'hidden'
-                                }}
-                            />
-                            {captionIsLong && (
-                                <Button
-                                    size="small"
-                                    onClick={() => setExpandedCaption((prev) => !prev)}
-                                    sx={{ mt: 0.5, px: 0, minWidth: 0, fontSize: '0.7rem', fontWeight: 900, color: '#F59E0B', textTransform: 'none' }}
-                                >
-                                    {expandedCaption ? 'Show less' : 'Read more'}
-                                </Button>
-                            )}
-                        </Box>
-
-                        {moment.metadata?.attachments?.filter((a: any) => a.type === 'image' || a.type === 'video').length > 0 && (
-                            <Box sx={{ mb: 2.5, borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', bgcolor: 'rgba(0,0,0,0.2)' }}>
-                                <Stack direction="row" spacing={1} sx={{ overflowX: 'auto', pb: 0.5, snapType: 'x mandatory' }}>
-                                    {moment.metadata.attachments.filter((a: any) => a.type === 'image' || a.type === 'video').map((att: any, idx: number) => (
-                                        <Box key={idx} sx={{ 
-                                            minWidth: '100%', 
-                                            height: { xs: 220, sm: 280 }, 
-                                            bgcolor: 'rgba(255,255,255,0.01)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            position: 'relative',
-                                            snapAlign: 'start'
-                                        }}>
-                                            <Box 
-                                                component="img"
-                                                src={SocialService.getMediaPreview(att.id, 1200, 800)} 
-                                                alt="Attachment"
-                                                sx={{ 
-                                                    width: '100%',
-                                                    height: '100%',
-                                                    objectFit: 'contain'
-                                                }}
-                                            />
-                                        </Box>
-                                    ))}
-                                </Stack>
-                            </Box>
-                        )}
-
-                        {moment.attachedNote && (
-                            <Paper sx={{ 
-                                p: 0, 
-                                borderRadius: 3, 
-                                bgcolor: 'rgba(255, 255, 255, 0.02)', 
-                                border: '1px solid rgba(255, 255, 255, 0.08)',
-                                overflow: 'hidden',
-                                mb: 2
-                            }}>
-                                <Box sx={{ p: 1.5, background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(0, 163, 255, 0.02) 100%)' }}>
-                                    <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 1 }}>
-                                        <Box sx={{ p: 0.75, bgcolor: alpha('#6366F1', 0.1), borderRadius: 1.25, color: '#6366F1' }}>
-                                            <FileText size={16} />
-                                        </Box>
-                                        <Box>
-                                            <Typography variant="subtitle1" sx={{ fontWeight: 900, color: 'white', fontSize: '0.86rem' }}>{moment.attachedNote.title}</Typography>
-                                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontWeight: 700, fontSize: '0.64rem' }}>KYLRIX NOTE</Typography>
-                                        </Box>
-                                    </Stack>
-                                    <Typography variant="body2" sx={{ opacity: 0.7, lineHeight: 1.45, fontSize: '0.82rem' }}>
-                                        {moment.attachedNote.content?.substring(0, 120)}...
-                                    </Typography>
-                                </Box>
-                                <Box sx={{ px: 1.5, py: 1, bgcolor: 'rgba(0,0,0,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Typography variant="caption" sx={{ color: '#6366F1', fontWeight: 800, fontSize: '0.62rem' }}>ATTACHED KNOWLEDGE</Typography>
-                                    <Button size="small" sx={{ fontWeight: 800, color: '#6366F1', fontSize: '0.68rem', minWidth: 0 }}>Read Note</Button>
-                                </Box>
-                            </Paper>
-                        )}
-
-                        {moment.attachedEvent && (
-                            <Paper sx={{ 
-                                p: 0, 
-                                borderRadius: 3, 
-                                bgcolor: 'rgba(255, 255, 255, 0.02)', 
-                                border: '1px solid rgba(255, 255, 255, 0.08)',
-                                overflow: 'hidden',
-                                mb: 2
-                            }}>
-                                <Box sx={{ p: 1.5, background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.05) 0%, rgba(0, 163, 255, 0.02) 100%)' }}>
-                                    <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 1 }}>
-                                        <Box sx={{ p: 0.75, bgcolor: alpha('#A855F7', 0.1), borderRadius: 1.25, color: '#A855F7' }}>
-                                            <Calendar size={16} />
-                                        </Box>
-                                        <Box>
-                                            <Typography variant="subtitle1" sx={{ fontWeight: 900, color: 'white', fontSize: '0.86rem' }}>{moment.attachedEvent.title}</Typography>
-                                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontWeight: 700, fontSize: '0.64rem' }}>KYLRIX FLOW</Typography>
-                                        </Box>
-                                    </Stack>
-                                    <Stack spacing={1}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'rgba(255,255,255,0.5)' }}>
-                                            <Clock size={12} />
-                                            <Typography variant="caption" fontWeight={700} sx={{ fontSize: '0.68rem' }}>
-                                                {format(new Date(moment.attachedEvent.startTime), 'MMM d, h:mm a')}
-                                            </Typography>
-                                        </Box>
-                                        {moment.attachedEvent.location && (
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'rgba(255,255,255,0.5)' }}>
-                                                <MapPin size={12} />
-                                                <Typography variant="caption" fontWeight={700} sx={{ fontSize: '0.68rem' }}>{moment.attachedEvent.location}</Typography>
-                                            </Box>
-                                        )}
-                                    </Stack>
-                                </Box>
-                                <Box sx={{ px: 1.5, py: 1, bgcolor: 'rgba(0,0,0,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Typography variant="caption" sx={{ color: '#A855F7', fontWeight: 800, fontSize: '0.62rem' }}>SCHEDULED EVENT</Typography>
-                                    <Button size="small" sx={{ fontWeight: 800, color: '#A855F7', fontSize: '0.68rem', minWidth: 0 }}>Add to Calendar</Button>
-                                </Box>
-                            </Paper>
-                        )}
-
-                        <Typography variant="body2" sx={{ opacity: 0.4, fontWeight: 700, mt: 2.5, mb: 1.25, fontSize: '0.68rem' }}>
-                            {format(new Date(moment.$createdAt), 'h:mm a · MMM d, yyyy')} · Kylrix Connect
-                        </Typography>
-
-                        <Divider sx={{ borderColor: 'rgba(255,255,255,0.05)', my: 2 }} />
-                        
-                        <Stack direction="row" spacing={2} sx={{ py: 0.5 }}>
-                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', color: '#6366F1' }}>
-                                <Typography sx={{ fontWeight: 900, fontSize: '0.78rem' }}>{moment.stats?.replies || 0}</Typography>
-                                <Typography variant="caption" sx={{ opacity: 0.7, fontWeight: 900, letterSpacing: '0.05em', fontSize: '0.6rem' }}>REPLIES</Typography>
-                            </Box>
-                        <Box
-                            onClick={(e) => { e.stopPropagation(); openActorsList('Pulsed by', async () => await fetchActorsForPulses(moment.$id)); }}
-                            sx={{ display: 'flex', gap: 1, alignItems: 'center', color: '#10B981', cursor: 'pointer' }}
-                        >
-                            <Typography sx={{ fontWeight: 900 }}>{moment.stats?.pulses || 0}</Typography>
-                            <Typography variant="caption" sx={{ opacity: 0.7, fontWeight: 900, letterSpacing: '0.05em' }}>PULSES</Typography>
-                        </Box>
-                            <Box
-                                onClick={(e) => { e.stopPropagation(); openActorsList('Likes', async () => await fetchActorsForLikes(moment.$id)); }}
-                                sx={{ display: 'flex', gap: 1, alignItems: 'center', color: '#F59E0B', cursor: 'pointer' }}
-                            >
-                                <Typography sx={{ fontWeight: 900 }}>{moment.stats?.likes || 0}</Typography>
-                                <Typography variant="caption" sx={{ opacity: 0.7, fontWeight: 900, letterSpacing: '0.05em' }}>LIKES</Typography>
-                            </Box>
-                        </Stack>
-
-                        <Divider sx={{ borderColor: 'rgba(255,255,255,0.05)', mt: 1, mb: 2 }} />
-
-                        <Stack direction="row" justifyContent="space-around" sx={{ color: 'rgba(255,255,255,0.5)', py: 1 }}>
-                            <Tooltip title="Reply">
-                                <IconButton sx={{ p: 0.75, '&:hover': { color: '#6366F1', bgcolor: alpha('#6366F1', 0.1) } }}>
-                                    <MessageCircle size={18} strokeWidth={1.5} />
-                                </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Pulse">
-                            <IconButton 
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        // Open the pulse menu so user can choose Pulse / Unpulse / Quote
-                                        setPulseMenuAnchorEl(e.currentTarget);
-                                    }}
-                                    onContextMenu={(e) => {
-                                        e.preventDefault();
-                                        setPulseMenuAnchorEl(e.currentTarget);
-                                    }}
-                                    sx={{ p: 0.75, '&:hover': { color: '#10B981', bgcolor: alpha('#10B981', 0.1) } }}
-                                >
-                                    <Repeat2 size={18} strokeWidth={1.5} />
-                                </IconButton>
-                            </Tooltip>
-                            
-                            <Menu
-                                anchorEl={pulseMenuAnchorEl}
-                                open={Boolean(pulseMenuAnchorEl)}
-                                onClose={() => setPulseMenuAnchorEl(null)}
-                                PaperProps={{
-                                    sx: {
-                                        mt: 1,
-                                        borderRadius: '16px',
-                                        bgcolor: 'rgba(15, 15, 15, 0.95)',
-                                        backdropFilter: 'blur(20px)',
-                                        border: '1px solid rgba(255, 255, 255, 0.08)',
-                                        minWidth: 180
-                                    }
-                                }}
-                            >
-                                <MenuItem 
-                                    onClick={handlePulse}
-                                    sx={{ gap: 1.5, py: 1.2, fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#10B981' }}
-                                >
-                                    <Repeat2 size={18} strokeWidth={2} /> Pulse Now
-                                </MenuItem>
-                                <MenuItem 
-                                    onClick={handleQuote}
-                                    sx={{ gap: 1.5, py: 1.2, fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}
-                                >
-                                    <Edit size={18} strokeWidth={2} style={{ opacity: 0.7 }} /> Quote Moment
-                                </MenuItem>
-                            </Menu>
-                            <Tooltip title="Heart">
-                                <IconButton 
-                                    onClick={() => handleToggleLike()}
-                                    sx={{ 
-                                        p: 0.75,
-                                        color: moment.isLiked ? '#F59E0B' : 'inherit',
-                                        '&:hover': { color: '#F59E0B', bgcolor: alpha('#F59E0B', 0.1) } 
-                                    }}
-                                >
-                                    <Heart size={18} fill={moment.isLiked ? '#F59E0B' : 'none'} strokeWidth={1.5} />
-                                </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Copy Link">
-                                <IconButton onClick={handleCopyLink} sx={{ p: 0.75, '&:hover': { color: '#6366F1', bgcolor: alpha('#6366F1', 0.1) } }}>
-                                    <Link2 size={18} strokeWidth={1.5} />
-                                </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Export / Share">
-                                <IconButton onClick={() => setShareDrawerOpen(true)} sx={{ p: 0.75, '&:hover': { color: '#6366F1', bgcolor: alpha('#6366F1', 0.1) } }}>
-                                    <Send size={18} strokeWidth={1.5} />
-                                </IconButton>
-                            </Tooltip>
-                        </Stack>
-                        
-                        <Divider sx={{ borderColor: 'rgba(255,255,255,0.05)', mt: 2 }} />
-                    </CardContent>
-                </Card>
+                    }}
+                >
+                    <MenuItem 
+                        onClick={handlePulse}
+                        sx={{ gap: 1.5, py: 1.2, fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#10B981' }}
+                    >
+                        <Repeat2 size={18} strokeWidth={2} /> Pulse Now
+                    </MenuItem>
+                    <MenuItem 
+                        onClick={handleQuote}
+                        sx={{ gap: 1.5, py: 1.2, fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                    >
+                        <Edit size={18} strokeWidth={2} style={{ opacity: 0.7 }} /> Quote Moment
+                    </MenuItem>
+                </Menu>
 
                 {user && (
                     <Box id="reply-box" sx={{ mt: 2, p: 1.5, bgcolor: '#161412', borderRadius: '18px', border: '1px solid rgba(255,255,255,0.05)' }}>
@@ -1196,79 +1182,42 @@ export function PostViewClient() {
                     </Box>
                 </Drawer>
 
-                <Stack spacing={2} sx={{ mt: 4 }}>
-                    {replies.map((reply) => {
+                <Box sx={{ borderTop: '1px solid rgba(255,255,255,0.08)', mt: 1 }}>
+                    {replies.map((reply, index) => {
                         const rCreatorId = reply.userId || reply.creatorId;
                         const rResolvedCreator = resolveIdentity(reply.creator, rCreatorId);
                         const rCreatorName = rResolvedCreator.displayName;
                         return (
-                            <Box 
-                                key={reply.$id} 
-                                onClick={() => router.push(`/post/${reply.$id}`)}
-                                sx={{ 
-                                    display: 'flex', 
-                                    gap: 2, 
-                                    p: 2.5, 
-                                    borderRadius: '20px',
-                                    transition: 'all 0.2s ease',
-                                    cursor: 'pointer',
-                                    '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' }
+                            <ThreadPostView
+                                key={reply.$id}
+                                name={rCreatorName}
+                                handle={rResolvedCreator.handle}
+                                timeLabel={format(new Date(reply.$createdAt), 'h:mm a')}
+                                caption={reply.caption}
+                                avatarSrc={reply.creator?.avatar}
+                                avatarLabel={rCreatorName.replace(/^@/, '').charAt(0).toUpperCase()}
+                                replyingTo={reply.metadata?.sourceId ? `@${creatorName.replace(/^@/, '')}` : null}
+                                stats={{
+                                    replies: reply.stats?.replies || 0,
+                                    pulses: reply.stats?.pulses || 0,
+                                    likes: reply.stats?.likes || 0,
+                                    views: reply.stats?.views || 0,
                                 }}
-                            >
-                            <Avatar 
-                                src={reply.creator?.avatar} 
-                                sx={{ width: 38, height: 38, borderRadius: '10px', bgcolor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.05)' }}
-                            >
-                                {rCreatorName.replace(/^@/, '').charAt(0).toUpperCase()}
-                            </Avatar>
-                            <Box sx={{ flex: 1 }}>
-                                    <Stack direction="row" spacing={1} alignItems="center">
-                                        <Typography sx={{ fontWeight: 900, fontSize: '0.96rem', color: 'white' }}>{rCreatorName}</Typography>
-                                        <Typography variant="caption" sx={{ opacity: 0.4, fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>{rResolvedCreator.handle}</Typography>
-                                        <Typography variant="caption" sx={{ opacity: 0.3, fontSize: '0.68rem' }}>· {format(new Date(reply.$createdAt), 'MMM d')}</Typography>
-                                    </Stack>
-                                    <FormattedText 
-                                        text={reply.caption}
-                                        variant="body1"
-                                        sx={{ mt: 0.5, color: 'rgba(255,255,255,0.92)', fontSize: '0.98rem', lineHeight: 1.45, fontWeight: 500 }}
-                                    />
-                                    
-                                    <Stack direction="row" spacing={2} sx={{ mt: 1.25, color: 'rgba(255,255,255,0.3)' }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                                            <IconButton size="small" sx={{ p: 0.5, '&:hover': { color: '#6366F1', bgcolor: alpha('#6366F1', 0.1) } }}>
-                                                <MessageCircle size={14} strokeWidth={1.5} />
-                                            </IconButton>
-                                            <Typography variant="caption" sx={{ fontWeight: 800, fontSize: '0.68rem' }}>{reply.stats?.replies || 0}</Typography>
-                                        </Box>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                                            <IconButton size="small" sx={{ p: 0.5, '&:hover': { color: '#10B981', bgcolor: alpha('#10B981', 0.1) } }}>
-                                                <Repeat2 size={14} strokeWidth={1.5} />
-                                            </IconButton>
-                                            <Typography variant="caption" sx={{ fontWeight: 800, fontSize: '0.68rem' }}>{reply.stats?.pulses || 0}</Typography>
-                                        </Box>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                                            <IconButton 
-                                                size="small" 
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleToggleLike(reply);
-                                                }}
-                                                sx={{ 
-                                                    p: 0.5, 
-                                                    color: reply.isLiked ? '#F59E0B' : 'inherit',
-                                                    '&:hover': { color: '#F59E0B', bgcolor: alpha('#F59E0B', 0.1) } 
-                                                }}
-                                            >
-                                                <Heart size={14} fill={reply.isLiked ? '#F59E0B' : 'none'} strokeWidth={1.5} />
-                                            </IconButton>
-                                            <Typography variant="caption" sx={{ fontWeight: 800, fontSize: '0.68rem' }}>{reply.stats?.likes || 0}</Typography>
-                                        </Box>
-                                    </Stack>
-                                </Box>
-                            </Box>
+                                showThreadLine={index < replies.length - 1}
+                                onClick={() => router.push(`/post/${reply.$id}`)}
+                                onLike={(e) => {
+                                    e.stopPropagation();
+                                    handleToggleLike(reply);
+                                }}
+                                onPulse={(e) => {
+                                    e.stopPropagation();
+                                    setPulseMenuAnchorEl(e.currentTarget as HTMLElement);
+                                }}
+                                liked={reply.isLiked}
+                            />
                         );
                     })}
-                </Stack>
+                </Box>
                 <ActorsListDrawer
                     open={actorsDrawerOpen}
                     onClose={() => setActorsDrawerOpen(false)}
@@ -1277,7 +1226,7 @@ export function PostViewClient() {
                     mobile={isMobile}
                     onSelect={(actor) => { setActorsDrawerOpen(false); router.push(`/@${actor.username || actor.$id}`); }}
                 />
-            </Container>
+            </Box>
         </AppShell>
     );
 }
