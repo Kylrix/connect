@@ -1664,6 +1664,15 @@
                     "size": 1000,
                     "default": null,
                     "encrypt": true
+                },
+                {
+                    "key": "sharedFrom",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 255,
+                    "default": null,
+                    "encrypt": false
                 }
             ],
             "indexes": [
@@ -2348,6 +2357,15 @@
                     "array": false,
                     "default": null,
                     "format": ""
+                },
+                {
+                    "key": "sharedFrom",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 255,
+                    "default": null,
+                    "encrypt": false
                 }
             ],
             "indexes": [

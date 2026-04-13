@@ -34,7 +34,8 @@ export const APPWRITE_CONFIG = {
             PROFILES: 'profiles',
             USERS: 'profiles',
             CONTACTS: 'contacts',
-            EPOCHS: 'epochs'
+            EPOCHS: 'epochs',
+            UNORGANIC_EMAILS: 'unorganic_emails'
         }
     },
     BUCKETS: {
