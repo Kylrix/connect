@@ -220,6 +220,104 @@ function includesAny(text: string, terms: string[]) {
   return terms.some((term) => text.includes(term));
 }
 
+type IslandGlyphMode = 'idle' | 'typing' | 'thinking';
+
+const OrbitalGlyph: React.FC<{
+  mode: IslandGlyphMode;
+  tone: string;
+}> = ({ mode, tone }) => {
+  const ringSize = mode === 'thinking' ? 34 : 30;
+  const bubbleCount = mode === 'thinking' ? 6 : 4;
+
+  return (
+    <Box
+      sx={{
+        position: 'relative',
+        width: ringSize,
+        height: ringSize,
+        display: 'grid',
+        placeItems: 'center',
+      }}
+    >
+      <motion.div
+        animate={{ rotate: 360 }}
+        transition={{ duration: mode === 'thinking' ? 8 : 10, repeat: Infinity, ease: 'linear' }}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: '50%',
+          border: `1px solid ${alpha(tone, mode === 'thinking' ? 0.3 : 0.22)}`,
+          opacity: mode === 'thinking' ? 1 : 0.85,
+        }}
+      />
+
+      {Array.from({ length: bubbleCount }).map((_, index) => {
+        const angle = (360 / bubbleCount) * index;
+        const radius = mode === 'thinking' ? 14 : 12;
+        return (
+          <motion.span
+            key={index}
+            animate={{
+              x: [0, Math.cos((angle * Math.PI) / 180) * radius],
+              y: [0, Math.sin((angle * Math.PI) / 180) * radius],
+              opacity: [0.4, 1, 0.45],
+              scale: [0.9, 1.15, 0.9],
+            }}
+            transition={{
+              duration: 2.2 + index * 0.2,
+              repeat: Infinity,
+              repeatType: 'mirror',
+              ease: 'easeInOut',
+            }}
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: '50%',
+              width: mode === 'thinking' ? 6 : 5,
+              height: mode === 'thinking' ? 6 : 5,
+              marginLeft: -3,
+              marginTop: -3,
+              borderRadius: '50%',
+              background: tone,
+              boxShadow: `0 0 10px ${alpha(tone, 0.5)}`,
+            }}
+          />
+        );
+      })}
+
+      <motion.div
+        animate={{
+          scale: mode === 'thinking' ? [1, 0.94, 1] : [1, 1.06, 1],
+          rotate: mode === 'typing' ? [0, -8, 8, 0] : 0,
+        }}
+        transition={{
+          duration: mode === 'thinking' ? 2.8 : 3.6,
+          repeat: Infinity,
+          ease: 'easeInOut',
+        }}
+        style={{
+          position: 'relative',
+          zIndex: 1,
+          width: mode === 'thinking' ? 18 : 16,
+          height: mode === 'thinking' ? 18 : 16,
+          borderRadius: '50%',
+          background: `radial-gradient(circle at 30% 30%, ${alpha('#fff', 0.95)} 0%, ${tone} 55%, ${alpha(tone, 0.2)} 100%)`,
+          boxShadow: `0 0 14px ${alpha(tone, 0.8)}`,
+        }}
+      >
+        <Box
+          sx={{
+            position: 'absolute',
+            inset: 2,
+            borderRadius: '50%',
+            background: '#000',
+          }}
+        />
+      </motion.div>
+    </Box>
+  );
+};
+
 const DynamicIslandOverlay: React.FC<{
   notifications: IslandNotification[];
   onDismiss: (id: string) => void;
@@ -443,6 +541,9 @@ const DynamicIslandOverlay: React.FC<{
     closeSearch();
   };
 
+  const queryText = query.trim();
+  const searchMode: IslandGlyphMode = !queryText ? 'idle' : searching ? 'thinking' : 'typing';
+
   const currentIcon = current ? (
     current.type === 'success' ? <SuccessIcon fontSize="small" /> :
     current.type === 'error' ? <ErrorIcon fontSize="small" /> :
@@ -476,8 +577,9 @@ const DynamicIslandOverlay: React.FC<{
       };
 
   const searchWidth = isMobile ? 'calc(100vw - 24px)' : 'min(560px, calc(100vw - 48px))';
-  const restingSize = '52px';
+  const restingSize = '42px';
   const collapsedSize = '52px';
+  const islandHeight = current || isSearchOpen ? 52 : 42;
   const islandWidth = current || isSearchOpen ? (isExpanded ? searchWidth : collapsedSize) : restingSize;
 
   const containerWidth = current
@@ -502,6 +604,7 @@ const DynamicIslandOverlay: React.FC<{
         {current ? (
           <motion.div
             key={current.id}
+            layout
             initial={{ y: -40, scale: 0.9, opacity: 0 }}
             animate={{ y: 0, scale: 1, opacity: 1 }}
             exit={{ y: -40, scale: 0.85, opacity: 0 }}
@@ -512,12 +615,13 @@ const DynamicIslandOverlay: React.FC<{
             style={{ pointerEvents: 'auto', cursor: 'pointer' }}
           >
             <motion.div
+              layout
               animate={controls}
               style={{
-                minHeight: 52,
+                height: islandHeight,
                 width: islandWidth,
                 borderRadius: '999px',
-                background: 'rgba(10, 9, 8, 0.94)',
+                background: current ? 'rgba(10, 9, 8, 0.94)' : '#000',
                 backdropFilter: 'blur(28px) saturate(170%)',
                 overflow: 'hidden',
                 display: 'flex',
@@ -543,7 +647,7 @@ const DynamicIslandOverlay: React.FC<{
                 sx={{
                   position: 'relative',
                   zIndex: 1,
-                  minHeight: 52,
+                  height: islandHeight,
                   display: 'flex',
                   alignItems: 'center',
                   px: 2,
@@ -594,19 +698,23 @@ const DynamicIslandOverlay: React.FC<{
 
                 {!isExpanded && (
                   <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexShrink: 0 }}>
-                    {[0, 1, 2].map((index) => (
-                      <motion.div
-                        key={index}
-                        animate={{ scale: [1, 1.35, 1], opacity: [0.35, 1, 0.35] }}
-                        transition={{ duration: 2, repeat: Infinity, delay: index * 0.22 }}
-                        style={{
-                          width: 3,
-                          height: 3,
-                          borderRadius: '50%',
-                          background: currentTone.secondary,
-                        }}
-                      />
-                    ))}
+                    {current ? (
+                      [0, 1, 2].map((index) => (
+                        <motion.div
+                          key={index}
+                          animate={{ scale: [1, 1.35, 1], opacity: [0.35, 1, 0.35] }}
+                          transition={{ duration: 2, repeat: Infinity, delay: index * 0.22 }}
+                          style={{
+                            width: 3,
+                            height: 3,
+                            borderRadius: '50%',
+                            background: currentTone.secondary,
+                          }}
+                        />
+                      ))
+                    ) : (
+                      <OrbitalGlyph mode={searchMode} tone={APP_TONES.connect.secondary} />
+                    )}
                   </Box>
                 )}
               </Box>
@@ -615,6 +723,7 @@ const DynamicIslandOverlay: React.FC<{
         ) : isSearchOpen ? (
           <motion.div
             key="search-island"
+            layout
             initial={{ y: -20, scale: 0.96, opacity: 0 }}
             animate={{ y: 0, scale: 1, opacity: 1 }}
             exit={{ y: -20, scale: 0.96, opacity: 0 }}
@@ -648,17 +757,50 @@ const DynamicIslandOverlay: React.FC<{
                     sx={{
                       width: 38,
                       height: 38,
-                      borderRadius: '999px',
+                      borderRadius: searchMode === 'thinking' ? '16px' : '999px',
                       display: 'grid',
                       placeItems: 'center',
                       color: APP_TONES.connect.secondary,
-                      bgcolor: alpha(APP_TONES.connect.secondary, 0.12),
-                      border: `1px solid ${alpha(APP_TONES.connect.secondary, 0.18)}`,
-                      boxShadow: `0 0 18px ${alpha(APP_TONES.connect.secondary, 0.18)}`,
+                      bgcolor: 'rgba(0, 0, 0, 0.96)',
+                      border: `1px solid ${alpha(APP_TONES.connect.secondary, searchMode === 'thinking' ? 0.34 : 0.22)}`,
+                      boxShadow: `0 0 18px ${alpha(APP_TONES.connect.secondary, searchMode === 'thinking' ? 0.3 : 0.22)}`,
                       flexShrink: 0,
+                      transition: 'border-radius 320ms cubic-bezier(0.4, 0, 0.2, 1)',
                     }}
                   >
-                    <SearchIcon size={18} />
+                    <AnimatePresence mode="wait">
+                      {searchMode === 'idle' ? (
+                        <motion.div
+                          key="idle-glyph"
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.85 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <SearchIcon size={18} />
+                        </motion.div>
+                      ) : searchMode === 'typing' ? (
+                        <motion.div
+                          key="typing-glyph"
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.85 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <OrbitalGlyph mode="typing" tone={APP_TONES.connect.secondary} />
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="thinking-glyph"
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.85 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <OrbitalGlyph mode="thinking" tone={APP_TONES.connect.secondary} />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </Box>
                   <TextField
                     inputRef={inputRef}
@@ -849,6 +991,7 @@ const DynamicIslandOverlay: React.FC<{
         ) : (
           <motion.div
             key="idle-island"
+            layout
             initial={{ opacity: 0, scale: 0.92 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.92 }}
