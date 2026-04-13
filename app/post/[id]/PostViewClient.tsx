@@ -963,7 +963,7 @@ export function PostViewClient() {
             seedMomentThread(momentId, {
                 moment: enrichedMoment,
                 replies: enrichedReplies,
-                ancestors: [],
+                ancestors: cachedThread?.ancestors || [],
             });
 
         } catch (_e: unknown) {
@@ -1075,16 +1075,18 @@ export function PostViewClient() {
             const enrichedReply = await hydrateMoment(createdReply);
             seedMomentPreview(enrichedReply);
             seedIdentityCache(enrichedReply.creator);
-            setMoment((prev: any) => prev ? ({ ...prev, stats: { ...prev.stats, replies: (prev.stats?.replies || 0) + 1 } }) : prev);
-            setReplies((prev: any[]) => {
-                const next = [enrichedReply, ...prev];
+            const nextReplies = [enrichedReply, ...replies];
+            setMoment((prev: any) => {
+                if (!prev) return prev;
+                const next = { ...prev, stats: { ...prev.stats, replies: (prev.stats?.replies || 0) + 1 } };
                 seedMomentThread(momentId, {
-                    moment: moment,
-                    replies: next,
+                    moment: next,
+                    replies: nextReplies,
                     ancestors: showAncestors ? threadAncestors : [],
                 });
                 return next;
             });
+            setReplies(nextReplies);
             setReplyContent('');
             toast.success('Reply posted!');
             setReplyDrawerOpen(false);

@@ -797,7 +797,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
         const memoryCached = feedCacheRef.current[view];
         const storageCached = memoryCached ? { rows: memoryCached, cachedAt: feedCacheAgeRef.current[view] || Date.now() } : readFeedCache(view);
 
-        if (storageCached?.rows) {
+        if (storageCached) {
             momentsRef.current = storageCached.rows;
             feedCacheRef.current[view] = storageCached.rows;
             feedCacheAgeRef.current[view] = storageCached.cachedAt;
@@ -839,6 +839,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                     stats: { ...m.stats, likes: Math.max(0, (m.stats?.likes || 0) + (liked ? 1 : -1)) }
                 } : m);
                 momentsRef.current = next;
+                saveToCache(next);
                 return next;
             });
         } catch (_e) {
@@ -853,6 +854,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
             setMoments(prev => {
                 const next = prev.filter(m => m.$id !== momentId);
                 momentsRef.current = next;
+                saveToCache(next);
                 return next;
             });
             toast.success('Moment deleted');
@@ -1225,6 +1227,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                     setMoments(prev => {
                         const next = prev.filter(m => m.$id !== pulse.$id);
                         momentsRef.current = next;
+                        saveToCache(next);
                         return next;
                     });
                     // Update the source moment's pulse flag and count locally
@@ -1235,6 +1238,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                             stats: { ...m.stats, pulses: Math.max(0, (m.stats?.pulses || 0) - 1) }
                         }) : m);
                         momentsRef.current = next;
+                        saveToCache(next);
                         return next;
                     });
                 }
@@ -1251,6 +1255,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                     setMoments(prev => {
                         const next = prev.map(m => m.$id === moment.$id ? ({ ...m, isPulsed: true }) : m);
                         momentsRef.current = next;
+                        saveToCache(next);
                         return next;
                     });
                     toast('Already pulsed');
@@ -1261,6 +1266,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                     setMoments(prev => {
                         const next = prev.map(m => m.$id === moment.$id ? ({ ...m, isPulsed: true, stats: { ...m.stats, pulses: (m.stats?.pulses || 0) + 1 } }) : m);
                         momentsRef.current = next;
+                        saveToCache(next);
                         return next;
                     });
                 }

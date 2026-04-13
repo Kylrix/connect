@@ -93,7 +93,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     if (!user?.$id) return;
 
     const cached = readCachedNotifications();
-    if (cached?.logs?.length) {
+    if (cached) {
       setNotifications(cached.logs);
       setUnreadCount(calculateUnread(cached.logs));
       setIsLoading(false);
