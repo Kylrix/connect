@@ -72,7 +72,7 @@ import { useCachedProfilePreview } from '@/hooks/useCachedProfilePreview';
 import toast from 'react-hot-toast';
 
 const CACHE_KEY = 'kylrix_feed_cache';
-const FEED_CACHE_TTL = 1000 * 60 * 5;
+const FEED_CACHE_TTL = 1000 * 60 * 30;
 const profileRegistry = new Map<string, any>();
 const momentCardSx = {
     borderRadius: '20px',
@@ -151,6 +151,8 @@ const readFeedCache = (view: string): FeedCacheRecord | null => {
 
     return null;
 };
+
+const getInitialFeedCache = (view: string) => readFeedCache(view);
 
 const writeFeedCache = (view: string, rows: any[], cachedAt: number = Date.now()) => {
     if (typeof window === 'undefined') return;
@@ -746,8 +748,9 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
     const { user } = useAuth();
     const { profile: myProfile } = useProfile();
     const router = useRouter();
-    const [moments, setMoments] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
+    const initialFeedCache = getInitialFeedCache(view);
+    const [moments, setMoments] = useState<any[]>(() => initialFeedCache?.rows || []);
+    const [loading, setLoading] = useState<boolean>(() => !initialFeedCache);
     const [posting, setPosting] = useState(false);
     const [pendingMoments, setPendingMoments] = useState<any[]>([]);
     const [showNewPosts, setShowNewPosts] = useState(false);

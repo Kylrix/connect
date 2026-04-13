@@ -603,7 +603,9 @@ const DynamicIslandOverlay: React.FC<{
   const islandHeight = current || isSearchOpen ? 52 : 42;
   const islandWidth = current || isSearchOpen ? (isExpanded ? searchWidth : collapsedSize) : restingSize;
 
-  const containerWidth = current
+  const containerWidth = panel
+    ? panelWidth
+    : current
     ? (isExpanded ? searchWidth : restingSize)
     : isSearchOpen
       ? searchWidth
