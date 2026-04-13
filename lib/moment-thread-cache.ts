@@ -5,6 +5,8 @@ type CachedThread = {
   cachedAt: number;
 };
 
+export const THREAD_CACHE_STALE_AFTER_MS = 1000 * 60 * 5;
+
 const STORAGE_KEY = 'kylrix_connect_thread_cache_v1';
 const MAX_ENTRIES = 20;
 
@@ -70,4 +72,10 @@ export function getCachedMomentThread(rootId?: string | null) {
   if (!rootId) return null;
   hydrate();
   return memoryCache.get(rootId) || null;
+}
+
+export function isFreshMomentThread(rootId?: string | null, staleAfterMs: number = THREAD_CACHE_STALE_AFTER_MS) {
+  const cached = getCachedMomentThread(rootId);
+  if (!cached) return false;
+  return Date.now() - cached.cachedAt < staleAfterMs;
 }

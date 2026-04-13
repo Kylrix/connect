@@ -34,6 +34,13 @@ interface NotificationContextType {
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
+const NOTIFICATION_CACHE_KEY = 'kylrix_notification_cache_v1';
+const NOTIFICATION_CACHE_TTL = 1000 * 60 * 5;
+
+type CachedNotifications = {
+  logs: ActivityLog[];
+  cachedAt: number;
+};
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<ActivityLog[]>([]);
@@ -57,10 +64,46 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     return logs.filter(log => !parseMetadata(log.details).read).length;
   }, []);
 
+  const readCachedNotifications = useCallback((): CachedNotifications | null => {
+    if (typeof window === 'undefined') return null;
+
+    try {
+      const raw = localStorage.getItem(NOTIFICATION_CACHE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as CachedNotifications;
+      if (!Array.isArray(parsed?.logs)) return null;
+      return { logs: parsed.logs, cachedAt: Number(parsed.cachedAt) || Date.now() };
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const saveCachedNotifications = useCallback((logs: ActivityLog[]) => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const payload: CachedNotifications = { logs: logs.slice(0, 50), cachedAt: Date.now() };
+      localStorage.setItem(NOTIFICATION_CACHE_KEY, JSON.stringify(payload));
+    } catch {
+      // Best-effort only.
+    }
+  }, []);
+
   const fetchNotifications = useCallback(async () => {
     if (!user?.$id) return;
-    
-    setIsLoading(true);
+
+    const cached = readCachedNotifications();
+    if (cached?.logs?.length) {
+      setNotifications(cached.logs);
+      setUnreadCount(calculateUnread(cached.logs));
+      setIsLoading(false);
+      if (Date.now() - cached.cachedAt < NOTIFICATION_CACHE_TTL) {
+        return;
+      }
+    } else {
+      setIsLoading(true);
+    }
+
     try {
       const res = await databases.listDocuments(
         APPWRITE_CONFIG.DATABASES.KYLRIXNOTE,
@@ -70,12 +113,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       const logs = res.documents as unknown as ActivityLog[];
       setNotifications(logs);
       setUnreadCount(calculateUnread(logs));
+      saveCachedNotifications(logs);
     } catch (error: unknown) {
       console.error('Failed to fetch notifications:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [user?.$id, calculateUnread]);
+  }, [user?.$id, calculateUnread, readCachedNotifications, saveCachedNotifications]);
 
   useEffect(() => {
     fetchNotifications();
@@ -94,20 +138,25 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       const isUpdate = response.events.some(e => e.includes('.update'));
 
       if (isCreate) {
-        setNotifications(prev => [payload, ...prev]);
+        setNotifications(prev => {
+          const next = [payload, ...prev];
+          saveCachedNotifications(next);
+          return next;
+        });
         if (!parseMetadata(payload.details).read) {
           setUnreadCount(prev => prev + 1);
         }
         if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
           new Notification(`Kylrix ${payload.targetType}`, { body: payload.action });
         }
-      } else if (isUpdate) {
-        setNotifications(prev => {
-          const updated = prev.map(n => n.$id === payload.$id ? payload : n);
-          setUnreadCount(calculateUnread(updated));
-          return updated;
-        });
-      }
+        } else if (isUpdate) {
+            setNotifications(prev => {
+              const updated = prev.map(n => n.$id === payload.$id ? payload : n);
+              setUnreadCount(calculateUnread(updated));
+              saveCachedNotifications(updated);
+              return updated;
+            });
+        }
     });
 
     return () => {
@@ -126,7 +175,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     const newMetadata = { ...meta, read: true, readAt: new Date().toISOString() };
 
     try {
-      setNotifications(prev => prev.map(n => n.$id === id ? { ...n, details: JSON.stringify(newMetadata) } : n));
+      setNotifications(prev => {
+        const next = prev.map(n => n.$id === id ? { ...n, details: JSON.stringify(newMetadata) } : n);
+        saveCachedNotifications(next);
+        return next;
+      });
       await databases.updateDocument(APPWRITE_CONFIG.DATABASES.KYLRIXNOTE, APPWRITE_CONFIG.TABLES.KYLRIXNOTE.ACTIVITY_LOG, id, {
         details: JSON.stringify(newMetadata)
       });

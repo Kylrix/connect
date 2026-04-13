@@ -53,7 +53,6 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { fetchProfilePreview } from '@/lib/profile-preview';
-import { getUserProfilePicId } from '@/lib/user-utils';
 import { getCachedIdentityById, seedIdentityCache, subscribeIdentityCache } from '@/lib/identity-cache';
 import { resolveIdentity, resolveIdentityUsername } from '@/lib/identity-format';
 import { seedMomentPreview } from '@/lib/moment-preview';
@@ -66,11 +65,14 @@ import { EventViewDrawer } from './EventViewDrawer';
 import { CallSelectorModal } from './CallSelectorModal';
 import ActorsListDrawer from './ActorsListDrawer';
 import { useAppChrome } from '@/components/providers/AppChromeProvider';
+import { useProfile } from '@/components/providers/ProfileProvider';
 import { formatPostTimestamp } from '@/lib/time';
+import { useCachedProfilePreview } from '@/hooks/useCachedProfilePreview';
 
 import toast from 'react-hot-toast';
 
 const CACHE_KEY = 'kylrix_feed_cache';
+const FEED_CACHE_TTL = 1000 * 60 * 5;
 const profileRegistry = new Map<string, any>();
 const momentCardSx = {
     borderRadius: '20px',
@@ -86,6 +88,10 @@ const momentCardSx = {
         boxShadow: '0 20px 40px rgba(0, 0, 0, 0.32)'
     }
 } as const;
+type FeedCacheRecord = {
+    rows: any[];
+    cachedAt: number;
+};
 const feedAvatarSx = {
     width: 40,
     height: 40,
@@ -117,12 +123,44 @@ const feedBodySx = {
     overflow: 'hidden',
     wordBreak: 'break-word',
 } as const;
-const feedActionCountSx = {
+const feedActionCountSx = { 
     fontWeight: 700,
     opacity: 0.5,
     fontSize: '0.72rem',
     lineHeight: 1,
 } as const;
+
+const readFeedCache = (view: string): FeedCacheRecord | null => {
+    if (typeof window === 'undefined') return null;
+
+    const cached = localStorage.getItem(`${CACHE_KEY}_${view}`);
+    if (!cached) return null;
+
+    try {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) {
+            return { rows: parsed, cachedAt: Date.now() };
+        }
+
+        if (parsed && Array.isArray(parsed.rows)) {
+            return { rows: parsed.rows, cachedAt: Number(parsed.cachedAt) || Date.now() };
+        }
+    } catch {
+        return null;
+    }
+
+    return null;
+};
+
+const writeFeedCache = (view: string, rows: any[], cachedAt: number = Date.now()) => {
+    if (typeof window === 'undefined') return;
+
+    const payload: FeedCacheRecord = {
+        rows: rows.slice(0, 50),
+        cachedAt,
+    };
+    localStorage.setItem(`${CACHE_KEY}_${view}`, JSON.stringify(payload));
+};
 
 const FeedSkeleton = () => (
     <Stack spacing={3}>
@@ -706,11 +744,11 @@ interface FeedProps {
 
 export const Feed = ({ view = 'personal' }: FeedProps) => {
     const { user } = useAuth();
+    const { profile: myProfile } = useProfile();
     const router = useRouter();
     const [moments, setMoments] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [posting, setPosting] = useState(false);
-    const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
     const [pendingMoments, setPendingMoments] = useState<any[]>([]);
     const [showNewPosts, setShowNewPosts] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -748,6 +786,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
     const feedPrefetchRef = React.useRef<Record<string, Promise<void> | undefined>>({});
     const draftInputRef = React.useRef<FastDraftInputHandle | null>(null);
     const mobileComposerDockRef = React.useRef<MobileComposerDockHandle | null>(null);
+    const userAvatarUrl = useCachedProfilePreview(myProfile?.avatar || getCachedIdentityById(user?.$id)?.avatar || (user?.prefs?.profilePicId as string | undefined) || null, 64, 64);
 
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'), { noSsr: true });
@@ -756,21 +795,13 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
         // Hydrate the current view immediately so tab switches feel instant.
         momentsRef.current = [];
         const memoryCached = feedCacheRef.current[view];
-        const storageCached = memoryCached || (() => {
-            const cached = localStorage.getItem(`${CACHE_KEY}_${view}`);
-            if (!cached) return null;
-            try {
-                const parsed = JSON.parse(cached);
-                feedCacheRef.current[view] = parsed;
-                return parsed;
-            } catch {
-                return null;
-            }
-        })();
+        const storageCached = memoryCached ? { rows: memoryCached, cachedAt: feedCacheAgeRef.current[view] || Date.now() } : readFeedCache(view);
 
-        if (storageCached) {
-            momentsRef.current = storageCached;
-            setMoments(storageCached);
+        if (storageCached?.rows) {
+            momentsRef.current = storageCached.rows;
+            feedCacheRef.current[view] = storageCached.rows;
+            feedCacheAgeRef.current[view] = storageCached.cachedAt;
+            setMoments(storageCached.rows);
             setLoading(false);
         } else {
             setLoading(true);
@@ -781,21 +812,8 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
         const sliced = data.slice(0, 50);
         feedCacheRef.current[view] = sliced;
         feedCacheAgeRef.current[view] = Date.now();
-        localStorage.setItem(`${CACHE_KEY}_${view}`, JSON.stringify(sliced));
+        writeFeedCache(view, sliced, feedCacheAgeRef.current[view]);
     }, [view]);
-
-    const fetchUserAvatar = useCallback(async () => {
-
-        const picId = getUserProfilePicId(user);
-        if (picId) {
-            try {
-                const url = String(picId).startsWith('http') ? picId : await fetchProfilePreview(picId, 64, 64);
-                setUserAvatarUrl(url as unknown as string);
-            } catch (_e: unknown) {
-                console.warn('Feed failed to fetch user avatar');
-            }
-        }
-    }, [user]);
 
     const handleOpenMoment = useCallback((moment: any) => {
         seedMomentPreview(moment);
@@ -853,7 +871,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
         const requestId = ++feedLoadSeqRef.current;
         const cached = feedCacheRef.current[view];
         const cachedAt = feedCacheAgeRef.current[view] || 0;
-        const cacheFresh = cached && (Date.now() - cachedAt) < 30_000;
+        const cacheFresh = cached && (Date.now() - cachedAt) < FEED_CACHE_TTL;
 
         // Keep the cached view visible while we decide whether to refresh.
         if (cached) {
@@ -922,7 +940,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                             });
                             feedCacheRef.current[oppositeView] = filtered.slice(0, 50);
                             feedCacheAgeRef.current[oppositeView] = Date.now();
-                            localStorage.setItem(`${CACHE_KEY}_${oppositeView}`, JSON.stringify(filtered.slice(0, 50)));
+                            writeFeedCache(oppositeView, filtered, feedCacheAgeRef.current[oppositeView]);
                         } catch (_e) {
                             // best effort
                         } finally {
@@ -939,6 +957,11 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
             
             await Promise.all(uniqueCreatorIds.map(async (id: any) => {
                 if (profileRegistry.has(id)) return;
+                const cachedIdentity = getCachedIdentityById(id);
+                if (cachedIdentity) {
+                    profileRegistry.set(id, cachedIdentity);
+                    return;
+                }
                 
                 try {
                     const profile = await UsersService.getProfileById(id);
@@ -1009,10 +1032,6 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
         }
     }, [user, view, saveToCache]);
 
-
-    useEffect(() => {
-        fetchUserAvatar();
-    }, [fetchUserAvatar]);
 
     useEffect(() => {
         const unsubscribe = subscribeIdentityCache((identity) => {
@@ -1259,7 +1278,8 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
             const interactions = await SocialService._listInteractionsFor(momentId, 'like');
             const actors = await Promise.all(interactions.map(async (i: any) => {
                 try {
-                    const p = profileRegistry.get(i.userId) || await UsersService.getProfileById(i.userId);
+                    const cached = profileRegistry.get(i.userId) || getCachedIdentityById(i.userId);
+                    const p = cached || await UsersService.getProfileById(i.userId);
                     const avatar = p?.avatar
                         ? (String(p.avatar).startsWith('http')
                             ? p.avatar
@@ -1283,7 +1303,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
             const pulses = await SocialService._listPulsesFor(momentId);
             const actors = await Promise.all(pulses.map(async (p: any) => {
                 try {
-                    const profile = profileRegistry.get(p.userId) || await UsersService.getProfileById(p.userId);
+                    const profile = profileRegistry.get(p.userId) || getCachedIdentityById(p.userId) || await UsersService.getProfileById(p.userId);
                     const avatar = profile?.avatar
                         ? (String(profile.avatar).startsWith('http')
                             ? profile.avatar
@@ -1366,11 +1386,13 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
             // Enrich User Results
             const enrichedUsers = await Promise.all(userResult.rows.map(async (u: any) => {
                 let avatar = null;
-                if (u.avatar) {
+                const cachedIdentity = getCachedIdentityById(u.userId || u.$id);
+                const sourceAvatar = cachedIdentity?.avatar || u.avatar || null;
+                if (sourceAvatar) {
                     try {
-                        avatar = String(u.avatar).startsWith('http')
-                            ? u.avatar
-                            : await fetchProfilePreview(u.avatar, 64, 64) as unknown as string;
+                        avatar = String(sourceAvatar).startsWith('http')
+                            ? sourceAvatar
+                            : await fetchProfilePreview(sourceAvatar, 64, 64) as unknown as string;
                     } catch (_e) {}
                 }
                 return { ...u, avatar };
@@ -1381,6 +1403,11 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                 const creatorId = m.userId || m.creatorId;
                 if (profileRegistry.has(creatorId)) {
                     return { ...m, creator: profileRegistry.get(creatorId) };
+                }
+                const cachedCreator = getCachedIdentityById(creatorId);
+                if (cachedCreator) {
+                    profileRegistry.set(creatorId, cachedCreator);
+                    return { ...m, creator: cachedCreator };
                 }
                 try {
                     const profile = await UsersService.getProfileById(creatorId);

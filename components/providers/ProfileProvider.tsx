@@ -62,6 +62,8 @@ export const ProfileProvider = ({ children }: { children: React.ReactNode }) => 
         }
 
         try {
+            const setupKey = `${PROFILE_SETUP_KEY}_${user.$id}`;
+            const setupComplete = typeof window !== 'undefined' && localStorage.getItem(setupKey) === 'true';
             const cachedProfile = await fetchOptimized(`profile_${user.$id}`, async () => {
                 const fetched = await UsersService.getProfileById(user.$id);
                 return fetched;
@@ -69,7 +71,15 @@ export const ProfileProvider = ({ children }: { children: React.ReactNode }) => 
 
             if (cachedProfile) {
                 setProfile(cachedProfile);
-                localStorage.setItem(`${PROFILE_SETUP_KEY}_${user.$id}`, 'true');
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem(setupKey, 'true');
+                }
+            }
+
+            const needsBootstrap = !cachedProfile || !setupComplete || !cachedProfile.username || !cachedProfile.displayName;
+            if (!needsBootstrap) {
+                setIsLoading(false);
+                return;
             }
 
             try {
@@ -87,7 +97,9 @@ export const ProfileProvider = ({ children }: { children: React.ReactNode }) => 
                     }
 
                     setProfile(nextProfile);
-                    localStorage.setItem(`${PROFILE_SETUP_KEY}_${user.$id}`, 'true');
+                    if (typeof window !== 'undefined') {
+                        localStorage.setItem(setupKey, 'true');
+                    }
                 }
             } catch (error) {
                 console.error('[ProfileProvider] Failed to bootstrap profile in background:', error);
@@ -102,8 +114,13 @@ export const ProfileProvider = ({ children }: { children: React.ReactNode }) => 
     useEffect(() => {
         if (!user?.$id) return;
 
+        const setupKey = `${PROFILE_SETUP_KEY}_${user.$id}`;
+
         const unsubscribe = ecosystemSecurity.onStatusChange((status) => {
             if (!status.isUnlocked) return;
+
+            const setupComplete = typeof window !== 'undefined' && localStorage.getItem(setupKey) === 'true';
+            if (setupComplete) return;
 
             void queueProfileBootstrap(user)
                 .then(async () => {

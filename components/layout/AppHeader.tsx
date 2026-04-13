@@ -17,7 +17,7 @@ import { useAuth } from '@/lib/auth';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useProfile } from '@/components/providers/ProfileProvider';
 import { getUserProfilePicId } from '@/lib/user-utils';
-import { fetchProfilePreview, getCachedProfilePreview } from '@/lib/profile-preview';
+import { useCachedProfilePreview } from '@/hooks/useCachedProfilePreview';
 import { IdentityAvatar, computeIdentityFlags } from '../common/IdentityBadge';
 import Logo from '../common/Logo';
 import { WalletSidebar } from '../overlays/WalletSidebar';
@@ -28,14 +28,15 @@ import { useIsland } from '@/components/common/DynamicIsland';
 export const AppHeader = () => {
   const { user } = useAuth();
   const [isWalletOpen, setIsWalletOpen] = useState(false);
-  const [profileUrl, setProfileUrl] = useState<string | null>(null);
-  const [profileRecord, setProfileRecord] = useState<any>(null);
 
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const { mode, label, headerHeight } = useAppChrome();
   const { openPanel, isActive: isIslandActive } = useIsland();
+  const { profile: myProfile } = useProfile();
+  const profilePicId = myProfile?.avatar || getUserProfilePicId(user);
+  const profileUrl = useCachedProfilePreview(profilePicId || null, 64, 64);
 
   useEffect(() => {
     if (searchParams.get('openWallet') === 'true') {
@@ -47,66 +48,16 @@ export const AppHeader = () => {
     }
   }, [searchParams, router, pathname]);
 
-  useEffect(() => {
-    let mounted = true;
-    const profilePicId = getUserProfilePicId(user);
-    const cached = getCachedProfilePreview(profilePicId || undefined);
-    if (cached !== undefined && mounted) {
-      setTimeout(() => {
-        if (mounted) setProfileUrl(cached ?? null);
-      }, 0);
-    }
-
-    const fetchPreview = async () => {
-      try {
-        if (profilePicId?.startsWith('http')) {
-          if (mounted) setProfileUrl(profilePicId);
-        } else if (profilePicId) {
-          const url = await fetchProfilePreview(profilePicId, 64, 64);
-          if (mounted) setProfileUrl(url as unknown as string);
-        } else if (mounted) {
-          setProfileUrl(null);
-        }
-      } catch {
-        if (mounted) setProfileUrl(null);
-      }
-    };
-
-    void fetchPreview();
-    return () => {
-      mounted = false;
-    };
-  }, [user]);
-
-  const { profile: myProfile } = useProfile();
-
-  useEffect(() => {
-    let mounted = true;
-    const loadProfileRecord = async () => {
-      if (!user?.$id) return;
-      try {
-        const ensured = myProfile || null;
-        if (mounted && ensured) setProfileRecord(ensured);
-      } catch {
-        if (mounted) setProfileRecord(null);
-      }
-    };
-    void loadProfileRecord();
-    return () => {
-      mounted = false;
-    };
-  }, [myProfile, user?.$id]);
-
   const identitySignals = computeIdentityFlags({
-    createdAt: profileRecord?.$createdAt || profileRecord?.createdAt || (user as any)?.$createdAt || null,
-    lastUsernameEdit: profileRecord?.last_username_edit || user?.prefs?.last_username_edit || null,
-    profilePicId: profileRecord?.avatar || user?.prefs?.profilePicId || null,
-    username: profileRecord?.username || user?.prefs?.username || user?.name || null,
-    bio: profileRecord?.bio || user?.prefs?.bio || null,
-    tier: profileRecord?.tier || user?.prefs?.tier || null,
-    publicKey: profileRecord?.publicKey || null,
+    createdAt: myProfile?.$createdAt || myProfile?.createdAt || (user as any)?.$createdAt || null,
+    lastUsernameEdit: myProfile?.last_username_edit || user?.prefs?.last_username_edit || null,
+    profilePicId: myProfile?.avatar || user?.prefs?.profilePicId || null,
+    username: myProfile?.username || user?.prefs?.username || user?.name || null,
+    bio: myProfile?.bio || user?.prefs?.bio || null,
+    tier: myProfile?.tier || user?.prefs?.tier || null,
+    publicKey: myProfile?.publicKey || null,
     emailVerified: Boolean((user as any)?.emailVerification),
-    preferences: profileRecord?.preferences || null,
+    preferences: myProfile?.preferences || null,
   });
 
   const headerTitle = label || (pathname === '/' ? 'Feed' : pathname === '/chats' ? 'Chats' : pathname === '/calls' ? 'Calls' : pathname?.startsWith('/post/') ? 'Moment' : 'Connect');

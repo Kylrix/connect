@@ -25,9 +25,6 @@ import {
 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useMemo, useEffect, useState } from 'react';
-import { fetchProfilePreview, getCachedProfilePreview } from '@/lib/profile-preview';
-import { getUserProfilePicId } from '@/lib/user-utils';
-import { useAuth } from '@/lib/auth';
 
 import { AppHeader } from './AppHeader';
 import { ChatList } from '../chat/ChatList';
@@ -38,39 +35,12 @@ import { useAppChrome } from '@/components/providers/AppChromeProvider';
 const drawerWidth = 280;
 
 export const AppShell = ({ children }: { children: React.ReactNode }) => {
-    const { user, logout: _logout } = useAuth();
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const router = useRouter();
     const [_anchorEl, _setAnchorEl] = useState<null | HTMLElement>(null);
-    const [_profileUrl, setProfileUrl] = useState<string | null>(null);
     const [bottomNavOffset, setBottomNavOffset] = useState(0);
     const { headerHeight } = useAppChrome();
-
-    useEffect(() => {
-        let mounted = true;
-        const profilePicId = getUserProfilePicId(user);
-        const cached = getCachedProfilePreview(profilePicId || undefined);
-        if (cached !== undefined && mounted) {
-            requestAnimationFrame(() => {
-                if (mounted) setProfileUrl(cached ?? null);
-            });
-        }
-
-        const fetchPreview = async () => {
-            try {
-                if (profilePicId) {
-                    const url = await fetchProfilePreview(profilePicId, 64, 64);
-                    if (mounted) setProfileUrl(url as unknown as string);
-                } else if (mounted) setProfileUrl(null);
-            } catch (_err: unknown) {
-                if (mounted) setProfileUrl(null);
-            }
-        };
-
-        fetchPreview();
-        return () => { mounted = false; };
-    }, [user]);
 
     const isEmbedded = useMemo(() => searchParams?.get('is_embedded') === 'true', [searchParams]);
     const isExternalProfile = pathname?.startsWith('/u/');

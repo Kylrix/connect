@@ -6,6 +6,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { SocialService } from '@/lib/services/social';
 import { UsersService } from '@/lib/services/users';
 import { useAuth } from '@/lib/auth';
+import { useProfile } from '@/components/providers/ProfileProvider';
 import {
     Box,
     Avatar,
@@ -42,15 +43,15 @@ import {
     ArrowLeft,
 } from 'lucide-react';
 import { fetchProfilePreview } from '@/lib/profile-preview';
-import { getUserProfilePicId } from '@/lib/user-utils';
 import { getCachedIdentityById, seedIdentityCache } from '@/lib/identity-cache';
 import { resolveIdentity } from '@/lib/identity-format';
 import { getCachedMomentPreview, seedMomentPreview } from '@/lib/moment-preview';
-import { getCachedMomentThread, seedMomentThread } from '@/lib/moment-thread-cache';
+import { getCachedMomentThread, isFreshMomentThread, seedMomentThread, THREAD_CACHE_STALE_AFTER_MS } from '@/lib/moment-thread-cache';
 import { FormattedText } from '@/components/common/FormattedText';
 import toast from 'react-hot-toast';
 import { TextField, InputAdornment, Alert, Menu, MenuItem } from '@mui/material';
 import { formatPostTimestamp } from '@/lib/time';
+import { useCachedProfilePreview } from '@/hooks/useCachedProfilePreview';
 
 const EXPORT_CARD = '#161412';
 const EXPORT_PAD = 16;
@@ -761,6 +762,7 @@ export function PostViewClient() {
     const momentId = Array.isArray(params.id) ? params.id[0] : params.id;
     const router = useRouter();
     const { user, login } = useAuth();
+    const { profile: myProfile } = useProfile();
     const hasPreviewRef = React.useRef(Boolean(getCachedMomentPreview(momentId)));
     const [moment, setMoment] = useState<any>(() => getCachedMomentPreview(momentId) || null);
     const [replies, setReplies] = useState<any[]>([]);
@@ -771,7 +773,6 @@ export function PostViewClient() {
     const [shareDrawerOpen, setShareDrawerOpen] = useState(false);
     const [replyDrawerOpen, setReplyDrawerOpen] = useState(false);
     const [exportingImage, setExportingImage] = useState(false);
-    const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
     const [threadAncestors, setThreadAncestors] = useState<any[]>([]);
     const [showAncestors, setShowAncestors] = useState(false);
     const [ancestorLoading, setAncestorLoading] = useState(false);
@@ -784,13 +785,14 @@ export function PostViewClient() {
     const pullStartYRef = React.useRef<number | null>(null);
     const touchStartYRef = React.useRef<number | null>(null);
     const pullActiveRef = React.useRef(false);
+    const userAvatarUrl = useCachedProfilePreview(myProfile?.avatar || (user?.prefs?.profilePicId as string | undefined) || null, 64, 64);
 
     const fetchActorsForPulses = async (momentId: string) => {
         try {
             const pulses = await SocialService._listPulsesFor(momentId);
             const actors = await Promise.all(pulses.map(async (p: any) => {
                 try {
-                    const prof = await UsersService.getProfileById(p.userId);
+                    const prof = getCachedIdentityById(p.userId) || await UsersService.getProfileById(p.userId);
                     let avatar = null;
                     if (prof?.avatar) {
                         try { avatar = String(prof.avatar).startsWith('http') ? prof.avatar : await fetchProfilePreview(prof.avatar, 64, 64) as unknown as string; } catch (_e) {}
@@ -809,7 +811,7 @@ export function PostViewClient() {
         seedMomentPreview(data);
 
         const creatorId = data.userId || data.creatorId;
-        const creator = await UsersService.getProfileById(creatorId);
+        const creator = getCachedIdentityById(creatorId) || await UsersService.getProfileById(creatorId);
 
         let avatar = null;
         if (creator?.avatar) {
@@ -919,18 +921,6 @@ export function PostViewClient() {
         setActorsList(data);
     };
 
-    const fetchUserAvatar = useCallback(async () => {
-        const picId = getUserProfilePicId(user);
-        if (picId) {
-            try {
-                const url = String(picId).startsWith('http') ? picId : await fetchProfilePreview(picId, 64, 64);
-                setUserAvatarUrl(url as unknown as string);
-            } catch (_e: unknown) {
-                console.warn('Failed to fetch user avatar', _e);
-            }
-        }
-    }, [user]);
-
     const loadMoment = useCallback(async () => {
         if (!momentId) return;
         if (!hasPreviewRef.current) setLoading(true);
@@ -940,6 +930,7 @@ export function PostViewClient() {
         pullStartYRef.current = null;
         pullActiveRef.current = false;
         const cachedThread = getCachedMomentThread(momentId);
+        const threadFresh = isFreshMomentThread(momentId, THREAD_CACHE_STALE_AFTER_MS);
         try {
             const enrichedMoment = cachedThread?.moment
                 ? cachedThread.moment
@@ -949,6 +940,15 @@ export function PostViewClient() {
             seedIdentityCache(enrichedMoment.creator);
             if (cachedThread?.replies?.length) {
                 setReplies(cachedThread.replies);
+            }
+            if (cachedThread?.ancestors?.length) {
+                setThreadAncestors(cachedThread.ancestors);
+                setShowAncestors(true);
+            }
+
+            if (cachedThread?.moment && threadFresh && cachedThread?.replies) {
+                setLoading(false);
+                return;
             }
 
             // Fetch replies
@@ -977,8 +977,7 @@ export function PostViewClient() {
 
     useEffect(() => {
         loadMoment();
-        if (user) fetchUserAvatar();
-    }, [loadMoment, user, fetchUserAvatar]);
+    }, [loadMoment]);
 
     useEffect(() => {
         if (!momentId || !moment) return;
@@ -1031,10 +1030,17 @@ export function PostViewClient() {
             await SocialService.createMoment(user.$id, '', 'pulse', [], 'public', undefined, undefined, moment.$id);
             toast.success('Pulsed to your feed');
             // optimistically mark pulsed on the current moment
-            setMoment((prev: any) => prev ? ({ ...prev, isPulsed: true, stats: { ...prev.stats, pulses: (prev.stats?.pulses || 0) + 1 } }) : prev);
+            setMoment((prev: any) => {
+                if (!prev) return prev;
+                const next = { ...prev, isPulsed: true, stats: { ...prev.stats, pulses: (prev.stats?.pulses || 0) + 1 } };
+                seedMomentThread(momentId, {
+                    moment: next,
+                    replies,
+                    ancestors: showAncestors ? threadAncestors : [],
+                });
+                return next;
+            });
             setPulseMenuAnchorEl(null);
-            // reload replies/related data in background
-            loadMoment();
         } catch (_e) {
             toast.error('Failed to pulse');
         }
@@ -1056,7 +1062,7 @@ export function PostViewClient() {
         if (!user || !moment || !replyContent.trim()) return;
         setReplying(true);
         try {
-            await SocialService.createMoment(
+            const createdReply = await SocialService.createMoment(
                 user.$id, 
                 replyContent, 
                 'reply', 
@@ -1066,9 +1072,21 @@ export function PostViewClient() {
                 undefined, 
                 moment.$id
             );
+            const enrichedReply = await hydrateMoment(createdReply);
+            seedMomentPreview(enrichedReply);
+            seedIdentityCache(enrichedReply.creator);
+            setMoment((prev: any) => prev ? ({ ...prev, stats: { ...prev.stats, replies: (prev.stats?.replies || 0) + 1 } }) : prev);
+            setReplies((prev: any[]) => {
+                const next = [enrichedReply, ...prev];
+                seedMomentThread(momentId, {
+                    moment: moment,
+                    replies: next,
+                    ancestors: showAncestors ? threadAncestors : [],
+                });
+                return next;
+            });
             setReplyContent('');
             toast.success('Reply posted!');
-            loadMoment(); // Refresh replies
             setReplyDrawerOpen(false);
         } catch (e) {
             console.error('Failed to post reply:', e);
