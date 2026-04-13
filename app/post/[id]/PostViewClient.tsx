@@ -290,20 +290,36 @@ const ThreadPostView = ({
         }}
     >
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mr: 1.5, flexShrink: 0, width: 48 }}>
-            <Avatar
-                src={avatarSrc || undefined}
-                sx={{
-                    width: 48,
-                    height: 48,
-                    bgcolor: 'rgba(255,255,255,0.05)',
-                    color: '#fff',
-                    fontWeight: 800,
-                    fontSize: '0.95rem',
-                }}
-            >
-                {avatarLabel}
-            </Avatar>
-            {showThreadLine && <Box sx={{ width: '2px', flexGrow: 1, minHeight: 18, bgcolor: 'rgba(255,255,255,0.16)', mt: 0.5 }} />}
+            <Box sx={{ position: 'relative', width: 48, display: 'flex', justifyContent: 'center' }}>
+                {showThreadLine && (
+                    <Box
+                        sx={{
+                            position: 'absolute',
+                            left: '50%',
+                            top: 0,
+                            bottom: 0,
+                            width: '2px',
+                            transform: 'translateX(-1px)',
+                            bgcolor: 'rgba(255,255,255,0.16)',
+                        }}
+                    />
+                )}
+                <Avatar
+                    src={avatarSrc || undefined}
+                    sx={{
+                        width: 48,
+                        height: 48,
+                        bgcolor: 'rgba(255,255,255,0.05)',
+                        color: '#fff',
+                        fontWeight: 800,
+                        fontSize: '0.95rem',
+                        position: 'relative',
+                        zIndex: 1,
+                    }}
+                >
+                    {avatarLabel}
+                </Avatar>
+            </Box>
         </Box>
         <Box sx={{ flex: 1, minWidth: 0 }}>
             <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'baseline', flexWrap: 'wrap', mb: 0.25 }}>
@@ -934,18 +950,17 @@ export function PostViewClient() {
                     </Alert>
                 )}
 
-                {moment.metadata?.sourceId && !showAncestors && (
+                {moment.metadata?.sourceId && !showAncestors && ancestorLoading && (
                     <Box
                         onPointerDown={onPullPointerDown}
                         onPointerMove={onPullPointerMove}
                         onPointerUp={onPullPointerUp}
                         onPointerCancel={onPullPointerUp}
                         sx={{
-                            mb: 1.5,
                             borderRadius: 0,
                             border: 'none',
                             bgcolor: 'transparent',
-                            minHeight: pullDistance ? `${72 + pullDistance}px` : 72,
+                            minHeight: `${72 + pullDistance}px`,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -957,30 +972,26 @@ export function PostViewClient() {
                             transition: pullActiveRef.current ? 'none' : 'min-height 180ms ease, background-color 180ms ease'
                         }}
                     >
-                        {ancestorLoading ? (
-                            <Stack spacing={1.25} sx={{ width: '100%', px: 2, py: 1.5 }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-                                    <Box sx={{ flex: 1 }}>
-                                        <Skeleton variant="rounded" width={96} height={12} sx={{ bgcolor: 'rgba(255,255,255,0.08)', mb: 0.75 }} />
-                                        <Skeleton variant="rounded" width="70%" height={10} sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} />
-                                    </Box>
+                        <Stack spacing={1.25} sx={{ width: '100%', px: 2, py: 1.5 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                                <Box sx={{ flex: 1 }}>
+                                    <Skeleton variant="rounded" width={96} height={12} sx={{ bgcolor: 'rgba(255,255,255,0.08)', mb: 0.75 }} />
+                                    <Skeleton variant="rounded" width="70%" height={10} sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} />
                                 </Box>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-                                    <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-                                        <Skeleton variant="rounded" width="42%" height={12} sx={{ bgcolor: 'rgba(255,255,255,0.08)' }} />
-                                        <Skeleton variant="rounded" width="88%" height={12} sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} />
-                                        <Skeleton variant="rounded" width="76%" height={12} sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} />
-                                        <Stack direction="row" spacing={1.2} sx={{ pt: 0.5 }}>
-                                            <Skeleton variant="rounded" width={42} height={18} sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} />
-                                            <Skeleton variant="rounded" width={42} height={18} sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} />
-                                            <Skeleton variant="rounded" width={42} height={18} sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} />
-                                        </Stack>
-                                    </Box>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                                <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                                    <Skeleton variant="rounded" width="42%" height={12} sx={{ bgcolor: 'rgba(255,255,255,0.08)' }} />
+                                    <Skeleton variant="rounded" width="88%" height={12} sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} />
+                                    <Skeleton variant="rounded" width="76%" height={12} sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} />
+                                    <Stack direction="row" spacing={1.2} sx={{ pt: 0.5 }}>
+                                        <Skeleton variant="rounded" width={42} height={18} sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} />
+                                        <Skeleton variant="rounded" width={42} height={18} sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} />
+                                        <Skeleton variant="rounded" width={42} height={18} sx={{ bgcolor: 'rgba(255,255,255,0.06)' }} />
+                                    </Stack>
                                 </Box>
-                            </Stack>
-                        ) : (
-                            <Box sx={{ width: '100%', minHeight: 12 }} />
-                        )}
+                            </Box>
+                        </Stack>
                     </Box>
                 )}
 
