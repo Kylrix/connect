@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { 
+import {
   AppBar, 
   Toolbar, 
   Box, 
@@ -9,6 +9,7 @@ import {
   IconButton, 
   Menu, 
   MenuItem, 
+  Popover,
   Tooltip, 
   Divider,
   ListItemIcon,
@@ -28,7 +29,9 @@ import {
   XCircle,
   Clock,
   Search,
-  Wallet
+  Wallet,
+  ChevronDown,
+  Check
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -36,11 +39,10 @@ import { useProfile } from '@/components/providers/ProfileProvider';
 import { useNotifications } from '@/components/providers/NotificationProvider';
 import { getUserProfilePicId } from '@/lib/user-utils';
 import { fetchProfilePreview, getCachedProfilePreview } from '@/lib/profile-preview';
-import EcosystemPortal from '../common/EcosystemPortal';
 import { IdentityAvatar, IdentityName, computeIdentityFlags } from '../common/IdentityBadge';
 import Logo from '../common/Logo';
 import { WalletSidebar } from '../overlays/WalletSidebar';
-import { getEcosystemUrl } from '@/lib/constants';
+import { ECOSYSTEM_APPS, getEcosystemUrl } from '@/lib/constants';
 import { UsersService } from '@/lib/services/users';
 import { getCachedIdentityById, seedIdentityCache, subscribeIdentityCache } from '@/lib/identity-cache';
 import { useAppChrome } from '@/components/providers/AppChromeProvider';
@@ -50,7 +52,7 @@ export const AppHeader = () => {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const [anchorElAccount, setAnchorElAccount] = useState<null | HTMLElement>(null);
   const [anchorElNotifications, setAnchorElNotifications] = useState<null | HTMLElement>(null);
-  const [isPortalOpen, setIsPortalOpen] = useState(false);
+  const [anchorElEcosystem, setAnchorElEcosystem] = useState<null | HTMLElement>(null);
   const [isWalletOpen, setIsWalletOpen] = useState(false);
   const [profileUrl, setProfileUrl] = useState<string | null>(null);
   const [profileRecord, setProfileRecord] = useState<any>(null);
@@ -132,9 +134,8 @@ export const AppHeader = () => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.code === 'Space') {
-        e.preventDefault();
-        setIsPortalOpen(prev => !prev);
+      if (e.key === 'Escape') {
+        setAnchorElEcosystem(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -168,6 +169,27 @@ export const AppHeader = () => {
 
   const headerTitle = label || routeLabel;
   const isCompact = mode === 'compact';
+  const ecosystemApps = ECOSYSTEM_APPS.filter((app) => app.type === 'app');
+
+  const getCurrentSubdomain = () => {
+    if (typeof window === 'undefined') return 'connect';
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      const port = window.location.port;
+      const ports: Record<string, string> = {
+        '3001': 'note',
+        '3002': 'vault',
+        '3003': 'flow',
+        '3004': 'connect',
+      };
+      return ports[port] || 'connect';
+    }
+    const segments = host.split('.');
+    return segments.length > 2 ? segments[0] : 'connect';
+  };
+
+  const currentSubdomain = getCurrentSubdomain();
+  const currentApp = ecosystemApps.find((app) => app.subdomain === currentSubdomain) || ecosystemApps.find((app) => app.subdomain === 'connect') || ecosystemApps[0];
 
   const handleLogout = async () => {
     setAnchorElAccount(null);
@@ -203,14 +225,38 @@ export const AppHeader = () => {
         margin: '0 auto',
         justifyContent: 'space-between'
       }}>
-        {/* Left: Logo */}
-        <Logo 
-          app="connect" 
-          size={32} 
-          sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 } }}
-          component="a"
-          href="/"
-        />
+        {/* Left: Logo + app switcher */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+          <Box sx={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+            <Logo
+              app="connect"
+              size={32}
+              sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 } }}
+              component="a"
+              href="/"
+            />
+            <IconButton
+              onClick={(e) => {
+                e.preventDefault();
+                setAnchorElEcosystem((prev) => (prev ? null : e.currentTarget));
+              }}
+              size="small"
+              sx={{
+                position: 'absolute',
+                right: -6,
+                bottom: -6,
+                width: 18,
+                height: 18,
+                bgcolor: '#0A0908',
+                border: '1px solid rgba(255,255,255,0.08)',
+                color: 'rgba(255,255,255,0.55)',
+                '&:hover': { bgcolor: '#161412', color: 'white' },
+              }}
+            >
+              <ChevronDown size={11} />
+            </IconButton>
+          </Box>
+        </Box>
 
         {isCompact ? (
           <Box
@@ -375,9 +421,9 @@ export const AppHeader = () => {
           </Tooltip>
 
           {!isCompact && (
-            <Tooltip title="Kylrix Portal (Ctrl+Space)">
+            <Tooltip title="Ecosystem switcher">
               <IconButton 
-                onClick={() => setIsPortalOpen(true)}
+                onClick={(e) => setAnchorElEcosystem(e.currentTarget)}
                 sx={{ 
                   color: '#6366F1',
                   bgcolor: alpha('#6366F1', 0.05),
@@ -386,12 +432,6 @@ export const AppHeader = () => {
                   borderRadius: '12px',
                   width: { xs: 36, sm: 42 },
                   height: { xs: 36, sm: 42 },
-                  animation: 'pulse-slow 4s infinite ease-in-out',
-                  '@keyframes pulse-slow': {
-                    '0%': { boxShadow: '0 0 0 0 rgba(99, 102, 241, 0.2)' },
-                    '70%': { boxShadow: '0 0 0 10px rgba(99, 102, 241, 0)' },
-                    '100%': { boxShadow: '0 0 0 0 rgba(99, 102, 241, 0)' },
-                  },
                   '&:hover': { 
                     bgcolor: alpha('#6366F1', 0.1), 
                     borderColor: '#6366F1',
@@ -644,10 +684,91 @@ export const AppHeader = () => {
           </MenuItem>
         </Menu>
 
-        <EcosystemPortal 
-          open={isPortalOpen} 
-          onClose={() => setIsPortalOpen(false)} 
-        />
+        <Popover
+          open={Boolean(anchorElEcosystem)}
+          anchorEl={anchorElEcosystem}
+          onClose={() => setAnchorElEcosystem(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+          PaperProps={{
+            sx: {
+              mt: 0,
+              width: 320,
+              overflow: 'hidden',
+              borderRadius: '0 0 22px 22px',
+              bgcolor: '#161412',
+              backgroundImage: 'none',
+              border: '1px solid rgba(255, 255, 255, 0.05)',
+              borderTop: 'none',
+              boxShadow: '0 24px 48px rgba(0,0,0,0.45)',
+              mt: '-1px',
+            }
+          }}
+        >
+          <Box sx={{ px: 2, py: 1.5, bgcolor: '#161412' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mb: 1.25 }}>
+              <Box sx={{ width: 28, height: 28, borderRadius: '10px', bgcolor: alpha(currentApp?.color || '#6366F1', 0.15), display: 'grid', placeItems: 'center', border: `1px solid ${alpha(currentApp?.color || '#6366F1', 0.2)}` }}>
+                <Logo app={currentApp?.id as any} size={18} variant="icon" />
+              </Box>
+              <Box>
+                <Typography sx={{ fontWeight: 900, fontSize: '0.82rem', lineHeight: 1.1 }}>
+                  {currentApp?.label || 'Connect'}
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.45)', fontWeight: 700 }}>
+                  Current app
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box sx={{ display: 'grid', gap: 0.75 }}>
+              {ecosystemApps.map((app) => {
+                const selected = app.subdomain === currentSubdomain;
+                return (
+                  <Box
+                    key={app.id}
+                    component="button"
+                    onClick={() => {
+                      if (selected) {
+                        setAnchorElEcosystem(null);
+                        return;
+                      }
+                      window.location.assign(getEcosystemUrl(app.subdomain));
+                    }}
+                    sx={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1.25,
+                      px: 1.25,
+                      py: 1,
+                      borderRadius: '16px',
+                      bgcolor: selected ? alpha(app.color, 0.12) : 'rgba(255,255,255,0.02)',
+                      border: `1px solid ${selected ? alpha(app.color, 0.35) : 'rgba(255,255,255,0.05)'}`,
+                      color: 'white',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      '&:hover': { bgcolor: selected ? alpha(app.color, 0.16) : 'rgba(255,255,255,0.05)' }
+                    }}
+                  >
+                    <Box sx={{ width: 34, height: 34, borderRadius: '12px', bgcolor: alpha(app.color, 0.15), display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                      <Logo app={app.id as any} size={20} variant="icon" />
+                    </Box>
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Typography sx={{ fontWeight: 800, fontSize: '0.82rem', lineHeight: 1.1 }}>
+                        {app.label}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.68rem', lineHeight: 1.2, display: 'block' }}>
+                        {app.description}
+                      </Typography>
+                    </Box>
+                    {selected && <Check size={14} color={app.color} />}
+                  </Box>
+                );
+              })}
+            </Box>
+          </Box>
+        </Popover>
 
         <WalletSidebar 
           isOpen={isWalletOpen}

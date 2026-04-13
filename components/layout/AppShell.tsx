@@ -44,6 +44,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
     const router = useRouter();
     const [_anchorEl, _setAnchorEl] = useState<null | HTMLElement>(null);
     const [_profileUrl, setProfileUrl] = useState<string | null>(null);
+    const [bottomNavOffset, setBottomNavOffset] = useState(0);
     const { headerHeight } = useAppChrome();
 
     useEffect(() => {
@@ -77,6 +78,35 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
     const isPostActive = pathname?.startsWith('/post/');
     const isInsideChat = pathname?.startsWith('/chat/');
     const isFullscreenContent = isChatActive || isPostActive;
+
+    useEffect(() => {
+        const updateBottomNavOffset = () => {
+            if (typeof window === 'undefined') return;
+            const viewport = window.visualViewport;
+            if (!viewport) {
+                setBottomNavOffset(0);
+                return;
+            }
+
+            const offset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+            setBottomNavOffset(offset);
+        };
+
+        updateBottomNavOffset();
+
+        const viewport = window.visualViewport;
+        if (!viewport) return;
+
+        viewport.addEventListener('resize', updateBottomNavOffset);
+        viewport.addEventListener('scroll', updateBottomNavOffset);
+        window.addEventListener('resize', updateBottomNavOffset);
+
+        return () => {
+            viewport.removeEventListener('resize', updateBottomNavOffset);
+            viewport.removeEventListener('scroll', updateBottomNavOffset);
+            window.removeEventListener('resize', updateBottomNavOffset);
+        };
+    }, []);
 
     const navItems = [
         { label: 'Home', icon: <Home size={24} />, href: '/' },
@@ -225,13 +255,14 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
                     transition: 'all 0.3s ease-in-out'
                 }}
             >
-                <Box sx={{ 
-                     height: '100%', 
-                      p: (isInsideChat || isPostActive) ? 0 : { xs: 2, md: 3 },
-                      overflowY: (isInsideChat || isPostActive) ? 'auto' : 'auto',
-                      overscrollBehaviorY: isPostActive ? 'contain' : 'auto',
-                      maxWidth: isExternalProfile ? '1200px' : 'auto',
-                      mx: isExternalProfile ? 'auto' : 'unset'
+                    <Box sx={{ 
+                      height: '100%', 
+                       p: (isInsideChat || isPostActive) ? 0 : { xs: 2, md: 3 },
+                       pb: isFullscreenContent ? 0 : { xs: 10, md: 3 },
+                       overflowY: (isInsideChat || isPostActive) ? 'auto' : 'auto',
+                       overscrollBehaviorY: isPostActive ? 'contain' : 'auto',
+                       maxWidth: isExternalProfile ? '1200px' : 'auto',
+                       mx: isExternalProfile ? 'auto' : 'unset'
                   }}>
 
                     <Paper
@@ -270,11 +301,11 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
                     elevation={0}
                     sx={{ 
                         position: 'fixed', 
-                        bottom: { xs: 'calc(16px + env(safe-area-inset-bottom))', md: 24 }, 
-                        left: { xs: 16, md: 24 }, 
-                        right: { xs: 16, md: 24 }, 
+                        bottom: `calc(${bottomNavOffset}px + env(safe-area-inset-bottom))`, 
+                        left: 0, 
+                        right: 0, 
                         display: { xs: 'block', md: 'none' },
-                        borderRadius: '20px', 
+                        borderRadius: '20px 20px 0 0', 
                         overflow: 'hidden',
                         border: '1px solid',
                         borderColor: 'rgba(255, 255, 255, 0.05)',
@@ -285,7 +316,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
                 >
                     <BottomNavigation
                         value={pathname}
-                        sx={{ bgcolor: 'transparent', height: 72, pb: 'env(safe-area-inset-bottom)' }}
+                        sx={{ bgcolor: 'transparent', height: 72, pb: 'env(safe-area-inset-bottom)', px: 1 }}
                     >
                         {navItems.map((item) => (
                             <BottomNavigationAction
