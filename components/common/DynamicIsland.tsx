@@ -452,7 +452,15 @@ const DynamicIslandOverlay: React.FC<{
     current.type === 'connect' ? <ConnectIcon fontSize="small" /> :
     <InfoIcon fontSize="small" />
   ) : (
-    <SearchIcon size={18} />
+    <Box
+      sx={{
+        width: 10,
+        height: 10,
+        borderRadius: '50%',
+        bgcolor: APP_TONES.connect.secondary,
+        boxShadow: `0 0 18px ${alpha(APP_TONES.connect.secondary, 0.7)}`,
+      }}
+    />
   );
 
   const glow = current
@@ -468,6 +476,15 @@ const DynamicIslandOverlay: React.FC<{
       };
 
   const searchWidth = isMobile ? 'calc(100vw - 24px)' : 'min(560px, calc(100vw - 48px))';
+  const restingSize = '52px';
+  const collapsedSize = '52px';
+  const islandWidth = current || isSearchOpen ? (isExpanded ? searchWidth : collapsedSize) : restingSize;
+
+  const containerWidth = current
+    ? (isExpanded ? searchWidth : restingSize)
+    : isSearchOpen
+      ? searchWidth
+      : restingSize;
 
   return (
     <Box
@@ -478,7 +495,7 @@ const DynamicIslandOverlay: React.FC<{
         transform: 'translateX(-50%)',
         zIndex: 10000,
         pointerEvents: 'none',
-        width: searchWidth,
+        width: containerWidth,
       }}
     >
       <AnimatePresence mode="wait">
@@ -497,9 +514,9 @@ const DynamicIslandOverlay: React.FC<{
             <motion.div
               animate={controls}
               style={{
-                minHeight: 54,
-                width: isExpanded ? searchWidth : (isMobile ? 'calc(100vw - 24px)' : '260px'),
-                borderRadius: isExpanded ? '28px' : '999px',
+                minHeight: 52,
+                width: islandWidth,
+                borderRadius: '999px',
                 background: 'rgba(10, 9, 8, 0.94)',
                 backdropFilter: 'blur(28px) saturate(170%)',
                 overflow: 'hidden',
@@ -526,7 +543,7 @@ const DynamicIslandOverlay: React.FC<{
                 sx={{
                   position: 'relative',
                   zIndex: 1,
-                  minHeight: 54,
+                  minHeight: 52,
                   display: 'flex',
                   alignItems: 'center',
                   px: 2,
@@ -537,43 +554,45 @@ const DynamicIslandOverlay: React.FC<{
                   {currentIcon}
                 </Box>
 
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={current.id}
-                    initial={{ opacity: 0, x: 8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -8 }}
-                    style={{ flex: 1, minWidth: 0 }}
-                  >
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: 'white',
-                        fontWeight: 900,
-                        fontSize: '0.82rem',
-                        fontFamily: 'var(--font-space-grotesk)',
-                        lineHeight: 1.15,
-                      }}
-                      noWrap={!isExpanded}
+                {isExpanded && (
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={current.id}
+                      initial={{ opacity: 0, x: 8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -8 }}
+                      style={{ flex: 1, minWidth: 0 }}
                     >
-                      {current.personal ? `Hey, ${current.title}` : current.title}
-                    </Typography>
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        display: isExpanded ? 'block' : 'none',
-                        color: alpha('#fff', 0.6),
-                        mt: 0.25,
-                        fontWeight: 600,
-                        lineHeight: 1.4,
-                      }}
-                    >
-                      {current.message || 'Tap to expand'}
-                    </Typography>
-                  </motion.div>
-                </AnimatePresence>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: 'white',
+                          fontWeight: 900,
+                          fontSize: '0.82rem',
+                          fontFamily: 'var(--font-space-grotesk)',
+                          lineHeight: 1.15,
+                        }}
+                        noWrap={!isExpanded}
+                      >
+                        {current.personal ? `Hey, ${current.title}` : current.title}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          display: 'block',
+                          color: alpha('#fff', 0.6),
+                          mt: 0.25,
+                          fontWeight: 600,
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {current.message || 'Tap to expand'}
+                      </Typography>
+                    </motion.div>
+                  </AnimatePresence>
+                )}
 
-                {!isExpanded && current.shape !== 'ball' && (
+                {!isExpanded && (
                   <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexShrink: 0 }}>
                     {[0, 1, 2].map((index) => (
                       <motion.div
