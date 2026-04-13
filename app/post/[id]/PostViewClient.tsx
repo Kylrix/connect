@@ -260,6 +260,7 @@ type ThreadPostViewProps = {
     replyingTo?: string | null;
     stats: { replies?: number; pulses?: number; likes?: number; views?: number };
     threadLineMode?: 'up' | 'down' | 'both' | 'none';
+    variant?: 'card' | 'thread';
     onClick?: () => void;
     onLike?: (event: React.MouseEvent) => void;
     onPulse?: (event: React.MouseEvent) => void;
@@ -276,6 +277,7 @@ const ThreadPostView = ({
     replyingTo,
     stats,
     threadLineMode = 'none',
+    variant = 'card',
     onClick,
     onLike,
     onPulse,
@@ -290,12 +292,12 @@ const ThreadPostView = ({
             py: 1.5,
             position: 'relative',
             cursor: onClick ? 'pointer' : 'default',
-            bgcolor: '#161412',
-            border: '1px solid rgba(255,255,255,0.05)',
-            borderRadius: '20px',
-            boxShadow: '0 14px 36px rgba(0, 0, 0, 0.18)',
+            bgcolor: variant === 'card' ? '#161412' : 'transparent',
+            border: variant === 'card' ? '1px solid rgba(255,255,255,0.05)' : 'none',
+            borderRadius: variant === 'card' ? '20px' : 0,
+            boxShadow: variant === 'card' ? '0 14px 36px rgba(0, 0, 0, 0.18)' : 'none',
             overflow: 'hidden',
-            '&:hover': onClick ? { bgcolor: '#1C1A18' } : undefined,
+            '&:hover': onClick ? { bgcolor: variant === 'card' ? '#1C1A18' : 'rgba(255,255,255,0.02)' } : undefined,
         }}
     >
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mr: 1.5, flexShrink: 0, width: 48 }}>
@@ -1076,9 +1078,9 @@ export function PostViewClient() {
                     </Box>
                 )}
 
-                {showAncestors && threadAncestors.length > 0 && (
-                    <Box>
-                        {threadAncestors.map((ancestor, index) => {
+                {(showAncestors && threadAncestors.length > 0) || moment ? (
+                    <Box sx={{ bgcolor: '#161412', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '20px', boxShadow: '0 14px 36px rgba(0, 0, 0, 0.18)', overflow: 'hidden' }}>
+                        {showAncestors && threadAncestors.length > 0 && threadAncestors.map((ancestor, index) => {
                             const ancestorId = ancestor.userId || ancestor.creatorId;
                             const resolvedAncestor = resolveIdentity(ancestor.creator, ancestorId);
                             return (
@@ -1096,9 +1098,8 @@ export function PostViewClient() {
                                         likes: ancestor.stats?.likes || 0,
                                         views: ancestor.stats?.views || 0,
                                     }}
-                                    threadLineMode={
-                                        index === 0 ? 'down' : 'both'
-                                    }
+                                    threadLineMode={index === 0 ? 'down' : 'both'}
+                                    variant="thread"
                                     onClick={() => router.push(`/post/${ancestor.$id}`)}
                                     onLike={(e) => { e.stopPropagation(); handleToggleLike(ancestor); }}
                                     onPulse={(e) => {
@@ -1109,33 +1110,34 @@ export function PostViewClient() {
                                 />
                             );
                         })}
-                    </Box>
-                )}
 
-                <ThreadPostView
-                    name={creatorName}
-                    handle={resolvedCreator.handle}
-                    timeLabel={format(new Date(moment.$createdAt), 'h:mm a')}
-                    caption={moment.caption}
-                    avatarSrc={creatorAvatar}
-                    avatarLabel={creatorName.replace(/^@/, '').charAt(0).toUpperCase()}
-                    replyingTo={moment.metadata?.sourceId && moment.sourceMoment
-                        ? `@${resolveIdentity(moment.sourceMoment.creator, moment.sourceMoment.userId || moment.sourceMoment.creatorId).handle?.replace(/^@/, '') || ''}`
-                        : null}
-                    stats={{
-                        replies: moment.stats?.replies || 0,
-                        pulses: moment.stats?.pulses || 0,
-                        likes: moment.stats?.likes || 0,
-                        views: moment.stats?.views || 0,
-                    }}
-                    threadLineMode={currentThreadLineMode}
-                    onLike={(e) => { e.stopPropagation(); handleToggleLike(); }}
-                    onPulse={(e) => {
-                        e.stopPropagation();
-                        setPulseMenuAnchorEl(e.currentTarget as HTMLElement);
-                    }}
-                    liked={moment.isLiked}
-                />
+                        <ThreadPostView
+                            name={creatorName}
+                            handle={resolvedCreator.handle}
+                            timeLabel={format(new Date(moment.$createdAt), 'h:mm a')}
+                            caption={moment.caption}
+                            avatarSrc={creatorAvatar}
+                            avatarLabel={creatorName.replace(/^@/, '').charAt(0).toUpperCase()}
+                            replyingTo={moment.metadata?.sourceId && moment.sourceMoment
+                                ? `@${resolveIdentity(moment.sourceMoment.creator, moment.sourceMoment.userId || moment.sourceMoment.creatorId).handle?.replace(/^@/, '') || ''}`
+                                : null}
+                            stats={{
+                                replies: moment.stats?.replies || 0,
+                                pulses: moment.stats?.pulses || 0,
+                                likes: moment.stats?.likes || 0,
+                                views: moment.stats?.views || 0,
+                            }}
+                            threadLineMode={currentThreadLineMode}
+                            variant="thread"
+                            onLike={(e) => { e.stopPropagation(); handleToggleLike(); }}
+                            onPulse={(e) => {
+                                e.stopPropagation();
+                                setPulseMenuAnchorEl(e.currentTarget as HTMLElement);
+                            }}
+                            liked={moment.isLiked}
+                        />
+                    </Box>
+                ) : null}
 
                 <Box id="comments-section" sx={{ pt: 2 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, mb: 1 }}>
@@ -1199,6 +1201,7 @@ export function PostViewClient() {
                                             views: reply.stats?.views || 0,
                                         }}
                                         threadLineMode={index < replies.length - 1 ? 'both' : 'up'}
+                                        variant="thread"
                                         onClick={() => router.push(`/post/${reply.$id}`)}
                                         onLike={(e) => {
                                             e.stopPropagation();
