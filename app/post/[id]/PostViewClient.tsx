@@ -57,8 +57,9 @@ import { FormattedText } from '@/components/common/FormattedText';
 import toast from 'react-hot-toast';
 import { TextField, InputAdornment, Alert, Menu, MenuItem } from '@mui/material';
 
-const EXPORT_WIDTH = 1400;
+const EXPORT_WIDTH = 1080;
 const EXPORT_CARD = '#161412';
+const EXPORT_COLUMN = 640;
 
 const clampText = (value: string, limit: number) => {
     const clean = String(value || '').trim();
@@ -132,14 +133,14 @@ const drawAvatar = async (ctx: CanvasRenderingContext2D, x: number, y: number, s
 };
 
 const estimateCardHeight = (ctx: CanvasRenderingContext2D, moment: any, width: number) => {
-    const textWidth = width - 120;
+    const textWidth = width - 72;
     const caption = wrapLines(ctx, String(moment?.caption || ''), textWidth);
     const attachmentCount = (moment?.metadata?.attachments || []).filter((att: any) => att.type === 'image' || att.type === 'video').length;
-    let height = 340;
-    height += Math.min(8, caption.length) * 48;
-    if (attachmentCount > 0) height += 460;
-    if (moment?.attachedNote) height += 190;
-    if (moment?.attachedEvent) height += 220;
+    let height = 196;
+    height += Math.min(8, caption.length) * 26;
+    if (attachmentCount > 0) height += 270;
+    if (moment?.attachedNote) height += 118;
+    if (moment?.attachedEvent) height += 132;
     return height;
 };
 
@@ -155,101 +156,101 @@ const renderMomentCard = async (
     const identityName = resolveIdentity(creator, moment?.userId || moment?.creatorId);
     const avatarLabel = String(identityName.displayName || identityName.handle || 'User').slice(0, 1);
     const cardHeight = estimateCardHeight(ctx, moment, width);
-    const radius = 36;
+    const radius = 24;
 
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.35)';
-    ctx.shadowBlur = 32;
-    ctx.shadowOffsetY = 16;
+    ctx.shadowColor = 'rgba(0,0,0,0.28)';
+    ctx.shadowBlur = 20;
+    ctx.shadowOffsetY = 10;
     ctx.fillStyle = EXPORT_CARD;
     drawRoundedRect(ctx, x, y, width, cardHeight, radius);
     ctx.fill();
     ctx.restore();
 
-    const innerX = x + 40;
-    let cursorY = y + 36;
+    const innerX = x + 20;
+    let cursorY = y + 18;
 
     if (isReplyParent) {
         ctx.fillStyle = '#6366F1';
-        ctx.font = '700 22px sans-serif';
-        ctx.fillText('In reply to', innerX, cursorY + 18);
-        cursorY += 36;
+        ctx.font = '700 12px sans-serif';
+        ctx.fillText('In reply to', innerX, cursorY + 12);
+        cursorY += 18;
     }
 
-    await drawAvatar(ctx, innerX, cursorY, 64, creator?.avatar, avatarLabel);
+    await drawAvatar(ctx, innerX, cursorY, 38, creator?.avatar, avatarLabel);
 
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = '900 28px sans-serif';
-    ctx.fillText(clampText(identityName.displayName || 'Unknown', 32), innerX + 86, cursorY + 26);
+    ctx.font = '800 17px sans-serif';
+    ctx.fillText(clampText(identityName.displayName || 'Unknown', 24), innerX + 50, cursorY + 16);
 
     ctx.fillStyle = 'rgba(255,255,255,0.45)';
-    ctx.font = '700 19px monospace';
-    ctx.fillText(clampText(identityName.handle || '', 40), innerX + 86, cursorY + 56);
-    ctx.fillText(getMomentTimeLabel(moment), x + width - 40 - ctx.measureText(getMomentTimeLabel(moment)).width, cursorY + 56);
+    ctx.font = '700 11px monospace';
+    ctx.fillText(clampText(identityName.handle || '', 28), innerX + 50, cursorY + 32);
+    ctx.fillText(getMomentTimeLabel(moment), x + width - 20 - ctx.measureText(getMomentTimeLabel(moment)).width, cursorY + 32);
 
-    cursorY += 106;
+    cursorY += 54;
 
-    const captionLines = wrapLines(ctx, String(moment?.caption || ''), width - 80);
+    const captionLines = wrapLines(ctx, String(moment?.caption || ''), width - 40);
     ctx.fillStyle = 'rgba(255,255,255,0.96)';
-    ctx.font = '500 26px sans-serif';
-    captionLines.slice(0, 8).forEach((line, index) => {
+    ctx.font = '500 15px sans-serif';
+    captionLines.slice(0, 10).forEach((line, index) => {
         ctx.fillText(line, innerX, cursorY + index * 38);
     });
-    cursorY += Math.min(8, captionLines.length) * 38 + 20;
+    cursorY += Math.min(10, captionLines.length) * 22 + 14;
 
     const attachments = (moment?.metadata?.attachments || []).filter((att: any) => att.type === 'image' || att.type === 'video');
     if (attachments.length) {
         const first = attachments[0];
         const previewSrc = first.type === 'image' ? SocialService.getMediaPreview(first.id, 1200, 800) : SocialService.getMediaPreview(first.id, 1200, 800);
         const media = await loadImage(previewSrc);
-        const mediaHeight = 420;
+        const mediaHeight = 280;
         ctx.save();
-        drawRoundedRect(ctx, innerX, cursorY, width - 80, mediaHeight, 28);
+        drawRoundedRect(ctx, innerX, cursorY, width - 40, mediaHeight, 18);
         ctx.clip();
         ctx.fillStyle = 'rgba(255,255,255,0.03)';
-        ctx.fillRect(innerX, cursorY, width - 80, mediaHeight);
+        ctx.fillRect(innerX, cursorY, width - 40, mediaHeight);
         if (media) {
-            const scale = Math.max((width - 80) / media.width, mediaHeight / media.height);
+            const scale = Math.max((width - 40) / media.width, mediaHeight / media.height);
             const drawWidth = media.width * scale;
             const drawHeight = media.height * scale;
-            ctx.drawImage(media, innerX + ((width - 80) - drawWidth) / 2, cursorY + (mediaHeight - drawHeight) / 2, drawWidth, drawHeight);
+            ctx.drawImage(media, innerX + ((width - 40) - drawWidth) / 2, cursorY + (mediaHeight - drawHeight) / 2, drawWidth, drawHeight);
         }
         ctx.restore();
-        cursorY += mediaHeight + 24;
+        cursorY += mediaHeight + 14;
     }
 
     if (moment?.attachedNote) {
         ctx.fillStyle = 'rgba(99,102,241,0.12)';
-        drawRoundedRect(ctx, innerX, cursorY, width - 80, 150, 24);
+        drawRoundedRect(ctx, innerX, cursorY, width - 40, 92, 16);
         ctx.fill();
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = '900 22px sans-serif';
-        ctx.fillText('Attached Note', innerX + 24, cursorY + 44);
+        ctx.font = '800 13px sans-serif';
+        ctx.fillText('Attached Note', innerX + 14, cursorY + 24);
         ctx.fillStyle = 'rgba(255,255,255,0.78)';
-        ctx.font = '500 20px sans-serif';
-        wrapLines(ctx, clampText(moment.attachedNote.content || '', 220), width - 128).slice(0, 4).forEach((line, idx) => {
-            ctx.fillText(line, innerX + 24, cursorY + 82 + idx * 28);
+        ctx.font = '500 12px sans-serif';
+        wrapLines(ctx, clampText(moment.attachedNote.content || '', 150), width - 68).slice(0, 3).forEach((line, idx) => {
+            ctx.fillText(line, innerX + 14, cursorY + 48 + idx * 18);
         });
-        cursorY += 174;
+        cursorY += 108;
     }
 
     if (moment?.attachedEvent) {
         ctx.fillStyle = 'rgba(168,85,247,0.12)';
-        drawRoundedRect(ctx, innerX, cursorY, width - 80, 170, 24);
+        drawRoundedRect(ctx, innerX, cursorY, width - 40, 108, 16);
         ctx.fill();
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = '900 22px sans-serif';
-        ctx.fillText('Attached Event', innerX + 24, cursorY + 44);
+        ctx.font = '800 13px sans-serif';
+        ctx.fillText('Attached Event', innerX + 14, cursorY + 24);
         ctx.fillStyle = 'rgba(255,255,255,0.78)';
-        ctx.font = '500 20px sans-serif';
-        ctx.fillText(clampText(moment.attachedEvent.title || 'Untitled Event', 42), innerX + 24, cursorY + 82);
-        ctx.fillText(clampText(moment.attachedEvent.location || 'No location', 42), innerX + 24, cursorY + 114);
-        cursorY += 194;
+        ctx.font = '500 12px sans-serif';
+        ctx.fillText(clampText(moment.attachedEvent.title || 'Untitled Event', 42), innerX + 14, cursorY + 52);
+        ctx.fillText(clampText(moment.attachedEvent.location || 'No location', 42), innerX + 14, cursorY + 74);
+        cursorY += 126;
     }
 
     ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    ctx.font = '700 18px monospace';
-    ctx.fillText(`replies ${moment?.stats?.replies || 0}  •  likes ${moment?.stats?.likes || 0}  •  pulses ${moment?.stats?.pulses || 0}`, innerX, y + cardHeight - 30);
+    ctx.font = '700 11px monospace';
+    ctx.fillText(`replies ${moment?.stats?.replies || 0}  •  likes ${moment?.stats?.likes || 0}  •  pulses ${moment?.stats?.pulses || 0}`, innerX, y + cardHeight - 18);
 
     return cardHeight;
 };
@@ -260,16 +261,17 @@ const exportMomentAsImage = async (rootMoment: any) => {
     if (!ctx) throw new Error('Canvas unavailable');
 
     const parentMoment = rootMoment?.sourceMoment && rootMoment?.metadata?.sourceId ? rootMoment.sourceMoment : null;
-    const margin = 80;
-    const bodyWidth = EXPORT_WIDTH - margin * 2;
+    const margin = 32;
+    const bodyWidth = EXPORT_COLUMN;
+    const bodyX = Math.floor((EXPORT_WIDTH - bodyWidth) / 2);
 
     canvas.width = EXPORT_WIDTH;
     ctx.font = '500 26px sans-serif';
 
-    const headerHeight = 160;
-    const parentHeight = parentMoment ? estimateCardHeight(ctx, parentMoment, bodyWidth) + 38 : 0;
+    const headerHeight = 24;
+    const parentHeight = parentMoment ? estimateCardHeight(ctx, parentMoment, bodyWidth) + 20 : 0;
     const mainHeight = estimateCardHeight(ctx, rootMoment, bodyWidth);
-    const totalHeight = margin + headerHeight + parentHeight + mainHeight + 150 + (parentMoment ? 56 : 0);
+    const totalHeight = margin + headerHeight + parentHeight + mainHeight + 48 + (parentMoment ? 20 : 0);
     canvas.height = totalHeight;
 
     const gradient = ctx.createLinearGradient(0, 0, 0, totalHeight);
@@ -285,35 +287,25 @@ const exportMomentAsImage = async (rootMoment: any) => {
         ctx.fill();
     }
 
-    ctx.fillStyle = 'rgba(255,255,255,0.05)';
-    drawRoundedRect(ctx, margin, 36, bodyWidth, 96, 28);
-    ctx.fill();
-    ctx.fillStyle = '#F59E0B';
-    ctx.font = '900 32px sans-serif';
-    ctx.fillText('Kylrix Connect', margin + 32, 78);
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    ctx.font = '700 18px sans-serif';
-    ctx.fillText('Screenshot export', margin + 32, 112);
-
     let cursorY = margin + headerHeight;
     if (parentMoment) {
         ctx.fillStyle = '#6366F1';
-        ctx.fillRect(margin + 74, cursorY - 22, 3, 44);
-        cursorY += 8;
-        const parentCardHeight = await renderMomentCard(ctx, parentMoment, margin, cursorY, bodyWidth, true);
-        cursorY += parentCardHeight + 28;
+        ctx.fillRect(bodyX + 18, cursorY - 8, 2, 20);
+        cursorY += 2;
+        const parentCardHeight = await renderMomentCard(ctx, parentMoment, bodyX, cursorY, bodyWidth, true);
+        cursorY += parentCardHeight + 14;
         ctx.fillStyle = '#6366F1';
         ctx.beginPath();
-        ctx.arc(margin + 75.5, cursorY - 18, 5, 0, Math.PI * 2);
+        ctx.arc(bodyX + 19, cursorY - 10, 3, 0, Math.PI * 2);
         ctx.fill();
     }
 
-    await renderMomentCard(ctx, rootMoment, margin, cursorY, bodyWidth, false);
+    await renderMomentCard(ctx, rootMoment, bodyX, cursorY, bodyWidth, false);
 
     ctx.fillStyle = 'rgba(255,255,255,0.28)';
-    ctx.font = '700 18px monospace';
+    ctx.font = '700 11px monospace';
     const footer = `@${resolveIdentity(rootMoment.creator, rootMoment.userId || rootMoment.creatorId).handle?.replace(/^@/, '') || 'connect'} • ${window.location.hostname}`;
-    ctx.fillText(footer, margin, canvas.height - 42);
+    ctx.fillText(footer, bodyX, canvas.height - 20);
 
     return new Promise<Blob>((resolve, reject) => {
         canvas.toBlob((blob) => {
@@ -439,7 +431,8 @@ export function PostViewClient() {
                 return { ...data, creator: { ...creator, avatar }, sourceMoment };
             };
 
-            const enrichedMoment = await enrichMoment(data);
+            const rawMoment = await SocialService.getMomentById(momentId, user?.$id);
+            const enrichedMoment = await enrichMoment(rawMoment);
             setMoment(enrichedMoment);
             seedMomentPreview(enrichedMoment);
             seedIdentityCache(enrichedMoment.creator);
@@ -669,8 +662,8 @@ export function PostViewClient() {
                                     key={ancestor.$id}
                                     onClick={() => router.push(`/post/${ancestor.$id}`)}
                                     sx={{
-                                        p: 2,
-                                        borderRadius: '20px',
+                                        p: 1.5,
+                                        borderRadius: '16px',
                                         bgcolor: 'rgba(255,255,255,0.02)',
                                         border: '1px solid rgba(255,255,255,0.05)',
                                         cursor: 'pointer',
@@ -683,23 +676,23 @@ export function PostViewClient() {
                                         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pt: 0.25 }}>
                                             <Avatar
                                                 src={ancestor.creator?.avatar}
-                                                sx={{ width: 34, height: 34, borderRadius: '10px', bgcolor: 'rgba(255,255,255,0.05)' }}
+                                                sx={{ width: 30, height: 30, borderRadius: '8px', bgcolor: 'rgba(255,255,255,0.05)' }}
                                             >
                                                 {resolvedAncestor.displayName?.charAt(0).toUpperCase()}
                                             </Avatar>
                                             {index < threadAncestors.length - 1 && (
-                                                <Box sx={{ width: '2px', flex: 1, minHeight: 24, bgcolor: 'rgba(255,255,255,0.12)', mt: 1 }} />
+                                                <Box sx={{ width: '2px', flex: 1, minHeight: 18, bgcolor: 'rgba(255,255,255,0.12)', mt: 1 }} />
                                             )}
                                         </Box>
                                         <Box sx={{ flex: 1, minWidth: 0 }}>
                                             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
-                                                <Typography sx={{ fontWeight: 800, fontSize: '0.88rem' }}>
+                                                <Typography sx={{ fontWeight: 800, fontSize: '0.76rem' }}>
                                                     {resolvedAncestor.displayName}
                                                 </Typography>
-                                                <Typography variant="caption" sx={{ opacity: 0.35 }}>
+                                                <Typography variant="caption" sx={{ opacity: 0.35, fontSize: '0.66rem' }}>
                                                     {resolvedAncestor.handle}
                                                 </Typography>
-                                                <Typography variant="caption" sx={{ opacity: 0.28 }}>
+                                                <Typography variant="caption" sx={{ opacity: 0.28, fontSize: '0.66rem' }}>
                                                     · {format(new Date(ancestor.$createdAt || ancestor.createdAt), 'MMM d')}
                                                 </Typography>
                                             </Stack>
@@ -708,10 +701,10 @@ export function PostViewClient() {
                                                 variant="body2"
                                                 sx={{
                                                     color: 'rgba(255,255,255,0.78)',
-                                                    fontSize: '0.95rem',
-                                                    lineHeight: 1.55,
+                                                    fontSize: '0.82rem',
+                                                    lineHeight: 1.45,
                                                     display: '-webkit-box',
-                                                    WebkitLineClamp: 6,
+                                                    WebkitLineClamp: 5,
                                                     WebkitBoxOrient: 'vertical',
                                                     overflow: 'hidden'
                                                 }}
@@ -748,11 +741,11 @@ export function PostViewClient() {
                                     onClick={(e) => { e.stopPropagation(); const username = resolveIdentityUsername(moment.creator || cachedCreator, creatorId); if (username) router.push(`/u/${username}`); }}
                                     src={creatorAvatar}
                                     sx={{ 
-                                        width: 52, 
-                                        height: 52, 
+                                        width: 38, 
+                                        height: 38, 
                                         bgcolor: isOwnPost ? '#F59E0B' : 'rgba(255, 255, 255, 0.05)',
                                         color: isOwnPost ? '#000' : 'text.secondary',
-                                        borderRadius: '14px',
+                                        borderRadius: '10px',
                                         fontWeight: 900,
                                         border: '1px solid rgba(255,255,255,0.1)',
                                         position: 'relative',
@@ -765,30 +758,30 @@ export function PostViewClient() {
                                 </Avatar>
                         }
                         title={
-                            <Typography sx={{ fontWeight: 900, fontSize: '1.2rem', color: isOwnPost ? '#F59E0B' : 'text.primary', fontFamily: 'var(--font-clash)', letterSpacing: '-0.01em' }}>
+                            <Typography sx={{ fontWeight: 900, fontSize: '0.96rem', color: isOwnPost ? '#F59E0B' : 'text.primary', fontFamily: 'var(--font-clash)', letterSpacing: '-0.01em' }}>
                                 {creatorName}
                             </Typography>
                         }
                         subheader={
-                            <Typography variant="caption" sx={{ opacity: 0.4, fontWeight: 700, fontFamily: 'var(--font-mono)', letterSpacing: '0.02em' }}>
+                            <Typography variant="caption" sx={{ opacity: 0.4, fontWeight: 700, fontFamily: 'var(--font-mono)', letterSpacing: '0.02em', fontSize: '0.68rem' }}>
                                 {resolvedCreator.handle}
                             </Typography>
                         }
                         action={
-                            <IconButton sx={{ color: 'rgba(255, 255, 255, 0.2)', '&:hover': { color: 'white', bgcolor: 'rgba(255,255,255,0.05)' } }}>
-                                <MoreHorizontal size={20} />
+                            <IconButton sx={{ color: 'rgba(255, 255, 255, 0.2)', '&:hover': { color: 'white', bgcolor: 'rgba(255,255,255,0.05)' }, p: 0.75 }}>
+                                <MoreHorizontal size={16} />
                             </IconButton>
                         }
                     />
 
-                    <CardContent sx={{ pt: 1, px: { xs: 2.5, sm: 4 }, pb: 4 }}>
-                        <Box sx={{ mb: 4 }}>
+                    <CardContent sx={{ pt: 0.5, px: { xs: 2, sm: 3 }, pb: 2.5 }}>
+                        <Box sx={{ mb: 2.5 }}>
                             <FormattedText 
                                 text={moment.caption}
                                 variant="h5"
                                 sx={{ 
-                                    lineHeight: 1.5, 
-                                    fontSize: { xs: '1.25rem', sm: '1.5rem' }, 
+                                    lineHeight: 1.45, 
+                                    fontSize: { xs: '0.98rem', sm: '1.02rem' }, 
                                     fontWeight: 500,
                                     color: 'rgba(255,255,255,0.95)',
                                     fontFamily: 'var(--font-satoshi)',
@@ -803,7 +796,7 @@ export function PostViewClient() {
                                 <Button
                                     size="small"
                                     onClick={() => setExpandedCaption((prev) => !prev)}
-                                    sx={{ mt: 1, px: 0, fontWeight: 900, color: '#F59E0B', textTransform: 'none' }}
+                                    sx={{ mt: 0.5, px: 0, minWidth: 0, fontSize: '0.7rem', fontWeight: 900, color: '#F59E0B', textTransform: 'none' }}
                                 >
                                     {expandedCaption ? 'Show less' : 'Read more'}
                                 </Button>
@@ -811,12 +804,12 @@ export function PostViewClient() {
                         </Box>
 
                         {moment.metadata?.attachments?.filter((a: any) => a.type === 'image' || a.type === 'video').length > 0 && (
-                            <Box sx={{ mb: 4, borderRadius: '24px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', bgcolor: 'rgba(0,0,0,0.2)' }}>
+                            <Box sx={{ mb: 2.5, borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', bgcolor: 'rgba(0,0,0,0.2)' }}>
                                 <Stack direction="row" spacing={1} sx={{ overflowX: 'auto', pb: 0.5, snapType: 'x mandatory' }}>
                                     {moment.metadata.attachments.filter((a: any) => a.type === 'image' || a.type === 'video').map((att: any, idx: number) => (
                                         <Box key={idx} sx={{ 
                                             minWidth: '100%', 
-                                            height: { xs: 300, sm: 450 }, 
+                                            height: { xs: 220, sm: 280 }, 
                                             bgcolor: 'rgba(255,255,255,0.01)',
                                             display: 'flex',
                                             alignItems: 'center',
@@ -843,29 +836,29 @@ export function PostViewClient() {
                         {moment.attachedNote && (
                             <Paper sx={{ 
                                 p: 0, 
-                                borderRadius: 4, 
+                                borderRadius: 3, 
                                 bgcolor: 'rgba(255, 255, 255, 0.02)', 
                                 border: '1px solid rgba(255, 255, 255, 0.08)',
                                 overflow: 'hidden',
-                                mb: 3
+                                mb: 2
                             }}>
-                                <Box sx={{ p: 3, background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(0, 163, 255, 0.02) 100%)' }}>
-                                    <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
-                                        <Box sx={{ p: 1, bgcolor: alpha('#6366F1', 0.1), borderRadius: 1.5, color: '#6366F1' }}>
-                                            <FileText size={22} />
+                                <Box sx={{ p: 1.5, background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(0, 163, 255, 0.02) 100%)' }}>
+                                    <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 1 }}>
+                                        <Box sx={{ p: 0.75, bgcolor: alpha('#6366F1', 0.1), borderRadius: 1.25, color: '#6366F1' }}>
+                                            <FileText size={16} />
                                         </Box>
                                         <Box>
-                                            <Typography variant="subtitle1" sx={{ fontWeight: 900, color: 'white' }}>{moment.attachedNote.title}</Typography>
-                                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>KYLRIX NOTE</Typography>
+                                            <Typography variant="subtitle1" sx={{ fontWeight: 900, color: 'white', fontSize: '0.86rem' }}>{moment.attachedNote.title}</Typography>
+                                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontWeight: 700, fontSize: '0.64rem' }}>KYLRIX NOTE</Typography>
                                         </Box>
                                     </Stack>
-                                    <Typography variant="body2" sx={{ opacity: 0.7, lineHeight: 1.7 }}>
-                                        {moment.attachedNote.content?.substring(0, 200)}...
+                                    <Typography variant="body2" sx={{ opacity: 0.7, lineHeight: 1.45, fontSize: '0.82rem' }}>
+                                        {moment.attachedNote.content?.substring(0, 120)}...
                                     </Typography>
                                 </Box>
-                                <Box sx={{ px: 3, py: 1.5, bgcolor: 'rgba(0,0,0,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Typography variant="caption" sx={{ color: '#6366F1', fontWeight: 800 }}>ATTACHED KNOWLEDGE</Typography>
-                                    <Button size="small" sx={{ fontWeight: 800, color: '#6366F1' }}>Read Note</Button>
+                                <Box sx={{ px: 1.5, py: 1, bgcolor: 'rgba(0,0,0,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Typography variant="caption" sx={{ color: '#6366F1', fontWeight: 800, fontSize: '0.62rem' }}>ATTACHED KNOWLEDGE</Typography>
+                                    <Button size="small" sx={{ fontWeight: 800, color: '#6366F1', fontSize: '0.68rem', minWidth: 0 }}>Read Note</Button>
                                 </Box>
                             </Paper>
                         )}
@@ -873,54 +866,54 @@ export function PostViewClient() {
                         {moment.attachedEvent && (
                             <Paper sx={{ 
                                 p: 0, 
-                                borderRadius: 4, 
+                                borderRadius: 3, 
                                 bgcolor: 'rgba(255, 255, 255, 0.02)', 
                                 border: '1px solid rgba(255, 255, 255, 0.08)',
                                 overflow: 'hidden',
-                                mb: 3
+                                mb: 2
                             }}>
-                                <Box sx={{ p: 3, background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.05) 0%, rgba(0, 163, 255, 0.02) 100%)' }}>
-                                    <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
-                                        <Box sx={{ p: 1, bgcolor: alpha('#A855F7', 0.1), borderRadius: 1.5, color: '#A855F7' }}>
-                                            <Calendar size={22} />
+                                <Box sx={{ p: 1.5, background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.05) 0%, rgba(0, 163, 255, 0.02) 100%)' }}>
+                                    <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 1 }}>
+                                        <Box sx={{ p: 0.75, bgcolor: alpha('#A855F7', 0.1), borderRadius: 1.25, color: '#A855F7' }}>
+                                            <Calendar size={16} />
                                         </Box>
                                         <Box>
-                                            <Typography variant="subtitle1" sx={{ fontWeight: 900, color: 'white' }}>{moment.attachedEvent.title}</Typography>
-                                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>KYLRIX FLOW</Typography>
+                                            <Typography variant="subtitle1" sx={{ fontWeight: 900, color: 'white', fontSize: '0.86rem' }}>{moment.attachedEvent.title}</Typography>
+                                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', fontWeight: 700, fontSize: '0.64rem' }}>KYLRIX FLOW</Typography>
                                         </Box>
                                     </Stack>
                                     <Stack spacing={1}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'rgba(255,255,255,0.5)' }}>
-                                            <Clock size={14} />
-                                            <Typography variant="caption" fontWeight={700}>
+                                            <Clock size={12} />
+                                            <Typography variant="caption" fontWeight={700} sx={{ fontSize: '0.68rem' }}>
                                                 {format(new Date(moment.attachedEvent.startTime), 'MMM d, h:mm a')}
                                             </Typography>
                                         </Box>
                                         {moment.attachedEvent.location && (
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'rgba(255,255,255,0.5)' }}>
-                                                <MapPin size={14} />
-                                                <Typography variant="caption" fontWeight={700}>{moment.attachedEvent.location}</Typography>
+                                                <MapPin size={12} />
+                                                <Typography variant="caption" fontWeight={700} sx={{ fontSize: '0.68rem' }}>{moment.attachedEvent.location}</Typography>
                                             </Box>
                                         )}
                                     </Stack>
                                 </Box>
-                                <Box sx={{ px: 3, py: 1.5, bgcolor: 'rgba(0,0,0,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Typography variant="caption" sx={{ color: '#A855F7', fontWeight: 800 }}>SCHEDULED EVENT</Typography>
-                                    <Button size="small" sx={{ fontWeight: 800, color: '#A855F7' }}>Add to Calendar</Button>
+                                <Box sx={{ px: 1.5, py: 1, bgcolor: 'rgba(0,0,0,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Typography variant="caption" sx={{ color: '#A855F7', fontWeight: 800, fontSize: '0.62rem' }}>SCHEDULED EVENT</Typography>
+                                    <Button size="small" sx={{ fontWeight: 800, color: '#A855F7', fontSize: '0.68rem', minWidth: 0 }}>Add to Calendar</Button>
                                 </Box>
                             </Paper>
                         )}
 
-                        <Typography variant="body2" sx={{ opacity: 0.4, fontWeight: 700, mt: 4, mb: 2 }}>
+                        <Typography variant="body2" sx={{ opacity: 0.4, fontWeight: 700, mt: 2.5, mb: 1.25, fontSize: '0.68rem' }}>
                             {format(new Date(moment.$createdAt), 'h:mm a · MMM d, yyyy')} · Kylrix Connect
                         </Typography>
 
                         <Divider sx={{ borderColor: 'rgba(255,255,255,0.05)', my: 2 }} />
                         
-                        <Stack direction="row" spacing={3} sx={{ py: 1 }}>
+                        <Stack direction="row" spacing={2} sx={{ py: 0.5 }}>
                             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', color: '#6366F1' }}>
-                                <Typography sx={{ fontWeight: 900, fontSize: '1rem' }}>{moment.stats?.replies || 0}</Typography>
-                                <Typography variant="caption" sx={{ opacity: 0.7, fontWeight: 900, letterSpacing: '0.05em' }}>REPLIES</Typography>
+                                <Typography sx={{ fontWeight: 900, fontSize: '0.78rem' }}>{moment.stats?.replies || 0}</Typography>
+                                <Typography variant="caption" sx={{ opacity: 0.7, fontWeight: 900, letterSpacing: '0.05em', fontSize: '0.6rem' }}>REPLIES</Typography>
                             </Box>
                         <Box
                             onClick={(e) => { e.stopPropagation(); openActorsList('Pulsed by', async () => await fetchActorsForPulses(moment.$id)); }}
@@ -942,8 +935,8 @@ export function PostViewClient() {
 
                         <Stack direction="row" justifyContent="space-around" sx={{ color: 'rgba(255,255,255,0.5)', py: 1 }}>
                             <Tooltip title="Reply">
-                                <IconButton sx={{ '&:hover': { color: '#6366F1', bgcolor: alpha('#6366F1', 0.1) } }}>
-                                    <MessageCircle size={24} strokeWidth={1.5} />
+                                <IconButton sx={{ p: 0.75, '&:hover': { color: '#6366F1', bgcolor: alpha('#6366F1', 0.1) } }}>
+                                    <MessageCircle size={18} strokeWidth={1.5} />
                                 </IconButton>
                             </Tooltip>
                             <Tooltip title="Pulse">
@@ -957,9 +950,9 @@ export function PostViewClient() {
                                         e.preventDefault();
                                         setPulseMenuAnchorEl(e.currentTarget);
                                     }}
-                                    sx={{ '&:hover': { color: '#10B981', bgcolor: alpha('#10B981', 0.1) } }}
+                                    sx={{ p: 0.75, '&:hover': { color: '#10B981', bgcolor: alpha('#10B981', 0.1) } }}
                                 >
-                                    <Repeat2 size={24} strokeWidth={1.5} />
+                                    <Repeat2 size={18} strokeWidth={1.5} />
                                 </IconButton>
                             </Tooltip>
                             
@@ -995,21 +988,22 @@ export function PostViewClient() {
                                 <IconButton 
                                     onClick={() => handleToggleLike()}
                                     sx={{ 
+                                        p: 0.75,
                                         color: moment.isLiked ? '#F59E0B' : 'inherit',
                                         '&:hover': { color: '#F59E0B', bgcolor: alpha('#F59E0B', 0.1) } 
                                     }}
                                 >
-                                    <Heart size={24} fill={moment.isLiked ? '#F59E0B' : 'none'} strokeWidth={1.5} />
+                                    <Heart size={18} fill={moment.isLiked ? '#F59E0B' : 'none'} strokeWidth={1.5} />
                                 </IconButton>
                             </Tooltip>
                             <Tooltip title="Copy Link">
-                                <IconButton onClick={handleCopyLink} sx={{ '&:hover': { color: '#6366F1', bgcolor: alpha('#6366F1', 0.1) } }}>
-                                    <Link2 size={24} strokeWidth={1.5} />
+                                <IconButton onClick={handleCopyLink} sx={{ p: 0.75, '&:hover': { color: '#6366F1', bgcolor: alpha('#6366F1', 0.1) } }}>
+                                    <Link2 size={18} strokeWidth={1.5} />
                                 </IconButton>
                             </Tooltip>
                             <Tooltip title="Export / Share">
-                                <IconButton onClick={() => setShareDrawerOpen(true)} sx={{ '&:hover': { color: '#6366F1', bgcolor: alpha('#6366F1', 0.1) } }}>
-                                    <Send size={24} strokeWidth={1.5} />
+                                <IconButton onClick={() => setShareDrawerOpen(true)} sx={{ p: 0.75, '&:hover': { color: '#6366F1', bgcolor: alpha('#6366F1', 0.1) } }}>
+                                    <Send size={18} strokeWidth={1.5} />
                                 </IconButton>
                             </Tooltip>
                         </Stack>
@@ -1019,9 +1013,9 @@ export function PostViewClient() {
                 </Card>
 
                 {user && (
-                    <Box id="reply-box" sx={{ mt: 3, p: 2, bgcolor: '#161412', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <Box id="reply-box" sx={{ mt: 2, p: 1.5, bgcolor: '#161412', borderRadius: '18px', border: '1px solid rgba(255,255,255,0.05)' }}>
                         <Stack direction="row" spacing={2}>
-                            <Avatar src={userAvatarUrl || undefined} sx={{ width: 40, height: 40, borderRadius: '10px' }}>
+                            <Avatar src={userAvatarUrl || undefined} sx={{ width: 30, height: 30, borderRadius: '8px' }}>
                                 {user.name?.charAt(0)}
                             </Avatar>
                             <TextField
@@ -1034,20 +1028,21 @@ export function PostViewClient() {
                                 onChange={(e) => setReplyContent(e.target.value)}
                                 InputProps={{
                                     disableUnderline: true,
-                                    sx: { color: 'white', py: 1, fontSize: '1.1rem' },
+                                    sx: { color: 'white', py: 0.5, fontSize: '0.92rem' },
                                     endAdornment: (
                                         <InputAdornment position="end">
                                             <IconButton 
                                                 onClick={handleReply}
                                                 disabled={!replyContent.trim() || replying}
                                                 sx={{ 
+                                                    p: 0.8,
                                                     bgcolor: '#F59E0B', 
                                                     color: 'black',
                                                     '&:hover': { bgcolor: alpha('#F59E0B', 0.8) },
                                                     '&.Mui-disabled': { bgcolor: 'rgba(245, 158, 11, 0.2)', color: 'rgba(0,0,0,0.3)' }
                                                 }}
                                             >
-                                                {replying ? <CircularProgress size={20} color="inherit" /> : <Send size={18} />}
+                                                {replying ? <CircularProgress size={16} color="inherit" /> : <Send size={16} />}
                                             </IconButton>
                                         </InputAdornment>
                                     )
@@ -1148,34 +1143,34 @@ export function PostViewClient() {
                             >
                                 <Avatar 
                                     src={reply.creator?.avatar} 
-                                    sx={{ width: 42, height: 42, borderRadius: '12px', bgcolor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.05)' }}
+                                    sx={{ width: 30, height: 30, borderRadius: '8px', bgcolor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.05)' }}
                                 >
                                     {rCreatorName.replace(/^@/, '').charAt(0).toUpperCase()}
                                 </Avatar>
                                 <Box sx={{ flex: 1 }}>
                                     <Stack direction="row" spacing={1} alignItems="center">
-                                        <Typography sx={{ fontWeight: 800, fontSize: '0.95rem', color: 'white' }}>{rCreatorName}</Typography>
-                                        <Typography variant="caption" sx={{ opacity: 0.3, fontFamily: 'var(--font-mono)' }}>{rResolvedCreator.handle}</Typography>
-                                        <Typography variant="caption" sx={{ opacity: 0.3 }}>· {format(new Date(reply.$createdAt), 'MMM d')}</Typography>
+                                        <Typography sx={{ fontWeight: 800, fontSize: '0.8rem', color: 'white' }}>{rCreatorName}</Typography>
+                                        <Typography variant="caption" sx={{ opacity: 0.3, fontFamily: 'var(--font-mono)', fontSize: '0.64rem' }}>{rResolvedCreator.handle}</Typography>
+                                        <Typography variant="caption" sx={{ opacity: 0.3, fontSize: '0.64rem' }}>· {format(new Date(reply.$createdAt), 'MMM d')}</Typography>
                                     </Stack>
                                     <FormattedText 
                                         text={reply.caption}
                                         variant="body1"
-                                        sx={{ mt: 0.8, color: 'rgba(255,255,255,0.85)', fontSize: '1rem', lineHeight: 1.6 }}
+                                        sx={{ mt: 0.5, color: 'rgba(255,255,255,0.85)', fontSize: '0.86rem', lineHeight: 1.45 }}
                                     />
                                     
-                                    <Stack direction="row" spacing={4} sx={{ mt: 2, color: 'rgba(255,255,255,0.3)' }}>
+                                    <Stack direction="row" spacing={2} sx={{ mt: 1.25, color: 'rgba(255,255,255,0.3)' }}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
                                             <IconButton size="small" sx={{ p: 0.5, '&:hover': { color: '#6366F1', bgcolor: alpha('#6366F1', 0.1) } }}>
-                                                <MessageCircle size={18} strokeWidth={1.5} />
+                                                <MessageCircle size={14} strokeWidth={1.5} />
                                             </IconButton>
-                                            <Typography variant="caption" sx={{ fontWeight: 700 }}>{reply.stats?.replies || 0}</Typography>
+                                            <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.62rem' }}>{reply.stats?.replies || 0}</Typography>
                                         </Box>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
                                             <IconButton size="small" sx={{ p: 0.5, '&:hover': { color: '#10B981', bgcolor: alpha('#10B981', 0.1) } }}>
-                                                <Repeat2 size={18} strokeWidth={1.5} />
+                                                <Repeat2 size={14} strokeWidth={1.5} />
                                             </IconButton>
-                                            <Typography variant="caption" sx={{ fontWeight: 700 }}>{reply.stats?.pulses || 0}</Typography>
+                                            <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.62rem' }}>{reply.stats?.pulses || 0}</Typography>
                                         </Box>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
                                             <IconButton 
@@ -1190,9 +1185,9 @@ export function PostViewClient() {
                                                     '&:hover': { color: '#F59E0B', bgcolor: alpha('#F59E0B', 0.1) } 
                                                 }}
                                             >
-                                                <Heart size={18} fill={reply.isLiked ? '#F59E0B' : 'none'} strokeWidth={1.5} />
+                                                <Heart size={14} fill={reply.isLiked ? '#F59E0B' : 'none'} strokeWidth={1.5} />
                                             </IconButton>
-                                            <Typography variant="caption" sx={{ fontWeight: 700 }}>{reply.stats?.likes || 0}</Typography>
+                                            <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.62rem' }}>{reply.stats?.likes || 0}</Typography>
                                         </Box>
                                     </Stack>
                                 </Box>
