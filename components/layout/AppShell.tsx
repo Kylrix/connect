@@ -115,8 +115,8 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
     }
 
     return (
-        <Box sx={{ display: 'flex', height: '100dvh', minHeight: '100dvh', overflow: 'hidden', bgcolor: '#0A0908' }}>
-                <AppHeader />
+            <Box sx={{ display: 'flex', height: '100dvh', minHeight: '100dvh', overflow: 'hidden', bgcolor: '#0A0908' }}>
+                {!isChatActive && <AppHeader />}
                 <ProfileSetupDrawer />
 
             {/* Desktop Sidebar */}
@@ -130,8 +130,8 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
                         [`& .MuiDrawer-paper`]: { 
                             width: drawerWidth, 
                             boxSizing: 'border-box', 
-                            top: 72, 
-                            height: 'calc(100% - 72px)',
+                            top: isChatActive ? 0 : 72, 
+                            height: isChatActive ? '100%' : 'calc(100% - 72px)',
                             bgcolor: '#0A0908',
                             borderRight: '1px solid',
                             borderColor: 'rgba(255, 255, 255, 0.05)'
@@ -216,7 +216,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
                     height: '100%', 
                     overflow: 'hidden', 
                     position: 'relative', 
-                    pt: '72px',
+                    pt: isChatActive ? 0 : '72px',
                     bgcolor: '#0A0908',
                     transition: 'all 0.3s ease-in-out'
                 }}
