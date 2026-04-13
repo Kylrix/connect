@@ -407,6 +407,153 @@ const ThreadPostView = ({
     </Box>
 );
 
+const QuoteMomentView = ({
+    name,
+    handle,
+    timeLabel,
+    caption,
+    avatarSrc,
+    avatarLabel,
+    quotedAvatarSrc,
+    quotedCaption,
+    quotedName,
+    quotedHandle,
+    stats,
+    onClick,
+    onLike,
+    onPulse,
+    liked,
+}: {
+    name: string;
+    handle: string;
+    timeLabel: string;
+    caption: string;
+    avatarSrc?: string | null;
+    avatarLabel: string;
+    quotedAvatarSrc?: string | null;
+    quotedCaption: string;
+    quotedName: string;
+    quotedHandle: string;
+    stats: { replies?: number; pulses?: number; likes?: number; views?: number };
+    onClick?: () => void;
+    onLike?: (event: React.MouseEvent) => void;
+    onPulse?: (event: React.MouseEvent) => void;
+    liked?: boolean;
+}) => (
+    <Box
+        component="article"
+        onClick={onClick}
+        sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1.5,
+            px: 2,
+            py: 1.5,
+            position: 'relative',
+            cursor: onClick ? 'pointer' : 'default',
+            bgcolor: '#161412',
+            border: '1px solid rgba(255,255,255,0.05)',
+            borderRadius: '20px',
+            boxShadow: '0 14px 36px rgba(0, 0, 0, 0.18)',
+            overflow: 'hidden',
+            '&:hover': onClick ? { bgcolor: '#1C1A18' } : undefined,
+        }}
+    >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
+            <Avatar
+                src={avatarSrc || undefined}
+                sx={{
+                    width: 42,
+                    height: 42,
+                    bgcolor: 'rgba(255,255,255,0.05)',
+                    color: '#fff',
+                    fontWeight: 800,
+                    fontSize: '0.95rem',
+                    borderRadius: '14px',
+                    flexShrink: 0,
+                }}
+            >
+                {avatarLabel}
+            </Avatar>
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                    <Typography sx={{ fontWeight: 800, color: 'text.primary', fontSize: '0.95rem', lineHeight: 1.2 }}>
+                        {name}
+                    </Typography>
+                    <Typography sx={{ color: 'text.secondary', fontSize: '0.93rem', lineHeight: 1.2 }}>
+                        {handle}
+                    </Typography>
+                    <Typography sx={{ color: 'text.secondary', fontSize: '0.93rem', lineHeight: 1.2 }}>
+                        ·
+                    </Typography>
+                    <Typography sx={{ color: 'text.secondary', fontSize: '0.93rem', lineHeight: 1.2 }}>
+                        {timeLabel}
+                    </Typography>
+                </Box>
+            </Box>
+        </Box>
+
+        <Paper
+            sx={{
+                p: 1.5,
+                borderRadius: '16px',
+                bgcolor: 'rgba(255,255,255,0.01)',
+                border: '1px solid rgba(255,255,255,0.05)',
+            }}
+        >
+            <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 1.25 }}>
+                <Avatar src={quotedAvatarSrc || undefined} sx={{ width: 20, height: 20, borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }} />
+                <Typography sx={{ fontWeight: 900, fontSize: '0.8rem', color: 'rgba(255,255,255,0.8)' }}>{quotedName}</Typography>
+                <Typography variant="caption" sx={{ opacity: 0.3, fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>{quotedHandle}</Typography>
+            </Stack>
+            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.72)', lineHeight: 1.45, fontSize: '0.84rem' }}>
+                {quotedCaption}
+            </Typography>
+        </Paper>
+
+        {caption && caption.trim() !== '' && (
+            <FormattedText
+                text={caption}
+                variant="body1"
+                sx={{
+                    color: 'text.primary',
+                    fontSize: '0.94rem',
+                    lineHeight: 1.5,
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                }}
+            />
+        )}
+
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', maxWidth: 425, color: 'text.secondary', fontSize: '0.8rem' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <IconButton size="small" sx={{ p: 0.35, color: '#536471' }}>
+                    <MessageCircle size={16} strokeWidth={1.8} />
+                </IconButton>
+                <Typography sx={{ fontSize: '0.8rem', color: '#536471' }}>{stats.replies || 0}</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <IconButton size="small" onClick={onPulse} sx={{ p: 0.35, color: '#10B981' }}>
+                    <Repeat2 size={16} strokeWidth={1.8} />
+                </IconButton>
+                <Typography sx={{ fontSize: '0.8rem', color: '#10B981' }}>{stats.pulses || 0}</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <IconButton size="small" onClick={onLike} sx={{ p: 0.35, color: liked ? '#F59E0B' : '#536471' }}>
+                    <Heart size={16} fill={liked ? '#F59E0B' : 'none'} strokeWidth={1.8} />
+                </IconButton>
+                <Typography sx={{ fontSize: '0.8rem', color: liked ? '#F59E0B' : '#536471' }}>{stats.likes || 0}</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <IconButton size="small" sx={{ p: 0.35, color: '#536471' }}>
+                    <BarChart3 size={16} strokeWidth={1.8} />
+                </IconButton>
+                <Typography sx={{ fontSize: '0.8rem', color: '#536471' }}>{stats.views || 0}</Typography>
+            </Box>
+        </Box>
+    </Box>
+);
+
 const estimateCardHeight = (ctx: CanvasRenderingContext2D, moment: any, width: number) => {
     const textWidth = width - 72;
     const caption = wrapLines(ctx, String(moment?.caption || ''), textWidth);
@@ -989,7 +1136,11 @@ export function PostViewClient() {
     const resolvedCreator = resolveIdentity(moment.creator || cachedCreator, creatorId);
     const creatorName = isOwnPost ? (user?.name || 'You') : resolvedCreator.displayName;
     const creatorAvatar = isOwnPost ? userAvatarUrl : (moment.creator?.avatar || cachedCreator?.avatar);
-    const currentHasPrev = showAncestors || Boolean(moment.metadata?.sourceId);
+    const isQuoteMoment = moment.metadata?.type === 'quote' && Boolean(moment.sourceMoment);
+    const quotedIdentity = isQuoteMoment
+        ? resolveIdentity(moment.sourceMoment.creator, moment.sourceMoment.userId || moment.sourceMoment.creatorId)
+        : null;
+    const currentHasPrev = showAncestors || (Boolean(moment.metadata?.sourceId) && !isQuoteMoment);
     const currentThreadLineMode: ThreadPostViewProps['threadLineMode'] = currentHasPrev ? 'up' : 'none';
     const handleBackToFeed = useCallback(() => {
         router.push('/');
@@ -1147,31 +1298,58 @@ export function PostViewClient() {
                             );
                         })}
 
-                        <ThreadPostView
-                            name={creatorName}
-                            handle={resolvedCreator.handle}
-                            timeLabel={format(new Date(moment.$createdAt), 'h:mm a')}
-                            caption={moment.caption}
-                            avatarSrc={creatorAvatar}
-                            avatarLabel={creatorName.replace(/^@/, '').charAt(0).toUpperCase()}
-                            replyingTo={moment.metadata?.sourceId && moment.sourceMoment
-                                ? `@${resolveIdentity(moment.sourceMoment.creator, moment.sourceMoment.userId || moment.sourceMoment.creatorId).handle?.replace(/^@/, '') || ''}`
-                                : null}
-                            stats={{
-                                replies: moment.stats?.replies || 0,
-                                pulses: moment.stats?.pulses || 0,
-                                likes: moment.stats?.likes || 0,
-                                views: moment.stats?.views || 0,
-                            }}
-                            threadLineMode={currentThreadLineMode}
-                            variant="thread"
-                            onLike={(e) => { e.stopPropagation(); handleToggleLike(); }}
-                            onPulse={(e) => {
-                                e.stopPropagation();
-                                setPulseMenuAnchorEl(e.currentTarget as HTMLElement);
-                            }}
-                            liked={moment.isLiked}
-                        />
+                        {isQuoteMoment && quotedIdentity ? (
+                            <QuoteMomentView
+                                name={creatorName}
+                                handle={resolvedCreator.handle}
+                                timeLabel={format(new Date(moment.$createdAt), 'h:mm a')}
+                                caption={moment.caption}
+                                avatarSrc={creatorAvatar}
+                                avatarLabel={creatorName.replace(/^@/, '').charAt(0).toUpperCase()}
+                                quotedAvatarSrc={moment.sourceMoment.creator?.avatar}
+                                quotedCaption={moment.sourceMoment.caption}
+                                quotedName={quotedIdentity.displayName}
+                                quotedHandle={quotedIdentity.handle}
+                                stats={{
+                                    replies: moment.stats?.replies || 0,
+                                    pulses: moment.stats?.pulses || 0,
+                                    likes: moment.stats?.likes || 0,
+                                    views: moment.stats?.views || 0,
+                                }}
+                                onLike={(e) => { e.stopPropagation(); handleToggleLike(); }}
+                                onPulse={(e) => {
+                                    e.stopPropagation();
+                                    setPulseMenuAnchorEl(e.currentTarget as HTMLElement);
+                                }}
+                                liked={moment.isLiked}
+                            />
+                        ) : (
+                            <ThreadPostView
+                                name={creatorName}
+                                handle={resolvedCreator.handle}
+                                timeLabel={format(new Date(moment.$createdAt), 'h:mm a')}
+                                caption={moment.caption}
+                                avatarSrc={creatorAvatar}
+                                avatarLabel={creatorName.replace(/^@/, '').charAt(0).toUpperCase()}
+                                replyingTo={moment.metadata?.sourceId && moment.sourceMoment
+                                    ? `@${resolveIdentity(moment.sourceMoment.creator, moment.sourceMoment.userId || moment.sourceMoment.creatorId).handle?.replace(/^@/, '') || ''}`
+                                    : null}
+                                stats={{
+                                    replies: moment.stats?.replies || 0,
+                                    pulses: moment.stats?.pulses || 0,
+                                    likes: moment.stats?.likes || 0,
+                                    views: moment.stats?.views || 0,
+                                }}
+                                threadLineMode={currentThreadLineMode}
+                                variant="thread"
+                                onLike={(e) => { e.stopPropagation(); handleToggleLike(); }}
+                                onPulse={(e) => {
+                                    e.stopPropagation();
+                                    setPulseMenuAnchorEl(e.currentTarget as HTMLElement);
+                                }}
+                                liked={moment.isLiked}
+                            />
+                        )}
                     </Box>
                 ) : null}
 

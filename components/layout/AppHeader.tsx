@@ -22,7 +22,6 @@ import {
   Settings,
   LogOut,
   User,
-  LayoutGrid,
   Sparkles,
   Bell,
   CheckCircle,
@@ -40,7 +39,7 @@ import { useNotifications } from '@/components/providers/NotificationProvider';
 import { getUserProfilePicId } from '@/lib/user-utils';
 import { fetchProfilePreview, getCachedProfilePreview } from '@/lib/profile-preview';
 import { IdentityAvatar, IdentityName, computeIdentityFlags } from '../common/IdentityBadge';
-import Logo from '../common/Logo';
+import Logo, { type KylrixApp } from '../common/Logo';
 import { WalletSidebar } from '../overlays/WalletSidebar';
 import { ECOSYSTEM_APPS, getEcosystemUrl } from '@/lib/constants';
 import { UsersService } from '@/lib/services/users';
@@ -420,30 +419,6 @@ export const AppHeader = () => {
             </IconButton>
           </Tooltip>
 
-          {!isCompact && (
-            <Tooltip title="Ecosystem switcher">
-              <IconButton 
-                onClick={(e) => setAnchorElEcosystem(e.currentTarget)}
-                sx={{ 
-                  color: '#6366F1',
-                  bgcolor: alpha('#6366F1', 0.05),
-                  border: '1px solid',
-                  borderColor: alpha('#6366F1', 0.1),
-                  borderRadius: '12px',
-                  width: { xs: 36, sm: 42 },
-                  height: { xs: 36, sm: 42 },
-                  '&:hover': { 
-                    bgcolor: alpha('#6366F1', 0.1), 
-                    borderColor: '#6366F1',
-                    boxShadow: '0 0 15px rgba(99, 102, 241, 0.3)' 
-                  }
-                }}
-              >
-                <LayoutGrid size={20} strokeWidth={1.5} />
-              </IconButton>
-            </Tooltip>
-          )}
-
           {user ? (
             <IconButton 
               onClick={(e) => setAnchorElAccount(e.currentTarget)}
@@ -692,7 +667,6 @@ export const AppHeader = () => {
           transformOrigin={{ vertical: 'top', horizontal: 'left' }}
           PaperProps={{
             sx: {
-              mt: 0,
               width: 320,
               overflow: 'hidden',
               borderRadius: '0 0 22px 22px',
@@ -708,7 +682,7 @@ export const AppHeader = () => {
           <Box sx={{ px: 2, py: 1.5, bgcolor: '#161412' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mb: 1.25 }}>
               <Box sx={{ width: 28, height: 28, borderRadius: '10px', bgcolor: alpha(currentApp?.color || '#6366F1', 0.15), display: 'grid', placeItems: 'center', border: `1px solid ${alpha(currentApp?.color || '#6366F1', 0.2)}` }}>
-                <Logo app={currentApp?.id as any} size={18} variant="icon" />
+                <Logo app={currentApp?.id as KylrixApp} size={18} variant="icon" />
               </Box>
               <Box>
                 <Typography sx={{ fontWeight: 900, fontSize: '0.82rem', lineHeight: 1.1 }}>
@@ -752,7 +726,7 @@ export const AppHeader = () => {
                     }}
                   >
                     <Box sx={{ width: 34, height: 34, borderRadius: '12px', bgcolor: alpha(app.color, 0.15), display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                      <Logo app={app.id as any} size={20} variant="icon" />
+                      <Logo app={app.id as KylrixApp} size={20} variant="icon" />
                     </Box>
                     <Box sx={{ minWidth: 0, flex: 1 }}>
                       <Typography sx={{ fontWeight: 800, fontSize: '0.82rem', lineHeight: 1.1 }}>
