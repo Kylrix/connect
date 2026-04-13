@@ -13,6 +13,7 @@ import {
     IconButton,
     Button,
     CircularProgress,
+    Fab,
     alpha,
     Stack,
     Drawer,
@@ -35,6 +36,8 @@ import {
     Image as ImageIcon,
     Download,
     BarChart3,
+    SlidersHorizontal,
+    ArrowDownWideNarrow,
 } from 'lucide-react';
 import { fetchProfilePreview } from '@/lib/profile-preview';
 import { getUserProfilePicId } from '@/lib/user-utils';
@@ -599,6 +602,7 @@ export function PostViewClient() {
     const [replyContent, setReplyContent] = useState('');
     const [pulseMenuAnchorEl, setPulseMenuAnchorEl] = useState<null | HTMLElement>(null);
     const [shareDrawerOpen, setShareDrawerOpen] = useState(false);
+    const [replyDrawerOpen, setReplyDrawerOpen] = useState(false);
     const [exportingImage, setExportingImage] = useState(false);
     const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
     const [threadAncestors, setThreadAncestors] = useState<any[]>([]);
@@ -897,6 +901,7 @@ export function PostViewClient() {
             setReplyContent('');
             toast.success('Reply posted!');
             loadMoment(); // Refresh replies
+            setReplyDrawerOpen(false);
         } catch (e) {
             console.error('Failed to post reply:', e);
             toast.error('Failed to post reply');
@@ -965,10 +970,7 @@ export function PostViewClient() {
     const creatorName = isOwnPost ? (user?.name || 'You') : resolvedCreator.displayName;
     const creatorAvatar = isOwnPost ? userAvatarUrl : (moment.creator?.avatar || cachedCreator?.avatar);
     const currentHasPrev = showAncestors || Boolean(moment.metadata?.sourceId);
-    const currentHasNext = replies.length > 0;
-    const currentThreadLineMode: ThreadPostViewProps['threadLineMode'] = currentHasPrev
-        ? (currentHasNext ? 'both' : 'up')
-        : (currentHasNext ? 'down' : 'none');
+    const currentThreadLineMode: ThreadPostViewProps['threadLineMode'] = currentHasPrev ? 'up' : 'none';
 
     return (
         <AppShell>
@@ -1118,6 +1120,87 @@ export function PostViewClient() {
                     liked={moment.isLiked}
                 />
 
+                <Box sx={{ borderTop: '1px solid rgba(255,255,255,0.08)', mt: 1.5 }} />
+
+                <Box id="comments-section" sx={{ pt: 1.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, mb: 1 }}>
+                        <Typography sx={{ fontWeight: 900, fontSize: '0.9rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'text.secondary' }}>
+                            Comments
+                        </Typography>
+                        <Stack direction="row" spacing={0.5}>
+                            <IconButton size="small" sx={{ color: 'text.secondary' }}>
+                                <ArrowDownWideNarrow size={17} />
+                            </IconButton>
+                            <IconButton size="small" sx={{ color: 'text.secondary' }}>
+                                <SlidersHorizontal size={17} />
+                            </IconButton>
+                        </Stack>
+                    </Box>
+                    {replies.length === 0 ? (
+                        <Box sx={{ py: 4, px: 2, textAlign: 'center' }}>
+                            <Box
+                                sx={{
+                                    width: 52,
+                                    height: 52,
+                                    borderRadius: '18px',
+                                    display: 'grid',
+                                    placeItems: 'center',
+                                    mx: 'auto',
+                                    mb: 1.5,
+                                    bgcolor: 'rgba(255,255,255,0.04)',
+                                    color: 'rgba(255,255,255,0.8)',
+                                    border: '1px solid rgba(255,255,255,0.06)',
+                                }}
+                            >
+                                <MessageCircle size={22} />
+                            </Box>
+                            <Typography sx={{ fontWeight: 800, color: 'text.primary' }}>
+                                No comments yet
+                            </Typography>
+                            <Typography sx={{ color: 'text.secondary', fontSize: '0.92rem', mt: 0.5 }}>
+                                Be the first to comment.
+                            </Typography>
+                        </Box>
+                    ) : (
+                        <Box sx={{ mt: 0.5 }}>
+                            {replies.map((reply, index) => {
+                                const rCreatorId = reply.userId || reply.creatorId;
+                                const rResolvedCreator = resolveIdentity(reply.creator, rCreatorId);
+                                const rCreatorName = rResolvedCreator.displayName;
+                                return (
+                                    <ThreadPostView
+                                        key={reply.$id}
+                                        name={rCreatorName}
+                                        handle={rResolvedCreator.handle}
+                                        timeLabel={format(new Date(reply.$createdAt), 'h:mm a')}
+                                        caption={reply.caption}
+                                        avatarSrc={reply.creator?.avatar}
+                                        avatarLabel={rCreatorName.replace(/^@/, '').charAt(0).toUpperCase()}
+                                        replyingTo={reply.metadata?.sourceId ? `@${creatorName.replace(/^@/, '')}` : null}
+                                        stats={{
+                                            replies: reply.stats?.replies || 0,
+                                            pulses: reply.stats?.pulses || 0,
+                                            likes: reply.stats?.likes || 0,
+                                            views: reply.stats?.views || 0,
+                                        }}
+                                        threadLineMode={index < replies.length - 1 ? 'both' : 'up'}
+                                        onClick={() => router.push(`/post/${reply.$id}`)}
+                                        onLike={(e) => {
+                                            e.stopPropagation();
+                                            handleToggleLike(reply);
+                                        }}
+                                        onPulse={(e) => {
+                                            e.stopPropagation();
+                                            setPulseMenuAnchorEl(e.currentTarget as HTMLElement);
+                                        }}
+                                        liked={reply.isLiked}
+                                    />
+                                );
+                            })}
+                        </Box>
+                    )}
+                </Box>
+
                 <Menu
                     anchorEl={pulseMenuAnchorEl}
                     open={Boolean(pulseMenuAnchorEl)}
@@ -1147,7 +1230,7 @@ export function PostViewClient() {
                     </MenuItem>
                 </Menu>
 
-                {user && (
+                {user && !isMobile && (
                     <Box id="reply-box" sx={{ mt: 2, p: 1.5, bgcolor: '#161412', borderRadius: '18px', border: '1px solid rgba(255,255,255,0.05)' }}>
                         <Stack direction="row" spacing={2}>
                             <Avatar src={userAvatarUrl || undefined} sx={{ width: 30, height: 30, borderRadius: '8px' }}>
@@ -1185,6 +1268,92 @@ export function PostViewClient() {
                             />
                         </Stack>
                     </Box>
+                )}
+
+                {user && isMobile && (
+                    <>
+                        <Fab
+                            color="primary"
+                            aria-label="comment"
+                            onClick={() => setReplyDrawerOpen(true)}
+                            sx={{
+                                position: 'fixed',
+                                right: 20,
+                                bottom: 'calc(20px + env(safe-area-inset-bottom))',
+                                zIndex: 1400,
+                                bgcolor: '#F59E0B',
+                                color: '#0A0908',
+                                '&:hover': { bgcolor: alpha('#F59E0B', 0.9) },
+                            }}
+                        >
+                            <MessageCircle size={20} />
+                        </Fab>
+
+                        <Drawer
+                            anchor="bottom"
+                            open={replyDrawerOpen}
+                            onClose={() => setReplyDrawerOpen(false)}
+                            PaperProps={{
+                                sx: {
+                                    bgcolor: '#161412',
+                                    borderTopLeftRadius: '28px',
+                                    borderTopRightRadius: '28px',
+                                    border: '1px solid rgba(255,255,255,0.06)',
+                                    backgroundImage: 'none',
+                                    maxWidth: 720,
+                                    mx: 'auto',
+                                    width: '100%',
+                                    pb: 'env(safe-area-inset-bottom)',
+                                }
+                            }}
+                        >
+                            <Box sx={{ px: 2, pt: 1.5, pb: 2 }}>
+                                <Box sx={{ width: 44, height: 4, borderRadius: 999, bgcolor: 'rgba(255,255,255,0.14)', mx: 'auto', mb: 2 }} />
+                                <Typography variant="subtitle1" sx={{ fontWeight: 900, fontFamily: 'var(--font-clash)', mb: 0.5 }}>
+                                    Comment
+                                </Typography>
+                                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+                                    Add your reply below.
+                                </Typography>
+
+                                <Stack direction="row" spacing={2}>
+                                    <Avatar src={userAvatarUrl || undefined} sx={{ width: 30, height: 30, borderRadius: '8px' }}>
+                                        {user.name?.charAt(0)}
+                                    </Avatar>
+                                    <TextField
+                                        fullWidth
+                                        placeholder="Write a comment"
+                                        variant="standard"
+                                        multiline
+                                        maxRows={10}
+                                        value={replyContent}
+                                        onChange={(e) => setReplyContent(e.target.value)}
+                                        InputProps={{
+                                            disableUnderline: true,
+                                            sx: { color: 'white', py: 0.5, fontSize: '0.92rem' },
+                                            endAdornment: (
+                                                <InputAdornment position="end">
+                                                    <IconButton
+                                                        onClick={handleReply}
+                                                        disabled={!replyContent.trim() || replying}
+                                                        sx={{
+                                                            p: 0.8,
+                                                            bgcolor: '#F59E0B',
+                                                            color: 'black',
+                                                            '&:hover': { bgcolor: alpha('#F59E0B', 0.8) },
+                                                            '&.Mui-disabled': { bgcolor: 'rgba(245, 158, 11, 0.2)', color: 'rgba(0,0,0,0.3)' }
+                                                        }}
+                                                    >
+                                                        {replying ? <CircularProgress size={16} color="inherit" /> : <Send size={16} />}
+                                                    </IconButton>
+                                                </InputAdornment>
+                                            )
+                                        }}
+                                    />
+                                </Stack>
+                            </Box>
+                        </Drawer>
+                    </>
                 )}
 
                 <Drawer
@@ -1257,42 +1426,7 @@ export function PostViewClient() {
                     </Box>
                 </Drawer>
 
-                <Box sx={{ mt: 0.5 }}>
-                    {replies.map((reply, index) => {
-                        const rCreatorId = reply.userId || reply.creatorId;
-                        const rResolvedCreator = resolveIdentity(reply.creator, rCreatorId);
-                        const rCreatorName = rResolvedCreator.displayName;
-                        return (
-                            <ThreadPostView
-                                key={reply.$id}
-                                name={rCreatorName}
-                                handle={rResolvedCreator.handle}
-                                timeLabel={format(new Date(reply.$createdAt), 'h:mm a')}
-                                caption={reply.caption}
-                                avatarSrc={reply.creator?.avatar}
-                                avatarLabel={rCreatorName.replace(/^@/, '').charAt(0).toUpperCase()}
-                                replyingTo={reply.metadata?.sourceId ? `@${creatorName.replace(/^@/, '')}` : null}
-                                stats={{
-                                    replies: reply.stats?.replies || 0,
-                                    pulses: reply.stats?.pulses || 0,
-                                    likes: reply.stats?.likes || 0,
-                                    views: reply.stats?.views || 0,
-                                }}
-                                threadLineMode={index < replies.length - 1 ? 'both' : 'up'}
-                                onClick={() => router.push(`/post/${reply.$id}`)}
-                                onLike={(e) => {
-                                    e.stopPropagation();
-                                    handleToggleLike(reply);
-                                }}
-                                onPulse={(e) => {
-                                    e.stopPropagation();
-                                    setPulseMenuAnchorEl(e.currentTarget as HTMLElement);
-                                }}
-                                liked={reply.isLiked}
-                            />
-                        );
-                    })}
-                </Box>
+                {user && !isMobile && <Box sx={{ mt: 0.5 }} />}
                 <ActorsListDrawer
                     open={actorsDrawerOpen}
                     onClose={() => setActorsDrawerOpen(false)}
