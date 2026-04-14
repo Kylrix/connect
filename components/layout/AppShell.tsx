@@ -229,11 +229,11 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
                       height: '100%', 
                        p: (isInsideChat || isPostActive) ? 0 : { xs: 2, md: 3 },
                        pb: isFullscreenContent ? 0 : { xs: 10, md: 3 },
-                       overflowY: (isInsideChat || isPostActive) ? 'auto' : 'auto',
-                       overscrollBehaviorY: isPostActive ? 'contain' : 'auto',
-                       maxWidth: isExternalProfile ? '1200px' : 'auto',
-                       mx: isExternalProfile ? 'auto' : 'unset'
-                  }}>
+                        overflowY: (isInsideChat || isPostActive) ? 'hidden' : 'auto',
+                        overscrollBehaviorY: isPostActive ? 'contain' : 'auto',
+                        maxWidth: isExternalProfile ? '1200px' : 'auto',
+                        mx: isExternalProfile ? 'auto' : 'unset'
+                   }}>
 
                     <Paper
                         elevation={0}

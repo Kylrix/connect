@@ -19,6 +19,7 @@ import {
     CircularProgress,
     Skeleton,
     alpha,
+    IconButton,
     Badge,
     ListItemAvatar,
     Divider,
@@ -29,6 +30,7 @@ import PersonIcon from '@mui/icons-material/PersonOutlined';
 import BookmarkIcon from '@mui/icons-material/BookmarkOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import LockIcon from '@mui/icons-material/LockOutlined';
+import ArrowLeftIcon from '@mui/icons-material/ArrowBack';
 import { fetchProfilePreview } from '@/lib/profile-preview';
 import { seedIdentityCache } from '@/lib/identity-cache';
 import { ecosystemSecurity } from '@/lib/ecosystem/security';
@@ -584,21 +586,40 @@ export const ChatList = () => {
     const showGlobalResults = searchQuery.length >= 2 && searchResults.length > 0;
 
     return (
-            <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: '#0F0E0D', position: 'relative' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, bgcolor: '#0F0E0D', position: 'relative', overflow: 'hidden' }}>
             <Box sx={{ p: 3, pb: 2 }}>
-                <Typography
-                    variant="h5"
-                    sx={{
-                        fontWeight: 900,
-                        fontFamily: 'var(--font-clash)',
-                        letterSpacing: '-0.02em',
-                        mb: 2,
-                        color: 'text.primary'
-                    }}
-                >
-                    Messages
-                </Typography>
-
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mb: 2 }}>
+                    <IconButton
+                        onClick={() => router.push('/')}
+                        aria-label="Back to menu"
+                        sx={{
+                            width: 40,
+                            height: 40,
+                            bgcolor: '#000000',
+                            color: 'text.primary',
+                            border: '1px solid rgba(255, 255, 255, 0.06)',
+                            boxShadow: '0 0 0 1px rgba(245, 158, 11, 0.05), 0 0 16px rgba(245, 158, 11, 0.08)',
+                            '&:hover': {
+                                bgcolor: '#000000',
+                                borderColor: 'rgba(255, 255, 255, 0.12)',
+                                boxShadow: '0 0 0 1px rgba(245, 158, 11, 0.08), 0 0 22px rgba(245, 158, 11, 0.12)'
+                            }
+                        }}
+                    >
+                        <ArrowLeftIcon fontSize="small" />
+                    </IconButton>
+                    <Typography
+                        variant="h5"
+                        sx={{
+                            fontWeight: 900,
+                            fontFamily: 'var(--font-clash)',
+                            letterSpacing: '-0.02em',
+                            color: 'text.primary'
+                        }}
+                    >
+                        Messages
+                    </Typography>
+                </Box>
                 <Box
                     sx={{
                         display: 'flex',
