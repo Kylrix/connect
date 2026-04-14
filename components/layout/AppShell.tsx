@@ -278,15 +278,14 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
                         borderRadius: '20px 20px 0 0', 
                         overflow: 'hidden',
                         border: '1px solid',
-                        borderColor: 'rgba(255, 255, 255, 0.05)',
-                        bgcolor: 'rgba(22, 20, 18, 0.8)',
-                        backdropFilter: 'blur(20px)',
+                        borderColor: 'rgba(255, 255, 255, 0.06)',
+                        bgcolor: '#000000',
                         zIndex: 1000
                     }} 
                 >
                     <BottomNavigation
                         value={pathname}
-                        sx={{ bgcolor: 'transparent', height: 72, pb: 'env(safe-area-inset-bottom)', px: 1 }}
+                        sx={{ bgcolor: '#000000', height: 72, pb: 'env(safe-area-inset-bottom)', px: 1 }}
                     >
                         {navItems.map((item) => (
                             <BottomNavigationAction

@@ -72,7 +72,6 @@ import { useCachedProfilePreview } from '@/hooks/useCachedProfilePreview';
 import toast from 'react-hot-toast';
 
 const CACHE_KEY = 'kylrix_feed_cache';
-const FEED_CACHE_TTL = 1000 * 60 * 30;
 const profileRegistry = new Map<string, any>();
 const momentCardSx = {
     borderRadius: '20px',
@@ -875,20 +874,17 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
 
         const requestId = ++feedLoadSeqRef.current;
         const cached = feedCacheRef.current[view];
-        const cachedAt = feedCacheAgeRef.current[view] || 0;
-        const cacheFresh = cached && (Date.now() - cachedAt) < FEED_CACHE_TTL;
 
         // Keep the cached view visible while we decide whether to refresh.
         if (cached) {
             momentsRef.current = cached;
             setMoments(cached);
             setLoading(false);
+            return;
         } else {
             setLoading(true);
             momentsRef.current = [];
         }
-
-        if (cacheFresh) return;
         
         try {
             const response = view === 'trending' ? 

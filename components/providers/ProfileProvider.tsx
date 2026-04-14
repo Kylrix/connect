@@ -6,6 +6,7 @@ import { UsersService } from '@/lib/services/users';
 import { useDataNexus } from '@/context/DataNexusContext';
 import { syncCurrentUserVerification } from '@/lib/verification';
 import { ecosystemSecurity } from '@/lib/ecosystem/security';
+import { getCachedIdentityById, seedIdentityCache } from '@/lib/identity-cache';
 
 interface ProfileContextType {
     profile: any | null;
@@ -64,12 +65,17 @@ export const ProfileProvider = ({ children }: { children: React.ReactNode }) => 
         try {
             const setupKey = `${PROFILE_SETUP_KEY}_${user.$id}`;
             const setupComplete = typeof window !== 'undefined' && localStorage.getItem(setupKey) === 'true';
-            const cachedProfile = await fetchOptimized(`profile_${user.$id}`, async () => {
+            const cachedIdentity = getCachedIdentityById(user.$id);
+            const cachedProfile = cachedIdentity || await fetchOptimized(`profile_${user.$id}`, async () => {
                 const fetched = await UsersService.getProfileById(user.$id);
+                if (fetched) seedIdentityCache(fetched);
                 return fetched;
             }, 1000 * 60 * 60);
 
             if (cachedProfile) {
+                if (!cachedIdentity) {
+                    seedIdentityCache(cachedProfile);
+                }
                 setProfile(cachedProfile);
                 if (typeof window !== 'undefined') {
                     localStorage.setItem(setupKey, 'true');

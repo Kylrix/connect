@@ -37,6 +37,15 @@ function persistCache() {
 
 hydrateCache();
 
+async function blobToDataUrl(blob: Blob) {
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('Failed to read blob'));
+    reader.readAsDataURL(blob);
+  });
+}
+
 export async function fetchProfilePreview(fileId?: string | null, width: number = 64, height: number = 64): Promise<string | null> {
   if (!fileId) return null;
 
@@ -49,10 +58,15 @@ export async function fetchProfilePreview(fileId?: string | null, width: number 
   const request = (async () => {
     try {
       const url = await getProfilePicturePreview(fileId, width, height);
-      const str = url as unknown as string | null;
-      previewCache.set(key, str);
+      const response = await fetch(url.toString(), { cache: 'force-cache' });
+      if (!response.ok) {
+        throw new Error(`Preview request failed: ${response.status}`);
+      }
+
+      const dataUrl = await blobToDataUrl(await response.blob());
+      previewCache.set(key, dataUrl);
       persistCache();
-      return str;
+      return dataUrl;
     } catch {
       previewCache.set(key, null);
       persistCache();
