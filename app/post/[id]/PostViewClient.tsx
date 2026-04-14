@@ -256,6 +256,7 @@ type ThreadPostViewProps = {
     handle: string;
     timeLabel: string;
     caption: string;
+    attachments?: { type: string; id: string }[];
     avatarSrc?: string | null;
     avatarLabel: string;
     replyingTo?: string | null;
@@ -273,6 +274,7 @@ const ThreadPostView = ({
     handle,
     timeLabel,
     caption,
+    attachments,
     avatarSrc,
     avatarLabel,
     replyingTo,
@@ -418,6 +420,7 @@ const QuoteMomentView = ({
     quotedCaption,
     quotedName,
     quotedHandle,
+    attachments,
     stats,
     onClick,
     onLike,
@@ -434,6 +437,7 @@ const QuoteMomentView = ({
     quotedCaption: string;
     quotedName: string;
     quotedHandle: string;
+    attachments?: { type: string; id: string }[];
     stats: { replies?: number; pulses?: number; likes?: number; views?: number };
     onClick?: () => void;
     onLike?: (event: React.MouseEvent) => void;
@@ -504,7 +508,32 @@ const QuoteMomentView = ({
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-word',
                 }}
-            />
+                />
+        )}
+
+        {!!attachments?.length && (
+            <Box sx={{
+                display: 'grid',
+                gap: 1,
+                gridTemplateColumns: attachments.filter((a) => a.type === 'image').length === 1 ? '1fr' : '1fr 1fr',
+                borderRadius: '16px',
+                overflow: 'hidden',
+                border: '1px solid rgba(255,255,255,0.08)',
+                bgcolor: 'rgba(0,0,0,0.2)',
+            }}>
+                {attachments.filter((a) => a.type === 'image').map((att, i) => (
+                    <Box
+                        key={`${att.id}-${i}`}
+                        component="img"
+                        src={SocialService.getMediaPreview(att.id, 800, 600)}
+                        sx={{
+                            width: '100%',
+                            height: attachments.filter((a) => a.type === 'image').length === 1 ? 300 : 180,
+                            objectFit: 'cover',
+                        }}
+                    />
+                ))}
+            </Box>
         )}
 
         <Paper
@@ -525,6 +554,31 @@ const QuoteMomentView = ({
                 {quotedCaption}
             </Typography>
         </Paper>
+
+        {!!attachments?.length && (
+            <Box sx={{
+                display: 'grid',
+                gap: 1,
+                gridTemplateColumns: attachments.filter((a) => a.type === 'image').length === 1 ? '1fr' : '1fr 1fr',
+                borderRadius: '16px',
+                overflow: 'hidden',
+                border: '1px solid rgba(255,255,255,0.08)',
+                bgcolor: 'rgba(0,0,0,0.2)',
+            }}>
+                {attachments.filter((a) => a.type === 'image').map((att, i) => (
+                    <Box
+                        key={`${att.id}-${i}`}
+                        component="img"
+                        src={SocialService.getMediaPreview(att.id, 800, 600)}
+                        sx={{
+                            width: '100%',
+                            height: attachments.filter((a) => a.type === 'image').length === 1 ? 300 : 180,
+                            objectFit: 'cover',
+                        }}
+                    />
+                ))}
+            </Box>
+        )}
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', maxWidth: 425, color: 'text.secondary', fontSize: '0.8rem' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
@@ -1298,6 +1352,7 @@ export function PostViewClient() {
                                     handle={resolvedAncestor.handle}
                                     timeLabel={formatPostTimestamp(ancestor.$createdAt, ancestor.$updatedAt)}
                                     caption={ancestor.caption}
+                                    attachments={ancestor.metadata?.attachments}
                                     avatarSrc={ancestor.creator?.avatar}
                                     avatarLabel={resolvedAncestor.displayName?.charAt(0).toUpperCase()}
                                     stats={{
@@ -1320,13 +1375,14 @@ export function PostViewClient() {
                         })}
 
                         {isQuoteMoment && quotedIdentity ? (
-                            <QuoteMomentView
-                                name={creatorName}
-                                handle={resolvedCreator.handle}
-                                timeLabel={formatPostTimestamp(moment.$createdAt, moment.$updatedAt)}
-                                caption={moment.caption}
-                                avatarSrc={creatorAvatar}
-                                avatarLabel={creatorName.replace(/^@/, '').charAt(0).toUpperCase()}
+                                <QuoteMomentView
+                                    name={creatorName}
+                                    handle={resolvedCreator.handle}
+                                    timeLabel={formatPostTimestamp(moment.$createdAt, moment.$updatedAt)}
+                                    caption={moment.caption}
+                                    attachments={moment.metadata?.attachments}
+                                    avatarSrc={creatorAvatar}
+                                    avatarLabel={creatorName.replace(/^@/, '').charAt(0).toUpperCase()}
                                 quotedAvatarSrc={moment.sourceMoment.creator?.avatar}
                                 quotedCaption={moment.sourceMoment.caption}
                                 quotedName={quotedIdentity.displayName}
@@ -1350,6 +1406,7 @@ export function PostViewClient() {
                                 handle={resolvedCreator.handle}
                                 timeLabel={formatPostTimestamp(moment.$createdAt, moment.$updatedAt)}
                                 caption={moment.caption}
+                                attachments={moment.metadata?.attachments}
                                 avatarSrc={creatorAvatar}
                                 avatarLabel={creatorName.replace(/^@/, '').charAt(0).toUpperCase()}
                                 replyingTo={moment.metadata?.sourceId && moment.sourceMoment

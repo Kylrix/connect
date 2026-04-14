@@ -7,6 +7,7 @@ export type AppChromeMode = 'default' | 'compact' | 'hidden';
 interface AppChromeState {
   mode: AppChromeMode;
   label: string | null;
+  dockHeight: number;
 }
 
 interface AppChromeContextType extends AppChromeState {
@@ -18,23 +19,42 @@ interface AppChromeContextType extends AppChromeState {
 const DEFAULT_STATE: AppChromeState = {
   mode: 'default',
   label: null,
+  dockHeight: 0,
 };
 
 const AppChromeContext = createContext<AppChromeContextType | undefined>(undefined);
 
 export function AppChromeProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppChromeState>(DEFAULT_STATE);
+  const setChromeState = React.useCallback((next: Partial<AppChromeState>) => {
+    setState((current) => {
+      const merged = { ...current, ...next };
+      if (
+        merged.mode === current.mode &&
+        merged.label === current.label &&
+        merged.dockHeight === current.dockHeight
+      ) {
+        return current;
+      }
+      return merged;
+    });
+  }, []);
+
+  const resetChromeState = React.useCallback(() => {
+    setState(DEFAULT_STATE);
+  }, []);
 
   const value = useMemo<AppChromeContextType>(() => {
-    const headerHeight = state.mode === 'compact' ? 72 : state.mode === 'hidden' ? 0 : 88;
+    const baseHeight = state.mode === 'compact' ? 72 : state.mode === 'hidden' ? 0 : 88;
+    const headerHeight = baseHeight + state.dockHeight;
 
     return {
       ...state,
       headerHeight,
-      setChromeState: (next) => setState((current) => ({ ...current, ...next })),
-      resetChromeState: () => setState(DEFAULT_STATE),
+      setChromeState,
+      resetChromeState,
     };
-  }, [state]);
+  }, [resetChromeState, setChromeState, state]);
 
   return <AppChromeContext.Provider value={value}>{children}</AppChromeContext.Provider>;
 }
