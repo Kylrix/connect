@@ -72,7 +72,7 @@ const ActionAvatar = ({ user }: { user: any }) => {
   }, [user.avatar]);
 
   return (
-    <Avatar src={avatarUrl || undefined} sx={{ width: 44, height: 44, bgcolor: alpha('#F59E0B', 0.1), color: '#F59E0B' }}>
+    <Avatar src={avatarUrl || undefined} sx={{ width: 44, height: 44, bgcolor: '#6366F1', color: '#FFFFFF' }}>
       {!avatarUrl && (user.displayName || user.username || '?').charAt(0).toUpperCase()}
     </Avatar>
   );

@@ -63,8 +63,8 @@ const GlobalSearchAvatar = ({ u }: { u: any }) => {
         <Avatar
             src={avatarUrl || undefined}
             sx={{
-                bgcolor: alpha('#F59E0B', 0.1),
-                color: '#F59E0B',
+                bgcolor: '#6366F1',
+                color: '#FFFFFF',
                 border: '1px solid rgba(255, 255, 255, 0.05)',
                 width: 44,
                 height: 44
@@ -761,8 +761,8 @@ export const ChatList = () => {
                                             <Avatar
                                                 src={conv.avatarUrl}
                                                 sx={{
-                                                    bgcolor: '#000000',
-                                                    color: conv.isSelf ? '#6366F1' : '#F59E0B',
+                                                    bgcolor: conv.avatarUrl ? 'transparent' : '#6366F1',
+                                                    color: '#FFFFFF',
                                                     border: '1px solid rgba(255, 255, 255, 0.05)',
                                                     boxShadow: '0 0 0 1px rgba(245, 158, 11, 0.05), 0 0 16px rgba(245, 158, 11, 0.08)',
                                                     width: 44,
