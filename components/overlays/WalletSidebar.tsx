@@ -109,10 +109,10 @@ export const WalletSidebar = ({ isOpen, onClose }: WalletSidebarProps) => {
         }
 
         setLoading(true);
-        setLoadingLabel('Provisioning your T4 wallet mesh...');
+        setLoadingLabel('Loading your wallets...');
 
         try {
-            const readyWallets = await WalletService.ensureMainWallets(user.$id);
+            const readyWallets = await WalletService.listMainWallets(user.$id);
             setWallets(readyWallets);
         } catch (walletError) {
             console.error('[WalletSidebar] Failed to load wallets', walletError);
@@ -121,6 +121,24 @@ export const WalletSidebar = ({ isOpen, onClose }: WalletSidebarProps) => {
             setLoading(false);
         }
     }, [isOpen, user?.$id]);
+
+    const handleProvisionWallets = useCallback(async () => {
+        if (!user?.$id) return;
+
+        setLoading(true);
+        setLoadingLabel('Provisioning your T4 wallet mesh...');
+        setError(null);
+
+        try {
+            const readyWallets = await WalletService.ensureMainWallets(user.$id);
+            setWallets(readyWallets);
+        } catch (walletError) {
+            console.error('[WalletSidebar] Failed to provision wallets', walletError);
+            setError(walletError instanceof Error ? walletError.message : 'Failed to provision wallet');
+        } finally {
+            setLoading(false);
+        }
+    }, [user?.$id]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -801,11 +819,61 @@ export const WalletSidebar = ({ isOpen, onClose }: WalletSidebarProps) => {
                     }}>
                         <CircularProgress sx={{ color: AMBER, mb: 3 }} />
                         <Typography variant="body1" sx={{ fontWeight: 700, mb: 1, fontFamily: 'Satoshi', color: 'white' }}>
-                            Auto-Provisioning Wallets
+                            Loading Wallets
                         </Typography>
                         <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.4)', maxWidth: 280, fontFamily: 'Satoshi' }}>
                             {loadingLabel}
                         </Typography>
+                    </Box>
+                ) : wallets.length === 0 ? (
+                    <Box sx={{
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textAlign: 'center',
+                        px: 2
+                    }}>
+                        <Box sx={{
+                            width: 64,
+                            height: 64,
+                            borderRadius: '20px',
+                            bgcolor: SURFACE,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            mb: 3,
+                            ...rimLight,
+                            color: 'rgba(255, 255, 255, 0.2)'
+                        }}>
+                            <WalletIcon size={32} />
+                        </Box>
+                        <Typography variant="body1" sx={{ fontWeight: 700, mb: 1, fontFamily: 'Satoshi', color: 'white' }}>
+                            Wallets Not Provisioned
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.4)', mb: 4, maxWidth: 280, fontFamily: 'Satoshi' }}>
+                            Your wallet drawer now loads existing wallets only. Provision them explicitly when you are ready.
+                        </Typography>
+                        <Button
+                            variant="contained"
+                            onClick={handleProvisionWallets}
+                            sx={{
+                                bgcolor: AMBER,
+                                color: '#000',
+                                fontWeight: 900,
+                                borderRadius: '14px',
+                                px: 4,
+                                py: 1.5,
+                                textTransform: 'none',
+                                fontFamily: 'Satoshi',
+                                ...rimLight,
+                                '&:hover': { bgcolor: alpha(AMBER, 0.9), transform: 'translateY(-1px)' },
+                                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                            }}
+                        >
+                            Provision Wallets
+                        </Button>
                     </Box>
                 ) : error ? (
                     <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -977,7 +1045,7 @@ export const WalletSidebar = ({ isOpen, onClose }: WalletSidebarProps) => {
                 <Divider sx={{ borderColor: 'rgba(255,255,255,0.05)', my: 2 }} />
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                     <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.15)', fontWeight: 700, fontFamily: 'Satoshi' }}>
-                        Auto-provisioned once unlocked
+                        Loaded on open, provisioned on demand
                     </Typography>
                     <IconButton 
                         size="small" 
