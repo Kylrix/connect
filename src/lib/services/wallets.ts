@@ -1,11 +1,9 @@
 import { ID, Permission, Query, Role } from 'appwrite';
-import { Buffer } from 'buffer';
 import { HDNodeWallet } from 'ethers';
 import * as bip39 from 'bip39';
 import { BIP32Factory } from 'bip32';
 import * as bitcoin from 'bitcoinjs-lib';
 import * as ecc from 'tiny-secp256k1';
-import { derivePath } from 'ed25519-hd-key';
 import { Keypair } from '@solana/web3.js';
 import { Ed25519Keypair as SuiEd25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { tablesDB } from '../appwrite/client';
@@ -148,6 +146,8 @@ const sortWallets = (wallets: any[]) =>
         return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
     });
 
+const bytesToHex = (bytes: Uint8Array) => Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+
 const getRootChain = (chain: SupportedWalletChain): SupportedWalletChain => NETWORKS[chain].aliasOf || chain;
 
 const toWalletSummary = (row: any): WalletSummary => ({
@@ -217,8 +217,11 @@ const deriveAddress = async (
         }
         case 'solana': {
             const seed = bip39.mnemonicToSeedSync(root.mnemonic);
-            const derived = derivePath("m/44'/501'/0'/0'", Buffer.from(seed).toString('hex'));
-            const keypair = Keypair.fromSeed(derived.key.slice(0, 32));
+            const derivedSeed = Uint8Array.from(seed).slice(0, 32);
+            if (derivedSeed.length < 32) {
+                throw new Error('Failed to derive Solana seed');
+            }
+            const keypair = Keypair.fromSeed(derivedSeed);
             address = keypair.publicKey.toBase58();
             break;
         }
@@ -226,7 +229,7 @@ const deriveAddress = async (
             const seed = bip39.mnemonicToSeedSync(root.mnemonic);
             const node = bip32.fromSeed(seed, bitcoin.networks.bitcoin).derivePath("m/84'/0'/0'/0/0");
             const payment = bitcoin.payments.p2wpkh({
-                pubkey: Buffer.from(node.publicKey),
+                pubkey: node.publicKey,
                 network: bitcoin.networks.bitcoin,
             });
 
@@ -499,9 +502,12 @@ export const WalletService = {
             }
             case 'solana': {
                 const seed = bip39.mnemonicToSeedSync(mnemonic);
-                const derived = derivePath("m/44'/501'/0'/0'", Buffer.from(seed).toString('hex'));
-                const keypair = Keypair.fromSeed(derived.key.slice(0, 32));
-                return Buffer.from(keypair.secretKey).toString('hex');
+                const derivedSeed = Uint8Array.from(seed).slice(0, 32);
+                if (derivedSeed.length < 32) {
+                    throw new Error('Failed to derive Solana seed');
+                }
+                const keypair = Keypair.fromSeed(derivedSeed);
+                return bytesToHex(keypair.secretKey);
             }
             case 'bitcoin': {
                 const seed = bip39.mnemonicToSeedSync(mnemonic);
