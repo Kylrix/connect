@@ -102,6 +102,30 @@ patchAccountMethod('updateEmail');
 patchAccountMethod('updatePhone');
 patchAccountMethod('updatePassword');
 
+(account as any).get = async () => {
+    if (currentUserCache && currentUserCache.expiresAt > Date.now()) {
+        return currentUserCache.user;
+    }
+    const persistent = readPersistentCurrentUserCache();
+    if (persistent) {
+        currentUserCache = persistent;
+        return persistent.user;
+    }
+    if (currentUserRequest) return currentUserRequest;
+
+    currentUserRequest = withTimeout(originalAccountGet(), CURRENT_USER_REQUEST_TIMEOUT)
+        .then((user) => setCachedCurrentUser(user))
+        .catch(() => {
+            clearCurrentUserCache();
+            return null;
+        })
+        .finally(() => {
+            currentUserRequest = null;
+        });
+
+    return currentUserRequest;
+};
+
 export function getFilePreview(bucketId: string, fileId: string, width: number = 64, height: number = 64) {
     return storage.getFilePreview(bucketId, fileId, width, height);
 }
@@ -122,8 +146,14 @@ export function invalidateCurrentUserCache(nextValue?: any | null) {
 
 export async function getCurrentUser(forceRefresh = false): Promise<any | null> {
     if (!forceRefresh) {
-        const cached = getCachedCurrentUser();
-        if (cached) return cached;
+        if (currentUserCache && currentUserCache.expiresAt > Date.now()) {
+            return currentUserCache.user;
+        }
+        const persistent = readPersistentCurrentUserCache();
+        if (persistent) {
+            currentUserCache = persistent;
+            return persistent.user;
+        }
         if (currentUserRequest) return currentUserRequest;
     }
 
