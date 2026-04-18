@@ -42,8 +42,7 @@ function RootErrorComponent({ error, info, reset }: ErrorComponentProps) {
           <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>{error.message}</Typography>
           <Box component="pre" sx={{ m: 0, whiteSpace: 'pre-wrap', fontSize: 12, fontFamily: 'monospace', color: 'rgba(255,255,255,0.75)' }}>
             {error.stack}
-            {'
-'}
+            {'\n'}
             {info?.componentStack}
           </Box>
           <Stack direction="row" spacing={1}>
