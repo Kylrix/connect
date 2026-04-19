@@ -16,6 +16,7 @@ import {
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import { UsersService } from '@/lib/services/users';
+import { useAuth } from '@/lib/auth';
 import { account } from '@/lib/appwrite/client';
 import { ecosystemSecurity } from '@/lib/ecosystem/security';
 
@@ -27,6 +28,7 @@ interface EditProfileModalProps {
 }
 
 export const EditProfileModal = ({ open, onClose, profile, onUpdate }: EditProfileModalProps) => {
+    const { user } = useAuth();
     const [username, setUsername] = useState(profile?.username || '');
     const [bio, setBio] = useState(profile?.bio || '');
     const [displayName, setDisplayName] = useState(profile?.displayName || '');
@@ -103,7 +105,7 @@ export const EditProfileModal = ({ open, onClose, profile, onUpdate }: EditProfi
             try {
                 if (displayName || username) {
                     if (displayName) await account.updateName(displayName);
-                    const currentPrefs = await account.getPrefs();
+                    const currentPrefs = user?.prefs || {};
                     await account.updatePrefs({
                         ...currentPrefs,
                         username: username.toLowerCase().trim()

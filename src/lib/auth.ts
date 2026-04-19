@@ -1,16 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Client, Account } from 'appwrite';
-import { APPWRITE_CONFIG } from './appwrite/config';
-import { getCurrentUser, invalidateCurrentUserCache } from './appwrite/client';
-
-// Initialize Appwrite
-const client = new Client()
-    .setEndpoint(APPWRITE_CONFIG.ENDPOINT)
-    .setProject(APPWRITE_CONFIG.PROJECT_ID);
-
-const account = new Account(client);
+import { account, getCurrentUser, invalidateCurrentUserCache } from './appwrite/client';
 
 export function useAuth() {
     const [user, setUser] = useState<any>(null);

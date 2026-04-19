@@ -138,7 +138,7 @@ export const ProfileSetupDrawer = () => {
                     if (displayName.trim()) {
                         await account.updateName(displayName.trim());
                     }
-                    const currentPrefs = await account.getPrefs();
+                    const currentPrefs = user?.prefs || {};
                     await account.updatePrefs({
                         ...currentPrefs,
                         username: nextUsername,
