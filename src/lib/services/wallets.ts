@@ -11,9 +11,11 @@ import { APPWRITE_CONFIG } from '../appwrite/config';
 import { ecosystemSecurity } from '../ecosystem/security';
 import { UsersService } from './users';
 
-bitcoin.initEccLib(ecc);
+const eccLib = (ecc as typeof ecc & { default?: typeof ecc }).default ?? ecc;
 
-const bip32 = BIP32Factory(ecc);
+bitcoin.initEccLib(eccLib);
+
+const bip32 = BIP32Factory(eccLib);
 
 const PASSWORD_MANAGER_DB = APPWRITE_CONFIG.DATABASES.PASSWORD_MANAGER;
 const WALLETS_TABLE = APPWRITE_CONFIG.TABLES.PASSWORD_MANAGER.WALLETS;
