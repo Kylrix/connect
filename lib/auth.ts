@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Client, Account } from 'appwrite';
 import { APPWRITE_CONFIG } from './appwrite/config';
-import { getCurrentUser, invalidateCurrentUserCache } from './appwrite/client';
+import { getCurrentUser, getCurrentUserSnapshot, invalidateCurrentUserCache } from './appwrite/client';
 
 // Initialize Appwrite
 const client = new Client()
@@ -13,8 +13,9 @@ const client = new Client()
 const account = new Account(client);
 
 export function useAuth() {
-    const [user, setUser] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
+    const initialUser = getCurrentUserSnapshot();
+    const [user, setUser] = useState<any>(initialUser);
+    const [loading, setLoading] = useState(!initialUser);
     const [isAuthenticating, setIsAuthenticating] = useState(false);
 
     const attemptSilentAuth = useCallback(async (): Promise<void> => {
@@ -37,7 +38,7 @@ export function useAuth() {
 
                 if (event.data?.type === 'idm:auth-status' && event.data.status === 'authenticated') {
                     console.log('Silent auth discovered session in kylrixconnect');
-                    checkSession();
+                    checkSession(true);
                     cleanup();
                     resolve();
                 } else if (event.data?.type === 'idm:auth-status') {
@@ -60,9 +61,9 @@ export function useAuth() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const checkSession = useCallback(async (retryCount = 0): Promise<void> => {
+    const checkSession = useCallback(async (forceRefresh = false, retryCount = 0): Promise<void> => {
         try {
-            const session = await getCurrentUser();
+            const session = await getCurrentUser(forceRefresh);
             setUser(session);
             setLoading(false);
             
@@ -80,7 +81,7 @@ export function useAuth() {
                 console.log(`Auth signal detected but session not found in connect. Retrying... (${retryCount + 1})`);
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 invalidateCurrentUserCache(undefined);
-                return checkSession(retryCount + 1);
+                return checkSession(true, retryCount + 1);
             }
 
             // Try silent discovery
@@ -88,7 +89,7 @@ export function useAuth() {
             invalidateCurrentUserCache(undefined);
 
             try {
-                const retrySession = await getCurrentUser();
+                const retrySession = await getCurrentUser(true);
                 setUser(retrySession);
             } catch {
                 const err = error as any;
@@ -103,7 +104,7 @@ export function useAuth() {
     }, [attemptSilentAuth]);
 
     useEffect(() => {
-        checkSession();
+        checkSession(true);
     }, [checkSession]);
 
     // Listen for postMessage from IDM window
@@ -115,7 +116,7 @@ export function useAuth() {
             if (event.data?.type === 'idm:auth-success') {
                 console.log('Received auth success via postMessage in kylrixconnect');
                 invalidateCurrentUserCache(undefined);
-                checkSession();
+                checkSession(true);
                 setIsAuthenticating(false);
             }
         };
@@ -132,8 +133,7 @@ export function useAuth() {
 
         // First, check if we already have a session locally
         try {
-            invalidateCurrentUserCache(undefined);
-            const session = await getCurrentUser();
+            const session = await getCurrentUser(true);
             if (session) {
                 console.log('Active session detected in kylrixconnect, skipping IDM window');
                 setUser(session);
@@ -147,8 +147,7 @@ export function useAuth() {
         // Try silent auth before opening popup
         await attemptSilentAuth();
         try {
-            invalidateCurrentUserCache(undefined);
-            const session = await getCurrentUser();
+            const session = await getCurrentUser(true);
             if (session) {
                 setUser(session);
                 setIsAuthenticating(false);

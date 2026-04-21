@@ -13,8 +13,70 @@ export const realtime = new Realtime(client);
 
 export { client };
 
-let currentUserCache: any | null | undefined = undefined;
+type CurrentUserSnapshot = {
+    user: any;
+    expiresAt: number;
+};
+
+let currentUserCache: CurrentUserSnapshot | null | undefined = undefined;
 let currentUserRequest: Promise<any | null> | null = null;
+const CURRENT_USER_CACHE_KEY = 'kylrix_connect_current_user_v1';
+const CURRENT_USER_CACHE_TTL = 1000 * 60 * 5;
+
+function canUseStorage() {
+    return typeof window !== 'undefined';
+}
+
+function readCurrentUserSnapshot(): CurrentUserSnapshot | null {
+    if (!canUseStorage()) return null;
+
+    try {
+        const raw = localStorage.getItem(CURRENT_USER_CACHE_KEY);
+        if (!raw) return null;
+
+        const parsed = JSON.parse(raw) as CurrentUserSnapshot;
+        if (!parsed?.user || typeof parsed.expiresAt !== 'number' || parsed.expiresAt <= Date.now()) {
+            localStorage.removeItem(CURRENT_USER_CACHE_KEY);
+            return null;
+        }
+
+        return parsed;
+    } catch {
+        return null;
+    }
+}
+
+function writeCurrentUserSnapshot(user: any | null) {
+    if (!canUseStorage()) return;
+
+    try {
+        if (!user) {
+            localStorage.removeItem(CURRENT_USER_CACHE_KEY);
+            return;
+        }
+
+        const snapshot: CurrentUserSnapshot = {
+            user,
+            expiresAt: Date.now() + CURRENT_USER_CACHE_TTL,
+        };
+        localStorage.setItem(CURRENT_USER_CACHE_KEY, JSON.stringify(snapshot));
+    } catch {
+        // Best effort only.
+    }
+}
+
+function hydrateCurrentUserCache() {
+    if (currentUserCache !== undefined) return;
+    const snapshot = readCurrentUserSnapshot();
+    if (snapshot) {
+        currentUserCache = snapshot;
+    }
+}
+
+export function getCurrentUserSnapshot() {
+    hydrateCurrentUserCache();
+    return currentUserCache && currentUserCache.expiresAt > Date.now() ? currentUserCache.user : null;
+}
 
 export function getFilePreview(bucketId: string, fileId: string, width: number = 64, height: number = 64) {
     return storage.getFilePreview(bucketId, fileId, width, height);
@@ -27,23 +89,30 @@ export function getProfilePicturePreview(fileId: string, width: number = 64, hei
 // --- USER SESSION ---
 
 export function invalidateCurrentUserCache(nextValue?: any | null) {
-    currentUserCache = nextValue;
+    currentUserCache = nextValue
+        ? { user: nextValue, expiresAt: Date.now() + CURRENT_USER_CACHE_TTL }
+        : null;
+    writeCurrentUserSnapshot(nextValue ?? null);
 }
 
 export async function getCurrentUser(forceRefresh = false): Promise<any | null> {
     try {
+        hydrateCurrentUserCache();
+
         if (!forceRefresh) {
-            if (currentUserCache !== undefined) return currentUserCache;
+            if (currentUserCache && currentUserCache.expiresAt > Date.now()) return currentUserCache.user;
             if (currentUserRequest) return currentUserRequest;
         }
 
         currentUserRequest = account.get()
             .then((user) => {
-                currentUserCache = user;
+                currentUserCache = { user, expiresAt: Date.now() + CURRENT_USER_CACHE_TTL };
+                writeCurrentUserSnapshot(user);
                 return user;
             })
             .catch(() => {
                 currentUserCache = null;
+                writeCurrentUserSnapshot(null);
                 return null;
             })
             .finally(() => {
