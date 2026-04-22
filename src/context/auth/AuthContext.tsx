@@ -324,14 +324,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center' }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
   return (
     <AuthContext.Provider value={{ user, isLoading, isAuthenticating, isAuthenticated: !!user, logout, checkSession, openLoginPopup }}>
       {showAuthOverlay && !isOnPublicRoute ? (

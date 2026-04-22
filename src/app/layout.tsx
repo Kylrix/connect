@@ -43,6 +43,18 @@ import { SudoProvider } from '@/context/SudoContext';
 import { SubscriptionProvider } from '@/context/subscription/SubscriptionContext';
 import { DataNexusProvider } from '@/context/DataNexusContext';
 import { Suspense } from 'react';
+import { Box, CircularProgress, Stack, Typography } from '@mui/material';
+
+function ShellFallback() {
+  return (
+    <Box sx={{ minHeight: '100vh', bgcolor: '#000', display: 'grid', placeItems: 'center' }}>
+      <Stack spacing={2} alignItems="center">
+        <Typography sx={{ fontWeight: 900, letterSpacing: '-0.03em' }}>Kylrix Connect</Typography>
+        <CircularProgress sx={{ color: '#6366F1' }} />
+      </Stack>
+    </Box>
+  );
+}
 
 export default function RootLayout({
   children,
@@ -83,7 +95,7 @@ export default function RootLayout({
                               }
                             }}
                           />
-                          <Suspense fallback={null}>
+                          <Suspense fallback={<ShellFallback />}>
                             {children}
                           </Suspense>
                           </ChatNotificationProvider>
