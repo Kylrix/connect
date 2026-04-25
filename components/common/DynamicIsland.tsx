@@ -290,7 +290,6 @@ const OrbitalGlyph: React.FC<{
               marginTop: -3,
               borderRadius: '50%',
               background: tone,
-              boxShadow: `0 0 10px ${alpha(tone, 0.5)}`,
             }}
           />
         );
@@ -312,8 +311,7 @@ const OrbitalGlyph: React.FC<{
           width: mode === 'thinking' ? 18 : 16,
           height: mode === 'thinking' ? 18 : 16,
           borderRadius: '50%',
-          background: `radial-gradient(circle at 30% 30%, ${alpha('#fff', 0.95)} 0%, ${tone} 55%, ${alpha(tone, 0.2)} 100%)`,
-          boxShadow: `0 0 14px ${alpha(tone, 0.8)}`,
+          background: tone,
         }}
       >
         <Box
@@ -826,16 +824,14 @@ const DynamicIslandOverlay: React.FC<{
     />
   );
 
-  const glow = current
+  const islandFrame = current
     ? {
-        border: `1px solid ${alpha(currentTone.secondary, current.majestic ? 0.65 : 0.4)}`,
-        boxShadow: current.majestic
-          ? `0 0 0 1px ${alpha(currentTone.primary, 0.24)}, 0 0 30px ${alpha(currentTone.secondary, 0.45)}, 0 0 72px ${alpha(currentTone.primary, 0.25)}`
-          : `0 0 0 1px ${alpha(currentTone.primary, 0.18)}, 0 0 18px ${alpha(currentTone.secondary, 0.3)}, 0 0 40px ${alpha(currentTone.primary, 0.14)}`,
+        border: `1px solid ${alpha(currentTone.secondary, current.majestic ? 0.42 : 0.28)}`,
+        backgroundColor: alpha(currentTone.secondary, current.majestic ? 0.08 : 0.05),
       }
     : {
-        border: `1px solid ${alpha(APP_TONES.connect.secondary, 0.24)}`,
-        boxShadow: `0 0 0 1px ${alpha(APP_TONES.connect.primary, 0.14)}, 0 0 16px ${alpha(APP_TONES.connect.secondary, 0.22)}, 0 0 36px ${alpha(APP_TONES.connect.primary, 0.12)}`,
+      border: `1px solid ${alpha(APP_TONES.connect.secondary, 0.24)}`,
+      backgroundColor: alpha(APP_TONES.connect.secondary, 0.05),
       };
 
   const searchWidth = isMobile ? 'calc(100vw - 24px)' : 'min(560px, calc(100vw - 48px))';
