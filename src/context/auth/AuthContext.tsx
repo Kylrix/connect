@@ -1,10 +1,9 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import type { Models } from 'appwrite';
-import { account } from '@/lib/appwrite/client';
 import Backdrop from '@mui/material/Backdrop';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
@@ -12,7 +11,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Image from 'next/image';
 import { APP_CONFIG } from '@/lib/constants';
-import { getCurrentUser, invalidateCurrentUserCache } from '@/lib/appwrite/client';
+import { account, getCurrentUser } from '@/lib/appwrite/client';
 
 interface AuthState {
   user: Models.User<Models.Preferences> | null;
@@ -74,204 +73,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [showAuthOverlay, setShowAuthOverlay] = useState(false);
-  const [authWindow, setAuthWindow] = useState<Window | null>(null);
-
-  const checkSessionRef = useRef<any>(null);
 
   // Check if current route is public
   const isOnPublicRoute = isPublicRoute(pathname);
 
-  const attemptSilentAuth = useCallback(async () => {
-    if (typeof window === 'undefined') return;
-
-    return new Promise<void>((resolve) => {
-      const iframe = document.createElement('iframe');
-      iframe.src = `https://accounts.kylrix.space/silent-check`;
-      iframe.style.display = 'none';
-
-      const timeout = setTimeout(() => {
-        cleanup();
-        resolve();
-      }, 5000);
-
-      const handleIframeMessage = (event: MessageEvent) => {
-        const expectedOrigin = `https://accounts.kylrix.space`;
-        if (event.origin !== expectedOrigin) return;
-
-        if (event.data?.type === 'idm:auth-status' && event.data.status === 'authenticated') {
-          console.log('Silent auth discovered active session in kylrixflow');
-          if (checkSessionRef.current) checkSessionRef.current();
-          cleanup();
-          resolve();
-        } else if (event.data?.type === 'idm:auth-status') {
-          cleanup();
-          resolve();
-        }
-      };
-
-      const cleanup = () => {
-        clearTimeout(timeout);
-        window.removeEventListener('message', handleIframeMessage);
-        if (typeof document !== 'undefined' && document.body && document.body.contains(iframe)) {
-          document.body.removeChild(iframe);
-        }
-      };
-
-      window.addEventListener('message', handleIframeMessage);
-      document.body.appendChild(iframe);
-    });
-  }, []);
-
-  const checkSession = useCallback(async (retryCount = 0) => {
-    console.log('[Auth] checkSession called', { retryCount });
+  const checkSession = useCallback(async () => {
     try {
       const currentUser = await getCurrentUser();
-      if (!currentUser?.$id) throw new Error('No active session');
-      console.log('[Auth] account.get() success', currentUser.$id);
       setUser(currentUser);
-      setShowAuthOverlay(false);
-      if (authWindow) {
-        authWindow.close();
-        setAuthWindow(null);
-      }
-      
-      // Clear the auth=success param from URL if it exists
-      if (typeof window !== 'undefined' && window.location.search.includes('auth=success')) {
-        const url = new URL(window.location.href);
-        url.searchParams.delete('auth');
-        window.history.replaceState({}, '', url.toString());
-      }
-    } catch (_error: unknown) {
-      // Check for auth=success signal in URL - this means we just came from IDM
-      const hasAuthSignal = typeof window !== 'undefined' && window.location.search.includes('auth=success');
-      
-      if (hasAuthSignal && retryCount < 3) {
-        console.log(`Auth signal detected but session not found. Retrying... (${retryCount + 1})`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        return checkSession(retryCount + 1);
-      }
-
-      // First try silent recovery
-      await attemptSilentAuth();
-
-      // Re-check after silent attempt
-      try {
-        const retryUser = await getCurrentUser(true);
-        if (!retryUser?.$id) throw new Error('No active session');
-        setUser(retryUser);
-        setShowAuthOverlay(false);
-        return;
-      } catch (error: any) {
-        // Fallback to offline awareness
-        const isNetworkError = !error.response && error.message?.includes('Network Error') || error.message?.includes('Failed to fetch');
-
-        if (!isNetworkError) {
-          setUser(null);
-          if (!isPublicRoute(pathname)) {
-            setShowAuthOverlay(true);
-          }
-        } else {
-          console.warn('Network issue detected in kylrixflow. Retaining last state.');
-        }
-      }
+      setShowAuthOverlay(!currentUser && !isOnPublicRoute);
+    } catch {
+      setUser(null);
+      setShowAuthOverlay(!isOnPublicRoute);
     } finally {
-      if (retryCount === 0) {
-        setIsLoading(false);
-      }
+      setIsLoading(false);
     }
-  }, [authWindow, pathname, attemptSilentAuth]);
-
-  // Update ref
-  useEffect(() => {
-    checkSessionRef.current = checkSession;
-  }, [checkSession]);
+  }, [isOnPublicRoute]);
 
   useEffect(() => {
     checkSession();
   }, [checkSession]);
 
-  // Listen for postMessage from IDM window
   useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const expectedOrigin = `https://accounts.kylrix.space`;
-      if (event.origin !== expectedOrigin) return;
-
-      if (event.data?.type === 'idm:auth-success') {
-        console.log('Received auth success via postMessage in kylrixflow');
-        checkSession();
-        setIsAuthenticating(false);
-        if (authWindow && !authWindow.closed) {
-          authWindow.close();
-          setAuthWindow(null);
-        }
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [checkSession, authWindow]);
-
-
-  // Update overlay visibility when route changes
-  useEffect(() => {
-    if (!user && !isLoading) {
-      setShowAuthOverlay(!isOnPublicRoute);
+    if (!isLoading) {
+      setShowAuthOverlay(!user && !isOnPublicRoute);
     }
-  }, [pathname, user, isLoading, isOnPublicRoute]);
-
-  useEffect(() => {
-    if (!showAuthOverlay) return;
-
-    const handleFocus = () => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
-      void checkSessionRef.current?.();
-    };
-
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleFocus);
-
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleFocus);
-    };
-  }, [showAuthOverlay]);
+  }, [user, isLoading, isOnPublicRoute]);
 
   const openLoginPopup = useCallback(async () => {
     if (typeof window === 'undefined' || isAuthenticating) return;
 
     setIsAuthenticating(true);
-
-    // First, check if we already have a session locally
-    try {
-      const currentUser = await getCurrentUser(true);
-      if (currentUser) {
-        console.log('Active session detected in kylrixflow, skipping IDM window');
-        setUser(currentUser);
-        setShowAuthOverlay(false);
-        setIsAuthenticating(false);
-        if (authWindow) {
-          authWindow.close();
-          setAuthWindow(null);
-        }
-        return;
-      }
-    } catch (_e: unknown) {
-      // No session, proceed to silent check
-    }
-
-    // Try silent auth before opening popup
-    await attemptSilentAuth();
-    try {
-      const currentUser = await getCurrentUser(true);
-      if (currentUser) {
-        setUser(currentUser);
-        setShowAuthOverlay(false);
-        setIsAuthenticating(false);
-        return;
-      }
-    } catch (_e: unknown) {
-      // Still no session
-    }
 
     const width = 500;
     const height = 600;
@@ -300,25 +132,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
     );
 
     if (win) {
-      setAuthWindow(win);
+      win.focus();
     } else {
       // Popup blocked - fallback to redirect
       console.warn('Popup blocked, falling back to redirect in kylrixflow');
       window.location.assign(targetUrlString);
     }
-  }, [authWindow, isAuthenticating, attemptSilentAuth, setIsAuthenticating]);
-
+    setIsAuthenticating(false);
+  }, [isAuthenticating]);
 
   const logout = async () => {
     try {
       await account.deleteSession('current');
-      invalidateCurrentUserCache();
       setUser(null);
       setIsAuthenticating(false);
-      // Only show overlay if not on public route
-      if (!isOnPublicRoute) {
-        setShowAuthOverlay(true);
-      }
+      setShowAuthOverlay(!isOnPublicRoute);
     } catch (error: unknown) {
       console.error('Logout failed', error);
     }
