@@ -19,7 +19,7 @@ import {
 import { ChevronDown, Search, X as CloseIcon, Wallet } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCachedProfilePreview } from '@/hooks/useCachedProfilePreview';
+import { fetchProfilePreview, getCachedProfilePreview } from '@/lib/profile-preview';
 import { IdentityAvatar, computeIdentityFlags } from '../common/IdentityBadge';
 import Logo, { type KylrixApp as LogoApp } from '../common/Logo';
 import { WalletSidebar } from '../overlays/WalletSidebar';
@@ -33,7 +33,7 @@ import { getCurrentUser, getCurrentUserSnapshot } from '@/lib/appwrite/client';
 import { UsersService } from '@/lib/services/users';
 import { getCachedIdentityById, seedIdentityCache, subscribeIdentityCache } from '@/lib/identity-cache';
 import { stageProfileView } from '@/lib/profile-handoff';
-import { getUserProfilePicId, getUserProfilePreviewSource } from '@/lib/user-utils';
+import { getUserProfilePicId } from '@/lib/user-utils';
 
 export const AppHeader = () => {
   const { user } = useAuth();
@@ -58,19 +58,20 @@ export const AppHeader = () => {
   const headerRef = useRef<HTMLDivElement | null>(null);
   const dockContentRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const [smallProfileUrl, setSmallProfileUrl] = useState<string | null>(null);
   const displayUser = fastUser || user;
   const displayProfile = cachedProfile || fastProfile || profileRecord;
-  const profilePreviewSource =
-    displayProfile?.avatarUrl ||
+  const profilePicId =
+    getUserProfilePicId(displayUser) ||
     displayProfile?.avatarFileId ||
     displayProfile?.avatar ||
-    getUserProfilePreviewSource(displayUser) ||
-    getUserProfilePicId(displayUser);
-  const profileUrl = useCachedProfilePreview(profilePreviewSource || null, 64, 64);
+    displayProfile?.profilePicId ||
+    displayProfile?.preferences?.profilePicId ||
+    null;
   const isExpanded = Boolean(panel);
   const searchSurface = potato.buildSearchSurface(searchQuery);
   const searchDockMaxHeight = '50vh';
-  const profileSeed = displayProfile || (displayUser ? { ...displayUser, avatar: profilePreviewSource || null } : null);
+  const profileSeed = displayProfile || (displayUser ? { ...displayUser, avatar: profilePicId || null } : null);
   const shouldCollapseChrome = Boolean(activeNotification);
   useEffect(() => {
     if (searchParams.get('openWallet') === 'true') {
@@ -87,6 +88,34 @@ export const AppHeader = () => {
       setFastUser(user);
     }
   }, [user]);
+
+  useEffect(() => {
+    let mounted = true;
+    const cached = getCachedProfilePreview(profilePicId || undefined);
+    if (cached !== undefined) {
+      setSmallProfileUrl(cached ?? null);
+    }
+
+    const fetchPreview = async () => {
+      try {
+        if (profilePicId) {
+          const url = await fetchProfilePreview(profilePicId, 64, 64);
+          if (mounted) setSmallProfileUrl(url as unknown as string);
+        } else if (mounted) {
+          setSmallProfileUrl(null);
+        }
+      } catch (error) {
+        console.warn('[AppHeader] Failed to load profile preview:', error);
+        if (mounted) setSmallProfileUrl(null);
+      }
+    };
+
+    void fetchPreview();
+
+    return () => {
+      mounted = false;
+    };
+  }, [profilePicId]);
 
   useEffect(() => {
     let mounted = true;
@@ -124,9 +153,9 @@ export const AppHeader = () => {
 
   useEffect(() => {
     if (profileSeed?.$id || profileSeed?.userId) {
-      stageProfileView(profileSeed, profileUrl || null);
+      stageProfileView(profileSeed, smallProfileUrl || null);
     }
-  }, [profileSeed, profileUrl]);
+  }, [profileSeed, smallProfileUrl]);
 
   useEffect(() => {
     const userId = displayUser?.$id;
@@ -168,7 +197,7 @@ export const AppHeader = () => {
   const identitySignals = computeIdentityFlags({
     createdAt: cachedProfile?.$createdAt || fastProfile?.cachedAt || profileRecord?.$createdAt || (displayUser as any)?.$createdAt || null,
     lastUsernameEdit: cachedProfile?.preferences?.last_username_edit || fastProfile?.preferences?.last_username_edit || profileRecord?.preferences?.last_username_edit || displayUser?.prefs?.last_username_edit || null,
-    profilePicId: displayProfile?.avatar || profileRecord?.avatar || getUserProfilePicId(displayUser) || null,
+    profilePicId: profilePicId || null,
     username: cachedProfile?.username || fastProfile?.username || profileRecord?.username || displayUser?.prefs?.username || displayUser?.name || null,
     bio: cachedProfile?.bio || fastProfile?.bio || profileRecord?.bio || displayUser?.prefs?.bio || null,
     tier: profileRecord?.tier || displayUser?.prefs?.tier || null,
@@ -428,12 +457,12 @@ export const AppHeader = () => {
                       void router.prefetch(`/u/${encodeURIComponent(profileSeed.username)}`);
                     }
                     if (profileSeed) {
-                      stageProfileView(profileSeed, profileUrl || null);
+                      stageProfileView(profileSeed, smallProfileUrl || null);
                     }
                   }}
                   onClick={async () => {
                     if (profileSeed) {
-                      stageProfileView(profileSeed, profileUrl || null);
+                      stageProfileView(profileSeed, smallProfileUrl || null);
                       const username = profileSeed.username || profileSeed.displayName?.toString().trim().toLowerCase();
                       if (username) {
                         void router.prefetch(`/u/${encodeURIComponent(username)}`);
@@ -451,7 +480,7 @@ export const AppHeader = () => {
                   }}
                 >
                   <IdentityAvatar
-                    src={profileUrl || undefined}
+                    src={smallProfileUrl || undefined}
                     alt={displayUser?.name || displayUser?.email || 'profile'}
                     fallback={displayUser?.name ? displayUser.name[0].toUpperCase() : 'U'}
                     verified={identitySignals.verified}

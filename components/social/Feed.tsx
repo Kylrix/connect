@@ -50,7 +50,7 @@ import {
     Phone,
     Video
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { fetchProfilePreview } from '@/lib/profile-preview';
 import { getCachedIdentityById, seedIdentityCache, subscribeIdentityCache } from '@/lib/identity-cache';
@@ -243,13 +243,14 @@ const PostComposer = React.memo(function PostComposer({
     const [filePreviews, setFilePreviews] = React.useState<ComposerFilePreview[]>([]);
 
     React.useEffect(() => {
+        if (!isOpen) return;
         const value = editingMoment?.caption || '';
         setHasDraftText(Boolean(value.trim()));
         const t = setTimeout(() => {
             draftInputRef.current?.focus();
         }, 0);
         return () => clearTimeout(t);
-    }, [composerKey, editingMoment?.caption, draftInputRef, setHasDraftText]);
+    }, [composerKey, editingMoment?.caption, draftInputRef, isOpen, setHasDraftText]);
 
     React.useEffect(() => {
         const previews = selectedFiles.map((file) => ({
@@ -267,29 +268,32 @@ const PostComposer = React.memo(function PostComposer({
     );
 
     return (
-        <AnimatePresence>
-            {isOpen && (
-                <motion.div
-                    initial={isMobile ? { opacity: 0, y: 100 } : { opacity: 1, y: 0 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={isMobile ? { opacity: 0, y: 100 } : undefined}
-                    transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                    style={isMobile ? {
-                        position: 'fixed',
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        zIndex: 2000,
-                        padding: '16px',
-                        background: '#161514',
-                        borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-                        borderRadius: '24px 24px 0 0',
-                        boxShadow: '0 -10px 40px rgba(0,0,0,0.8)',
-                        transform: 'translateZ(0)',
-                        willChange: 'transform, opacity',
-                        backfaceVisibility: 'hidden',
-                    } : {}}
-                >
+        <motion.div
+            initial={false}
+            animate={isMobile ? (isOpen ? { opacity: 1, y: 0 } : { opacity: 0, y: 100 }) : { opacity: isOpen ? 1 : 0.01 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            style={isMobile ? {
+                position: 'fixed',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                zIndex: 2000,
+                padding: '16px',
+                background: '#161514',
+                borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '24px 24px 0 0',
+                boxShadow: '0 -10px 40px rgba(0,0,0,0.8)',
+                transform: 'translateZ(0)',
+                willChange: 'transform, opacity',
+                backfaceVisibility: 'hidden',
+                pointerEvents: isOpen ? 'auto' : 'none',
+                visibility: isOpen ? 'visible' : 'hidden',
+            } : {
+                pointerEvents: isOpen ? 'auto' : 'none',
+                visibility: isOpen ? 'visible' : 'hidden',
+            }}
+            aria-hidden={!isOpen}
+        >
                     <Card sx={{
                         mb: isMobile ? 0 : 4,
                         borderRadius: isMobile ? '16px' : '24px',
@@ -511,9 +515,7 @@ const PostComposer = React.memo(function PostComposer({
                             </Button>
                         </CardActions>
                     </Card>
-                </motion.div>
-            )}
-        </AnimatePresence>
+        </motion.div>
     );
 });
 
@@ -610,6 +612,8 @@ function MobileComposerDock({
             {isMobile && user && !open && (
                 <Fab
                     color="primary"
+                    disableRipple
+                    disableFocusRipple
                     sx={{
                         position: 'fixed',
                         bottom: 'calc(132px + env(safe-area-inset-bottom))',
@@ -643,6 +647,10 @@ function MobileComposerDock({
                         '&:active': {
                             transform: 'translateY(0) scale(0.98)',
                         },
+                    }}
+                    onPointerDown={(event) => {
+                        if ((event as React.PointerEvent<HTMLButtonElement>).button !== 0) return;
+                        setOpen(true);
                     }}
                     onClick={() => setOpen(true)}
                 >
