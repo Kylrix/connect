@@ -155,16 +155,17 @@ export const AppHeader = () => {
           boxShadow: '0 16px 42px rgba(0,0,0,0.42)',
           backgroundImage: 'none',
           display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'stretch',
-        justifyContent: 'flex-start',
-        overflow: 'hidden',
-        height: `${headerHeight}px`,
-        transform: mode === 'hidden' ? 'translateY(-110%)' : 'translateY(0)',
-        opacity: mode === 'hidden' ? 0 : 1,
-        pointerEvents: mode === 'hidden' ? 'none' : 'auto',
-        transition: 'transform 260ms ease, opacity 260ms ease, height 260ms ease',
-      }}
+          flexDirection: 'column',
+          alignItems: 'stretch',
+          justifyContent: 'flex-start',
+          overflow: 'hidden',
+          height: panel ? 'auto' : `${headerHeight}px`,
+          minHeight: `${baseHeaderHeight}px`,
+          transform: mode === 'hidden' ? 'translateY(-110%)' : 'translateY(0)',
+          opacity: mode === 'hidden' ? 0 : 1,
+          pointerEvents: mode === 'hidden' ? 'none' : 'auto',
+          transition: 'transform 260ms ease, opacity 260ms ease, height 260ms ease',
+        }}
     >
       <Toolbar sx={{
         gap: { xs: 2, md: 4 },
@@ -348,7 +349,6 @@ export const AppHeader = () => {
             ref={dockContentRef}
             sx={{
               width: '100%',
-              flex: 1,
               display: 'flex',
               alignItems: 'stretch',
               borderTop: '1px solid rgba(255, 255, 255, 0.05)',
