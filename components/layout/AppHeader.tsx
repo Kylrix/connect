@@ -38,6 +38,7 @@ export const AppHeader = () => {
   const { mode, headerHeight, setChromeState } = useAppChrome();
   const { openPanel, closePanel, panel, isActive: isIslandActive } = useIsland();
   const headerRef = useRef<HTMLDivElement | null>(null);
+  const dockContentRef = useRef<HTMLDivElement | null>(null);
   const displayUser = fastUser || user;
   const profilePreviewSource = cachedProfile?.avatarUrl || cachedProfile?.avatarFileId || cachedProfile?.avatar || getUserProfilePreviewSource(displayUser);
   const profilePicId = cachedProfile?.avatar || getUserProfilePicId(displayUser);
@@ -96,7 +97,30 @@ export const AppHeader = () => {
   const baseHeaderHeight = mode === 'compact' ? 72 : mode === 'hidden' ? 0 : 88;
 
   useEffect(() => {
-    setChromeState({ dockHeight: panel ? (panel === 'ecosystem' ? 320 : 260) : 0 });
+    if (!panel) {
+      setChromeState({ dockHeight: 0 });
+      return;
+    }
+
+    const measureDockHeight = () => {
+      const height = dockContentRef.current?.getBoundingClientRect().height ?? 0;
+      setChromeState({ dockHeight: Math.ceil(height) });
+    };
+
+    measureDockHeight();
+
+    if (typeof ResizeObserver === 'undefined' || !dockContentRef.current) {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => measureDockHeight());
+    observer.observe(dockContentRef.current);
+    window.addEventListener('resize', measureDockHeight);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measureDockHeight);
+    };
   }, [panel, setChromeState]);
 
   useEffect(() => {
@@ -189,7 +213,8 @@ export const AppHeader = () => {
           </motion.div>
         </motion.div>
 
-        <motion.div {...stageMotion} style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', pointerEvents: isIslandActive ? 'none' : 'auto', zIndex: 2 }}>
+        <Box sx={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', pointerEvents: isIslandActive ? 'none' : 'auto', zIndex: 2 }}>
+          <motion.div {...stageMotion}>
           <Box
             component="button"
             onClick={() => (panel ? closePanel() : openPanel('ecosystem'))}
@@ -225,8 +250,8 @@ export const AppHeader = () => {
                   boxShadow: '0 0 0 1px rgba(255,255,255,0.07), 0 0 0 8px rgba(245, 158, 11, 0.05), 0 0 34px rgba(0, 0, 0, 0.72)',
                 },
               },
-              '&:hover': { transform: 'translate(-50%, -50%) translateY(-1px)' },
-              '&:active': { transform: 'translate(-50%, -50%) scale(0.98)' },
+              '&:hover': { transform: 'translateY(-1px)' },
+              '&:active': { transform: 'scale(0.98)' },
             }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, width: '100%', height: '100%' }}>
@@ -250,7 +275,8 @@ export const AppHeader = () => {
               ) : null}
             </Box>
           </Box>
-        </motion.div>
+          </motion.div>
+        </Box>
 
         <motion.div {...stageMotion} style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, pointerEvents: isIslandActive ? 'none' : 'auto' }}>
           <Tooltip title="Wallet">
@@ -319,6 +345,7 @@ export const AppHeader = () => {
 
         {panel && (
           <Box
+            ref={dockContentRef}
             sx={{
               width: '100%',
               flex: 1,
@@ -337,7 +364,7 @@ export const AppHeader = () => {
             transition={{ duration: 0.18 }}
             style={{ width: '100%', display: 'flex' }}
           >
-            <Box sx={{ width: '100%', px: { xs: 2, md: 4 }, py: 1.75, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+            <Box sx={{ width: '100%', px: { xs: 2, md: 4 }, py: 1, display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'stretch' }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
                   <Box
