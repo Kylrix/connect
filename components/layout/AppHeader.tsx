@@ -307,7 +307,7 @@ export const AppHeader = () => {
             display: 'flex',
             alignItems: 'stretch',
             borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-            bgcolor: '#0A0908',
+            bgcolor: '#050505',
             overflow: 'hidden',
           }}
         >
@@ -319,7 +319,7 @@ export const AppHeader = () => {
             transition={{ duration: 0.18 }}
             style={{ width: '100%', display: 'flex' }}
           >
-            <Box sx={{ width: '100%', px: { xs: 2, md: 4 }, py: 1.5, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+            <Box sx={{ width: '100%', px: { xs: 2, md: 4 }, py: 1.75, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
                   <Box
@@ -335,7 +335,11 @@ export const AppHeader = () => {
                       flexShrink: 0,
                     }}
                   >
-                     {panel === 'profile' ? <IdentityAvatar src={profileUrl || undefined} alt="profile" fallback={displayUser?.name ? displayUser.name[0].toUpperCase() : 'U'} size={38} borderRadius="14px" /> : <Logo app="connect" size={18} variant="icon" />}
+                    {panel === 'profile' ? (
+                      <IdentityAvatar src={profileUrl || undefined} alt="profile" fallback={displayUser?.name ? displayUser.name[0].toUpperCase() : 'U'} size={38} borderRadius="14px" />
+                    ) : (
+                      <Logo app="connect" size={18} variant="icon" />
+                    )}
                   </Box>
                   <Box sx={{ minWidth: 0 }}>
                     <Typography sx={{ color: 'white', fontWeight: 900, fontSize: '0.9rem', lineHeight: 1.1 }} noWrap>
@@ -348,7 +352,7 @@ export const AppHeader = () => {
                 </Box>
                 <IconButton
                   onClick={closePanel}
-                  aria-label="Close dynamic island"
+                  aria-label="Close topbar panel"
                   size="small"
                   sx={{
                     width: 34,
