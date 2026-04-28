@@ -12,7 +12,7 @@ import {
   alpha,
   Button,
 } from '@mui/material';
-import { Wallet, ChevronDown, X as CloseIcon, Search } from 'lucide-react';
+import { Search, Sparkles, UserRound, X as CloseIcon, Wallet } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { getUserProfilePicId } from '@/lib/user-utils';
@@ -35,14 +35,15 @@ export const AppHeader = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const { mode, label, headerHeight, setChromeState } = useAppChrome();
+  const { mode, headerHeight, setChromeState } = useAppChrome();
   const { openPanel, closePanel, panel, isActive: isIslandActive } = useIsland();
   const headerRef = useRef<HTMLDivElement | null>(null);
   const displayUser = fastUser || user;
   const profilePicId = cachedProfile?.avatar || getUserProfilePicId(displayUser);
   const profileUrl = useCachedProfilePreview(profilePicId || null, 64, 64);
   const isExpanded = Boolean(panel);
-  const isFloatingSearch = false;
+  const islandIcon = panel === 'profile' ? UserRound : panel === 'ecosystem' ? Sparkles : Search;
+  const IslandIcon = islandIcon;
 
   useEffect(() => {
     if (searchParams.get('openWallet') === 'true') {
@@ -94,7 +95,6 @@ export const AppHeader = () => {
     preferences: cachedProfile?.preferences || null,
   });
 
-  const headerTitle = label || (pathname === '/' ? 'Feed' : pathname === '/chats' ? 'Chats' : pathname === '/calls' ? 'Calls' : pathname?.startsWith('/post/') ? 'Moment' : 'Connect');
   const baseHeaderHeight = mode === 'compact' ? 72 : mode === 'hidden' ? 0 : 88;
 
   useEffect(() => {
@@ -153,69 +153,33 @@ export const AppHeader = () => {
         margin: '0 auto',
         justifyContent: 'space-between',
       }}>
-        <motion.div {...stageMotion} style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, pointerEvents: isIslandActive ? 'none' : 'auto' }}>
-          <motion.div style={{ display: 'inline-flex' }}>
-            <Box
-              component="button"
-              onClick={() => openPanel('ecosystem')}
-              sx={{
-                position: 'relative',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                bgcolor: 'transparent',
-                border: 'none',
-                p: 0,
-                cursor: 'pointer',
-              }}
-            >
-              <Logo app="connect" size={32} sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 } }} />
-              <IconButton
-                size="small"
-                sx={{
-                  position: 'absolute',
-                  right: -6,
-                  bottom: -6,
-                  width: 18,
-                  height: 18,
-                  bgcolor: '#0A0908',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  color: 'rgba(255,255,255,0.55)',
-                  '&:hover': { bgcolor: '#161412', color: 'white' },
-                }}
-              >
-                <ChevronDown size={11} />
-              </IconButton>
-            </Box>
-          </motion.div>
-        </motion.div>
-
         <motion.div {...stageMotion} style={{ flexGrow: 1, display: 'flex', justifyContent: 'center', pointerEvents: isIslandActive ? 'none' : 'auto' }}>
           <Box
             component="button"
             onClick={() => (panel ? closePanel() : openPanel('ecosystem'))}
             sx={{
-              width: '100%',
-              maxWidth: isExpanded ? '100%' : { xs: '100%', md: 640 },
+              width: isExpanded ? '100%' : 44,
+              minWidth: isExpanded ? '100%' : 44,
+              maxWidth: isExpanded ? '100%' : 44,
               display: 'flex',
               alignItems: 'center',
+              justifyContent: isExpanded ? 'flex-start' : 'center',
               gap: 1.25,
-              px: 1.75,
-              py: 1.15,
-              border: isFloatingSearch ? '1px solid transparent' : '1px solid rgba(255,255,255,0.08)',
+              px: isExpanded ? 1.75 : 1,
+              py: isExpanded ? 1.15 : 0,
+              minHeight: 44,
+              border: '1px solid rgba(255,255,255,0.08)',
               borderBottomWidth: isExpanded ? 0 : 1,
-              bgcolor: isFloatingSearch ? 'transparent' : (isExpanded ? '#050505' : '#000000'),
+              bgcolor: '#000000',
               color: 'white',
               borderRadius: isExpanded ? '18px 18px 0 0' : '999px',
-              boxShadow: isFloatingSearch
+              boxShadow: isExpanded
                 ? 'none'
-                : (isExpanded
-                  ? 'none'
-                  : '0 0 0 1px rgba(255,255,255,0.04), 0 0 0 6px rgba(245, 158, 11, 0.02), 0 0 26px rgba(0, 0, 0, 0.55)'),
+                : '0 0 0 1px rgba(255,255,255,0.04), 0 0 0 6px rgba(245, 158, 11, 0.02), 0 0 26px rgba(0, 0, 0, 0.55)',
               cursor: 'pointer',
               textAlign: 'left',
-              transition: 'all 220ms ease',
-              animation: isExpanded || isFloatingSearch ? 'none' : 'connectSearchPulse 3.2s ease-in-out infinite',
+              transition: 'transform 150ms ease-out, box-shadow 150ms ease-out, border-radius 150ms ease-out, padding 150ms ease-out, min-height 150ms ease-out, width 150ms ease-out',
+              animation: isExpanded ? 'none' : 'connectSearchPulse 3.2s ease-in-out infinite',
               '@keyframes connectSearchPulse': {
                 '0%, 100%': {
                   boxShadow: '0 0 0 1px rgba(255,255,255,0.04), 0 0 0 6px rgba(245, 158, 11, 0.02), 0 0 26px rgba(0, 0, 0, 0.55)',
@@ -224,39 +188,35 @@ export const AppHeader = () => {
                   boxShadow: '0 0 0 1px rgba(255,255,255,0.07), 0 0 0 8px rgba(245, 158, 11, 0.05), 0 0 34px rgba(0, 0, 0, 0.72)',
                 },
               },
-              '&:hover': { bgcolor: isFloatingSearch ? 'transparent' : (isExpanded ? '#050505' : '#050505') },
+              '&:hover': { transform: 'translateY(-1px)' },
+              '&:active': { transform: 'translateY(0) scale(0.98)' },
             }}
           >
-            <Box
-              sx={{
-                width: 28,
-                height: 28,
-                display: 'grid',
-                placeItems: 'center',
-                borderRadius: '999px',
-                bgcolor: isFloatingSearch ? 'transparent' : 'rgba(255,255,255,0.06)',
-                border: isFloatingSearch ? '1px solid transparent' : '1px solid rgba(255,255,255,0.06)',
-                flexShrink: 0,
-              }}
-            >
-              <Search size={16} strokeWidth={2.25} style={{ flexShrink: 0, opacity: 0.82 }} />
-            </Box>
-            <Typography
-              variant="caption"
-              noWrap
-              sx={{
-                flex: 1,
-                color: isFloatingSearch ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.82)',
-                fontWeight: 800,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-              }}
-            >
-              {isExpanded ? (panel === 'profile' ? (displayUser?.name || displayUser?.email || 'Profile') : 'Ecosystem apps') : 'Search'}
-            </Typography>
-            <Typography variant="caption" sx={{ color: isFloatingSearch ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.35)', fontWeight: 700 }} noWrap>
-              {isExpanded ? 'Close' : headerTitle}
-            </Typography>
+            <IslandIcon size={16} strokeWidth={2.25} style={{ flexShrink: 0, opacity: 0.84 }} />
+            {isExpanded && (
+              <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                <Typography
+                  variant="caption"
+                  noWrap
+                  sx={{
+                    color: 'rgba(255,255,255,0.9)',
+                    fontWeight: 900,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {panel === 'profile' ? (displayUser?.name || displayUser?.email || 'Profile') : 'Ecosystem apps'}
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.36)', fontWeight: 700 }} noWrap>
+                  {panel === 'profile' ? 'Profile commands' : 'Jump between apps'}
+                </Typography>
+              </Box>
+            )}
+            {isExpanded && (
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.36)', fontWeight: 700 }} noWrap>
+                Close
+              </Typography>
+            )}
           </Box>
         </motion.div>
 
