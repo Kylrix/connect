@@ -258,6 +258,7 @@ const ChatDraftInput = React.memo(function ChatDraftInput({
                 <IconButton
                     size="small"
                     onClick={attachmentDisabled ? onUpgradeRequested : onAttach}
+                    aria-disabled={attachmentDisabled}
                     sx={{
                         color: attachmentDisabled ? 'rgba(255,255,255,0.32)' : 'text.secondary',
                         width: 40,
@@ -269,6 +270,7 @@ const ChatDraftInput = React.memo(function ChatDraftInput({
                             bgcolor: attachmentDisabled ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.05)',
                             borderColor: attachmentDisabled ? 'rgba(255,255,255,0.08)' : 'rgba(245, 158, 11, 0.35)',
                             color: attachmentDisabled ? 'rgba(255,255,255,0.42)' : '#F59E0B',
+                            cursor: attachmentDisabled ? 'not-allowed' : 'pointer',
                         },
                     }}
                 >

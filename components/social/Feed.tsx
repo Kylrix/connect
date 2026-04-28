@@ -457,7 +457,7 @@ const PostComposer = React.memo(function PostComposer({
                                         bgcolor: isProPlan ? 'transparent' : 'rgba(255, 255, 255, 0.02)',
                                         border: '1px solid rgba(255, 255, 255, 0.06)',
                                         opacity: isProPlan ? 1 : 0.55,
-                                        cursor: 'pointer',
+                                        cursor: isProPlan ? 'pointer' : 'not-allowed',
                                         '&:hover': {
                                             bgcolor: isProPlan ? alpha('#F59E0B', 0.1) : 'rgba(255, 255, 255, 0.03)',
                                             color: isProPlan ? '#F59E0B' : 'rgba(255, 255, 255, 0.35)',
