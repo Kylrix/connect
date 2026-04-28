@@ -104,7 +104,7 @@ export const AppHeader = () => {
 
     const measureDockHeight = () => {
       const height = dockContentRef.current?.getBoundingClientRect().height ?? 0;
-      setChromeState({ dockHeight: Math.ceil(height) });
+      setChromeState({ dockHeight: Math.max(0, Math.ceil(height) - baseHeaderHeight) });
     };
 
     measureDockHeight();
@@ -160,189 +160,171 @@ export const AppHeader = () => {
           justifyContent: 'flex-start',
           overflow: 'hidden',
           height: panel ? 'auto' : `${headerHeight}px`,
-          minHeight: `${baseHeaderHeight}px`,
+          minHeight: panel ? 0 : `${baseHeaderHeight}px`,
           transform: mode === 'hidden' ? 'translateY(-110%)' : 'translateY(0)',
           opacity: mode === 'hidden' ? 0 : 1,
           pointerEvents: mode === 'hidden' ? 'none' : 'auto',
           transition: 'transform 260ms ease, opacity 260ms ease, height 260ms ease',
         }}
     >
-      <Toolbar sx={{
-        gap: { xs: 2, md: 4 },
-        px: { xs: 2, md: 4 },
-        minHeight: `${baseHeaderHeight}px`,
-        width: '100%',
-        maxWidth: '1440px',
-        margin: '0 auto',
-        justifyContent: 'space-between',
-        position: 'relative',
-      }}>
-        <motion.div {...stageMotion} style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, pointerEvents: isIslandActive ? 'none' : 'auto' }}>
-          <motion.div style={{ display: 'inline-flex' }}>
-            <Box
-              component="button"
-              onClick={() => openPanel('ecosystem')}
-              sx={{
-                position: 'relative',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                bgcolor: 'transparent',
-                border: 'none',
-                p: 0,
-                cursor: 'pointer',
-              }}
-            >
-              <Logo app="connect" size={32} sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 } }} />
-              <IconButton
-                size="small"
-                sx={{
-                  position: 'absolute',
-                  right: -6,
-                  bottom: -6,
-                  width: 18,
-                  height: 18,
-                  bgcolor: '#0A0908',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  color: 'rgba(255,255,255,0.55)',
-                  '&:hover': { bgcolor: '#161412', color: 'white' },
-                }}
-              >
-                <ChevronDown size={11} />
-              </IconButton>
-            </Box>
-          </motion.div>
-        </motion.div>
-
-        <Box sx={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', pointerEvents: isIslandActive ? 'none' : 'auto', zIndex: 2 }}>
-          <motion.div {...stageMotion}>
-          <Box
-            component="button"
-            onClick={() => (panel ? closePanel() : openPanel('ecosystem'))}
-            sx={{
-              width: isExpanded ? 'calc(100vw - 32px)' : { xs: 44, md: 114 },
-              minWidth: isExpanded ? 'calc(100vw - 32px)' : { xs: 44, md: 114 },
-              maxWidth: isExpanded ? 'calc(100vw - 32px)' : { xs: 44, md: 114 },
-              height: isExpanded ? `${headerHeight - 16}px` : 44,
-              display: 'flex',
-              alignItems: 'stretch',
-              justifyContent: 'flex-start',
-              gap: 1.25,
-              px: isExpanded ? 1.75 : 1,
-              py: isExpanded ? 1.25 : 0,
-              minHeight: 44,
-              border: '1px solid rgba(255,255,255,0.08)',
-              borderBottomWidth: isExpanded ? 0 : 1,
-              bgcolor: isExpanded ? '#161412' : '#000000',
-              color: 'white',
-              borderRadius: isExpanded ? '24px' : '999px',
-              boxShadow: isExpanded
-                ? 'none'
-                : '0 0 0 1px rgba(255,255,255,0.04), 0 0 0 6px rgba(245, 158, 11, 0.02), 0 0 26px rgba(0, 0, 0, 0.55)',
-              cursor: 'pointer',
-              textAlign: 'left',
-              transition: 'transform 150ms ease-out, box-shadow 150ms ease-out, border-radius 150ms ease-out, padding 150ms ease-out, min-height 150ms ease-out, width 150ms ease-out, height 150ms ease-out, background-color 150ms ease-out',
-              animation: isExpanded ? 'none' : 'connectSearchPulse 3.2s ease-in-out infinite',
-              '@keyframes connectSearchPulse': {
-                '0%, 100%': {
-                  boxShadow: '0 0 0 1px rgba(255,255,255,0.04), 0 0 0 6px rgba(245, 158, 11, 0.02), 0 0 26px rgba(0, 0, 0, 0.55)',
-                },
-                '50%': {
-                  boxShadow: '0 0 0 1px rgba(255,255,255,0.07), 0 0 0 8px rgba(245, 158, 11, 0.05), 0 0 34px rgba(0, 0, 0, 0.72)',
-                },
-              },
-              '&:hover': { transform: 'translateY(-1px)' },
-              '&:active': { transform: 'scale(0.98)' },
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, width: '100%', height: '100%' }}>
-              <Box sx={{ width: 28, height: 28, display: 'grid', placeItems: 'center', flexShrink: 0, mt: isExpanded ? 0.25 : 0, ml: isExpanded ? 0.1 : 0 }}>
-                <Search size={16} strokeWidth={2.25} style={{ flexShrink: 0, opacity: 0.84 }} />
-              </Box>
-              {isExpanded ? (
-                <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.25, py: 0.25 }}>
-                  <Typography variant="caption" noWrap sx={{ color: 'rgba(255,255,255,0.9)', fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                    {panel === 'profile' ? (displayUser?.name || displayUser?.email || 'Profile') : 'Ecosystem apps'}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.36)', fontWeight: 700 }} noWrap>
-                    {panel === 'profile' ? 'Profile commands' : 'Jump between apps'}
-                  </Typography>
-                </Box>
-              ) : null}
-              {isExpanded ? (
-                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.36)', fontWeight: 700, flexShrink: 0 }} noWrap>
-                  Close
-                </Typography>
-              ) : null}
-            </Box>
-          </Box>
-          </motion.div>
-        </Box>
-
-        <motion.div {...stageMotion} style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, pointerEvents: isIslandActive ? 'none' : 'auto' }}>
-          <Tooltip title="Wallet">
-            <IconButton
-              onClick={() => setIsWalletOpen(true)}
-              sx={{
-                color: isWalletOpen ? '#F59E0B' : 'rgba(255, 255, 255, 0.4)',
-                bgcolor: alpha('#F59E0B', 0.03),
-                border: '1px solid',
-                borderColor: isWalletOpen ? alpha('#F59E0B', 0.3) : alpha('#F59E0B', 0.1),
-                borderRadius: '12px',
-                width: { xs: 36, sm: 42 },
-                height: { xs: 36, sm: 42 },
-                '&:hover': { bgcolor: alpha('#F59E0B', 0.08) },
-              }}
-            >
-              <Wallet size={18} strokeWidth={1.5} />
-            </IconButton>
-          </Tooltip>
-
-          {displayUser ? (
+      {!panel && (
+        <Toolbar sx={{
+          gap: { xs: 2, md: 4 },
+          px: { xs: 2, md: 4 },
+          minHeight: `${baseHeaderHeight}px`,
+          width: '100%',
+          maxWidth: '1440px',
+          margin: '0 auto',
+          justifyContent: 'space-between',
+          position: 'relative',
+        }}>
+          <motion.div {...stageMotion} style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, pointerEvents: isIslandActive ? 'none' : 'auto' }}>
             <motion.div style={{ display: 'inline-flex' }}>
               <Box
                 component="button"
-                onClick={() => openPanel('profile')}
+                onClick={() => openPanel('ecosystem')}
                 sx={{
-                  p: 0,
+                  position: 'relative',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  bgcolor: 'transparent',
                   border: 'none',
-                  background: 'transparent',
+                  p: 0,
                   cursor: 'pointer',
-                  '&:hover': { transform: 'scale(1.05)' },
-                  transition: 'transform 0.2s',
                 }}
               >
-                <IdentityAvatar
-                  src={profileUrl || undefined}
-                  alt={displayUser?.name || displayUser?.email || 'profile'}
-                  fallback={displayUser?.name ? displayUser.name[0].toUpperCase() : 'U'}
-                  verified={identitySignals.verified}
-                  verifiedOn={identitySignals.verifiedOn}
-                  pro={identitySignals.pro}
-                  size={38}
-                  borderRadius="12px"
-                />
+                <Logo app="connect" size={32} sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 } }} />
+                <IconButton
+                  size="small"
+                  sx={{
+                    position: 'absolute',
+                    right: -6,
+                    bottom: -6,
+                    width: 18,
+                    height: 18,
+                    bgcolor: '#0A0908',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    color: 'rgba(255,255,255,0.55)',
+                    '&:hover': { bgcolor: '#161412', color: 'white' },
+                  }}
+                >
+                  <ChevronDown size={11} />
+                </IconButton>
               </Box>
             </motion.div>
-          ) : (
-            <Button
-              href={`${getEcosystemUrl('accounts')}/login?source=${typeof window !== 'undefined' ? encodeURIComponent(window.location.origin) : ''}`}
-              variant="contained"
-              size="small"
-              sx={{
-                ml: 1,
-                bgcolor: '#6366F1',
-                color: '#000',
-                fontWeight: 800,
-                borderRadius: '10px',
-                '&:hover': { bgcolor: alpha('#6366F1', 0.8) },
-              }}
-            >
-              Connect
-            </Button>
-          )}
-        </motion.div>
-      </Toolbar>
+          </motion.div>
+
+          <Box sx={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', pointerEvents: isIslandActive ? 'none' : 'auto', zIndex: 2 }}>
+            <motion.div {...stageMotion}>
+              <Box
+                component="button"
+                onClick={() => (panel ? closePanel() : openPanel('ecosystem'))}
+                sx={{
+                  width: { xs: 44, md: 114 },
+                  minWidth: { xs: 44, md: 114 },
+                  maxWidth: { xs: 44, md: 114 },
+                  height: 44,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 1.25,
+                  px: 1,
+                  py: 0,
+                  minHeight: 44,
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  bgcolor: '#000000',
+                  color: 'white',
+                  borderRadius: { xs: '999px', md: '24px' },
+                  boxShadow: '0 0 0 1px rgba(255,255,255,0.04), 0 0 0 6px rgba(245, 158, 11, 0.02), 0 0 26px rgba(0, 0, 0, 0.55)',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'transform 150ms ease-out, box-shadow 150ms ease-out, border-radius 150ms ease-out, width 150ms ease-out, min-width 150ms ease-out, max-width 150ms ease-out, background-color 150ms ease-out',
+                  animation: 'connectSearchPulse 3.2s ease-in-out infinite',
+                  '@keyframes connectSearchPulse': {
+                    '0%, 100%': {
+                      boxShadow: '0 0 0 1px rgba(255,255,255,0.04), 0 0 0 6px rgba(245, 158, 11, 0.02), 0 0 26px rgba(0, 0, 0, 0.55)',
+                    },
+                    '50%': {
+                      boxShadow: '0 0 0 1px rgba(255,255,255,0.07), 0 0 0 8px rgba(245, 158, 11, 0.05), 0 0 34px rgba(0, 0, 0, 0.72)',
+                    },
+                  },
+                  '&:hover': { transform: 'translateY(-1px)' },
+                  '&:active': { transform: 'scale(0.98)' },
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.25, width: '100%', height: '100%' }}>
+                  <Search size={16} strokeWidth={2.25} style={{ flexShrink: 0, opacity: 0.84 }} />
+                </Box>
+              </Box>
+            </motion.div>
+          </Box>
+
+          <motion.div {...stageMotion} style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, pointerEvents: isIslandActive ? 'none' : 'auto' }}>
+            <Tooltip title="Wallet">
+              <IconButton
+                onClick={() => setIsWalletOpen(true)}
+                sx={{
+                  color: isWalletOpen ? '#F59E0B' : 'rgba(255, 255, 255, 0.4)',
+                  bgcolor: alpha('#F59E0B', 0.03),
+                  border: '1px solid',
+                  borderColor: isWalletOpen ? alpha('#F59E0B', 0.3) : alpha('#F59E0B', 0.1),
+                  borderRadius: '12px',
+                  width: { xs: 36, sm: 42 },
+                  height: { xs: 36, sm: 42 },
+                  '&:hover': { bgcolor: alpha('#F59E0B', 0.08) },
+                }}
+              >
+                <Wallet size={18} strokeWidth={1.5} />
+              </IconButton>
+            </Tooltip>
+
+            {displayUser ? (
+              <motion.div style={{ display: 'inline-flex' }}>
+                <Box
+                  component="button"
+                  onClick={() => openPanel('profile')}
+                  sx={{
+                    p: 0,
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    '&:hover': { transform: 'scale(1.05)' },
+                    transition: 'transform 0.2s',
+                  }}
+                >
+                  <IdentityAvatar
+                    src={profileUrl || undefined}
+                    alt={displayUser?.name || displayUser?.email || 'profile'}
+                    fallback={displayUser?.name ? displayUser.name[0].toUpperCase() : 'U'}
+                    verified={identitySignals.verified}
+                    verifiedOn={identitySignals.verifiedOn}
+                    pro={identitySignals.pro}
+                    size={38}
+                    borderRadius="12px"
+                  />
+                </Box>
+              </motion.div>
+            ) : (
+              <Button
+                href={`${getEcosystemUrl('accounts')}/login?source=${typeof window !== 'undefined' ? encodeURIComponent(window.location.origin) : ''}`}
+                variant="contained"
+                size="small"
+                sx={{
+                  ml: 1,
+                  bgcolor: '#6366F1',
+                  color: '#000',
+                  fontWeight: 800,
+                  borderRadius: '10px',
+                  '&:hover': { bgcolor: alpha('#6366F1', 0.8) },
+                }}
+              >
+                Connect
+              </Button>
+            )}
+          </motion.div>
+        </Toolbar>
+      )}
 
         {panel && (
           <Box
