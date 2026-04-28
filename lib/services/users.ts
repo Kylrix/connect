@@ -144,7 +144,7 @@ export const UsersService = {
                 const result = await tablesDB.listRows(DB_ID, USERS_TABLE, [
                     Query.equal('username', normalized),
                     Query.limit(1),
-                    Query.select(['$id', 'userId', 'username', 'displayName', 'bio', 'avatar', 'publicKey', 'walletAddress', 'preferences', 'tier', 'last_username_edit', 'createdAt', '$createdAt'])
+                    Query.select(['$id', 'userId', 'username', 'displayName', 'bio', 'avatar', 'avatarUrl', 'avatarFileId', 'publicKey', 'walletAddress', 'preferences', 'tier', 'last_username_edit', 'createdAt', '$createdAt'])
                 ]);
                 return result.rows[0] || null;
             });
@@ -176,7 +176,7 @@ export const UsersService = {
                 const result = await tablesDB.listRows(DB_ID, USERS_TABLE, [
                     Query.equal('userId', userId),
                     Query.limit(1),
-                    Query.select(['$id', 'userId', 'username', 'displayName', 'bio', 'avatar', 'publicKey', 'walletAddress', 'preferences', 'tier', 'last_username_edit', 'createdAt', '$createdAt'])
+                    Query.select(['$id', 'userId', 'username', 'displayName', 'bio', 'avatar', 'avatarUrl', 'avatarFileId', 'publicKey', 'walletAddress', 'preferences', 'tier', 'last_username_edit', 'createdAt', '$createdAt'])
                 ]);
 
                 if (result.rows[0]) return result.rows[0];
@@ -207,7 +207,7 @@ export const UsersService = {
             const result = await tablesDB.listRows(DB_ID, USERS_TABLE, [
                 Query.equal('userId', userId),
                 Query.limit(100),
-                Query.select(['$id', 'userId', 'username', 'displayName', 'bio', 'avatar', 'publicKey', 'walletAddress', 'preferences', 'tier', 'last_username_edit', 'createdAt', '$createdAt'])
+                Query.select(['$id', 'userId', 'username', 'displayName', 'bio', 'avatar', 'avatarUrl', 'avatarFileId', 'publicKey', 'walletAddress', 'preferences', 'tier', 'last_username_edit', 'createdAt', '$createdAt'])
             ]);
             
             for (const row of result.rows) {
@@ -225,7 +225,7 @@ export const UsersService = {
         try {
             const result = await tablesDB.listRows(DB_ID, USERS_TABLE, [
                 Query.equal('username', normalized),
-                Query.select(['$id', 'userId', 'username', 'displayName', 'bio', 'avatar', 'publicKey', 'walletAddress', 'preferences', 'tier', 'last_username_edit', 'createdAt', '$createdAt'])
+                Query.select(['$id', 'userId', 'username', 'displayName', 'bio', 'avatar', 'avatarUrl', 'avatarFileId', 'publicKey', 'walletAddress', 'preferences', 'tier', 'last_username_edit', 'createdAt', '$createdAt'])
             ]);
             return result.total === 0;
         } catch (_e: unknown) {

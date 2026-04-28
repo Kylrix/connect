@@ -13,3 +13,12 @@ export function getUserField<T = any>(user: any, field: string): T | null {
 export function getUserProfilePicId(user: any): string | null {
   return getUserField<string>(user, 'avatar') || getUserField<string>(user, 'profilePicId');
 }
+
+export function getUserProfilePreviewSource(user: any): string | null {
+  return (
+    getUserField<string>(user, 'avatarUrl') ||
+    getUserField<string>(user, 'avatarFileId') ||
+    getUserField<string>(user, 'avatar') ||
+    getUserField<string>(user, 'profilePicId')
+  );
+}

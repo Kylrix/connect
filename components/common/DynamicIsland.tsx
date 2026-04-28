@@ -160,9 +160,8 @@ export const IslandProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }, [lastActivity, notifications.length, showIsland, user]);
 
   return (
-    <IslandContext.Provider value={{ openPanel, closePanel, isActive: Boolean(panel || notifications.length), panel }}>
+    <IslandContext.Provider value={{ openPanel, closePanel, isActive: Boolean(panel), panel }}>
       {children}
-      <DynamicIslandOverlay notifications={notifications} onDismiss={dismissIsland} isMobile={isMobile} panel={panel} onClosePanel={closePanel} />
     </IslandContext.Provider>
   );
 };

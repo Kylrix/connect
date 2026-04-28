@@ -12,10 +12,10 @@ import {
   alpha,
   Button,
 } from '@mui/material';
-import { Search, Sparkles, UserRound, X as CloseIcon, Wallet } from 'lucide-react';
+import { ChevronDown, Search, X as CloseIcon, Wallet } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { getUserProfilePicId } from '@/lib/user-utils';
+import { getUserProfilePicId, getUserProfilePreviewSource } from '@/lib/user-utils';
 import { useCachedProfilePreview } from '@/hooks/useCachedProfilePreview';
 import { IdentityAvatar, computeIdentityFlags } from '../common/IdentityBadge';
 import Logo, { type KylrixApp as LogoApp } from '../common/Logo';
@@ -39,12 +39,10 @@ export const AppHeader = () => {
   const { openPanel, closePanel, panel, isActive: isIslandActive } = useIsland();
   const headerRef = useRef<HTMLDivElement | null>(null);
   const displayUser = fastUser || user;
+  const profilePreviewSource = cachedProfile?.avatarUrl || cachedProfile?.avatarFileId || cachedProfile?.avatar || getUserProfilePreviewSource(displayUser);
   const profilePicId = cachedProfile?.avatar || getUserProfilePicId(displayUser);
-  const profileUrl = useCachedProfilePreview(profilePicId || null, 64, 64);
+  const profileUrl = useCachedProfilePreview(profilePreviewSource || null, 64, 64);
   const isExpanded = Boolean(panel);
-  const islandIcon = panel === 'profile' ? UserRound : panel === 'ecosystem' ? Sparkles : Search;
-  const IslandIcon = islandIcon;
-
   useEffect(() => {
     if (searchParams.get('openWallet') === 'true') {
       setTimeout(() => setIsWalletOpen(true), 0);
@@ -115,7 +113,7 @@ export const AppHeader = () => {
   }, [closePanel, panel]);
 
   const stageMotion = {
-    animate: { opacity: isExpanded ? 0 : 1, y: isExpanded ? -6 : 0, scale: isExpanded ? 0.96 : 1 },
+    animate: { opacity: isExpanded ? 0 : 1, scale: isExpanded ? 0.96 : 1 },
     transition: { duration: 0.22 },
     style: { pointerEvents: isIslandActive ? 'none' : 'auto' as const },
   };
@@ -152,33 +150,72 @@ export const AppHeader = () => {
         maxWidth: '1440px',
         margin: '0 auto',
         justifyContent: 'space-between',
+        position: 'relative',
       }}>
-        <motion.div {...stageMotion} style={{ flexGrow: 1, display: 'flex', justifyContent: 'center', pointerEvents: isIslandActive ? 'none' : 'auto' }}>
+        <motion.div {...stageMotion} style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, pointerEvents: isIslandActive ? 'none' : 'auto' }}>
+          <motion.div style={{ display: 'inline-flex' }}>
+            <Box
+              component="button"
+              onClick={() => openPanel('ecosystem')}
+              sx={{
+                position: 'relative',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: 'transparent',
+                border: 'none',
+                p: 0,
+                cursor: 'pointer',
+              }}
+            >
+              <Logo app="connect" size={32} sx={{ cursor: 'pointer', '&:hover': { opacity: 0.8 } }} />
+              <IconButton
+                size="small"
+                sx={{
+                  position: 'absolute',
+                  right: -6,
+                  bottom: -6,
+                  width: 18,
+                  height: 18,
+                  bgcolor: '#0A0908',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: 'rgba(255,255,255,0.55)',
+                  '&:hover': { bgcolor: '#161412', color: 'white' },
+                }}
+              >
+                <ChevronDown size={11} />
+              </IconButton>
+            </Box>
+          </motion.div>
+        </motion.div>
+
+        <motion.div {...stageMotion} style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', pointerEvents: isIslandActive ? 'none' : 'auto', zIndex: 2 }}>
           <Box
             component="button"
             onClick={() => (panel ? closePanel() : openPanel('ecosystem'))}
             sx={{
-              width: isExpanded ? '100%' : 44,
-              minWidth: isExpanded ? '100%' : 44,
-              maxWidth: isExpanded ? '100%' : 44,
+              width: isExpanded ? 'calc(100vw - 32px)' : { xs: 44, md: 114 },
+              minWidth: isExpanded ? 'calc(100vw - 32px)' : { xs: 44, md: 114 },
+              maxWidth: isExpanded ? 'calc(100vw - 32px)' : { xs: 44, md: 114 },
+              height: isExpanded ? `${headerHeight - 16}px` : 44,
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: isExpanded ? 'flex-start' : 'center',
+              alignItems: 'stretch',
+              justifyContent: 'flex-start',
               gap: 1.25,
               px: isExpanded ? 1.75 : 1,
-              py: isExpanded ? 1.15 : 0,
+              py: isExpanded ? 1.25 : 0,
               minHeight: 44,
               border: '1px solid rgba(255,255,255,0.08)',
               borderBottomWidth: isExpanded ? 0 : 1,
-              bgcolor: '#000000',
+              bgcolor: isExpanded ? '#161412' : '#000000',
               color: 'white',
-              borderRadius: isExpanded ? '18px 18px 0 0' : '999px',
+              borderRadius: isExpanded ? '24px' : '999px',
               boxShadow: isExpanded
                 ? 'none'
                 : '0 0 0 1px rgba(255,255,255,0.04), 0 0 0 6px rgba(245, 158, 11, 0.02), 0 0 26px rgba(0, 0, 0, 0.55)',
               cursor: 'pointer',
               textAlign: 'left',
-              transition: 'transform 150ms ease-out, box-shadow 150ms ease-out, border-radius 150ms ease-out, padding 150ms ease-out, min-height 150ms ease-out, width 150ms ease-out',
+              transition: 'transform 150ms ease-out, box-shadow 150ms ease-out, border-radius 150ms ease-out, padding 150ms ease-out, min-height 150ms ease-out, width 150ms ease-out, height 150ms ease-out, background-color 150ms ease-out',
               animation: isExpanded ? 'none' : 'connectSearchPulse 3.2s ease-in-out infinite',
               '@keyframes connectSearchPulse': {
                 '0%, 100%': {
@@ -188,35 +225,30 @@ export const AppHeader = () => {
                   boxShadow: '0 0 0 1px rgba(255,255,255,0.07), 0 0 0 8px rgba(245, 158, 11, 0.05), 0 0 34px rgba(0, 0, 0, 0.72)',
                 },
               },
-              '&:hover': { transform: 'translateY(-1px)' },
-              '&:active': { transform: 'translateY(0) scale(0.98)' },
+              '&:hover': { transform: 'translate(-50%, -50%) translateY(-1px)' },
+              '&:active': { transform: 'translate(-50%, -50%) scale(0.98)' },
             }}
           >
-            <IslandIcon size={16} strokeWidth={2.25} style={{ flexShrink: 0, opacity: 0.84 }} />
-            {isExpanded && (
-              <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-                <Typography
-                  variant="caption"
-                  noWrap
-                  sx={{
-                    color: 'rgba(255,255,255,0.9)',
-                    fontWeight: 900,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  {panel === 'profile' ? (displayUser?.name || displayUser?.email || 'Profile') : 'Ecosystem apps'}
-                </Typography>
-                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.36)', fontWeight: 700 }} noWrap>
-                  {panel === 'profile' ? 'Profile commands' : 'Jump between apps'}
-                </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, width: '100%', height: '100%' }}>
+              <Box sx={{ width: 28, height: 28, display: 'grid', placeItems: 'center', flexShrink: 0, mt: isExpanded ? 0.25 : 0, ml: isExpanded ? 0.1 : 0 }}>
+                <Search size={16} strokeWidth={2.25} style={{ flexShrink: 0, opacity: 0.84 }} />
               </Box>
-            )}
-            {isExpanded && (
-              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.36)', fontWeight: 700 }} noWrap>
-                Close
-              </Typography>
-            )}
+              {isExpanded ? (
+                <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.25, py: 0.25 }}>
+                  <Typography variant="caption" noWrap sx={{ color: 'rgba(255,255,255,0.9)', fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                    {panel === 'profile' ? (displayUser?.name || displayUser?.email || 'Profile') : 'Ecosystem apps'}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.36)', fontWeight: 700 }} noWrap>
+                    {panel === 'profile' ? 'Profile commands' : 'Jump between apps'}
+                  </Typography>
+                </Box>
+              ) : null}
+              {isExpanded ? (
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.36)', fontWeight: 700, flexShrink: 0 }} noWrap>
+                  Close
+                </Typography>
+              ) : null}
+            </Box>
           </Box>
         </motion.div>
 
@@ -285,18 +317,18 @@ export const AppHeader = () => {
         </motion.div>
       </Toolbar>
 
-      {panel && (
-        <Box
-          sx={{
-            width: '100%',
-            flex: 1,
-            display: 'flex',
-            alignItems: 'stretch',
-            borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-            bgcolor: '#050505',
-            overflow: 'hidden',
-          }}
-        >
+        {panel && (
+          <Box
+            sx={{
+              width: '100%',
+              flex: 1,
+              display: 'flex',
+              alignItems: 'stretch',
+              borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+              bgcolor: '#161412',
+              overflow: 'hidden',
+            }}
+          >
           <motion.div
             key={`dock-${panel}`}
             initial={{ opacity: 0, y: -8 }}

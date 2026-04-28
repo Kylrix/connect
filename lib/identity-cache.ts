@@ -18,6 +18,8 @@ type IdentityInput = Partial<CachedIdentity> & {
   username?: string | null;
   displayName?: string | null;
   avatar?: string | null;
+  avatarUrl?: string | null;
+  avatarFileId?: string | null;
   profilePicId?: string | null;
   publicKey?: string | null;
   preferences?: any | null;
@@ -96,7 +98,7 @@ export function normalizeIdentity(input: IdentityInput | null | undefined): Cach
 
   const username = normalizeUsername(input.username);
   const displayName = input.displayName?.trim() || null;
-  const avatar = input.avatar || input.profilePicId || null;
+  const avatar = input.avatarUrl || input.avatarFileId || input.avatar || input.profilePicId || null;
   const publicKey = input.publicKey || null;
   const preferences = input.preferences || null;
   const bio = input.bio || null;
@@ -219,4 +221,3 @@ export function subscribeIdentityCache(listener: (identity: CachedIdentity) => v
   window.addEventListener(IDENTITY_UPDATED_EVENT, handler);
   return () => window.removeEventListener(IDENTITY_UPDATED_EVENT, handler);
 }
-
