@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -H localhost",
+    "dev": "next dev -H localhost -p 3004",
     "build": "BASELINE_BROWSER_MAPPING_IGNORE_OLD_DATA=true BROWSERSLIST_IGNORE_OLD_DATA=true next build",
     "start": "next start",
     "lint": "eslint"
