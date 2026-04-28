@@ -12,7 +12,7 @@ import {
   alpha,
   Button,
 } from '@mui/material';
-import { Wallet, ChevronDown, X as CloseIcon } from 'lucide-react';
+import { Wallet, ChevronDown, X as CloseIcon, Search } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { getUserProfilePicId } from '@/lib/user-utils';
@@ -41,6 +41,7 @@ export const AppHeader = () => {
   const displayUser = fastUser || user;
   const profilePicId = cachedProfile?.avatar || getUserProfilePicId(displayUser);
   const profileUrl = useCachedProfilePreview(profilePicId || null, 64, 64);
+  const isExpanded = Boolean(panel);
 
   useEffect(() => {
     if (searchParams.get('openWallet') === 'true') {
@@ -114,7 +115,7 @@ export const AppHeader = () => {
   }, [closePanel, panel]);
 
   const stageMotion = {
-    animate: { opacity: isIslandActive ? 0 : 1, y: isIslandActive ? -4 : 0, scale: isIslandActive ? 0.96 : 1 },
+    animate: { opacity: isExpanded ? 0 : 1, y: isExpanded ? -6 : 0, scale: isExpanded ? 0.96 : 1 },
     transition: { duration: 0.22 },
     style: { pointerEvents: isIslandActive ? 'none' : 'auto' as const },
   };
@@ -126,8 +127,10 @@ export const AppHeader = () => {
       elevation={0}
         sx={{
           zIndex: 1201,
-          bgcolor: 'var(--color-surface)',
+          bgcolor: '#161412',
           borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+          borderRadius: '0 0 28px 28px',
+          boxShadow: '0 16px 42px rgba(0,0,0,0.42)',
           backgroundImage: 'none',
           display: 'flex',
         flexDirection: 'column',
@@ -187,19 +190,49 @@ export const AppHeader = () => {
           </motion.div>
         </motion.div>
 
-        {isCompact ? (
-          <motion.div {...stageMotion} style={{ flexGrow: 1, display: 'flex', justifyContent: 'center', pointerEvents: isIslandActive ? 'none' : 'auto' }}>
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.75, borderRadius: '999px', bgcolor: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.06)', color: 'text.primary', fontWeight: 800, letterSpacing: '0.02em', maxWidth: '100%' }}>
-              <Typography variant="caption" sx={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }} noWrap>
-                {headerTitle}
-              </Typography>
-            </Box>
-          </motion.div>
-        ) : (
-          <motion.div {...stageMotion} style={{ flexGrow: 1, pointerEvents: isIslandActive ? 'none' : 'auto' }}>
-            <Box sx={{ display: { xs: 'none', md: 'block' }, height: 40 }} />
-          </motion.div>
-        )}
+        <motion.div {...stageMotion} style={{ flexGrow: 1, display: 'flex', justifyContent: 'center', pointerEvents: isIslandActive ? 'none' : 'auto' }}>
+          <Box
+            component="button"
+            onClick={() => (panel ? closePanel() : openPanel('ecosystem'))}
+            sx={{
+              width: '100%',
+              maxWidth: isExpanded ? '100%' : { xs: '100%', md: 640 },
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.25,
+              px: 1.75,
+              py: 1.15,
+              border: '1px solid rgba(255,255,255,0.06)',
+              borderBottomWidth: isExpanded ? 0 : 1,
+              bgcolor: isExpanded ? '#050505' : 'rgba(255,255,255,0.04)',
+              color: 'white',
+              borderRadius: isExpanded ? '18px 18px 0 0' : '999px',
+              boxShadow: isExpanded ? 'none' : 'inset 0 1px 0 rgba(255,255,255,0.03)',
+              cursor: 'pointer',
+              textAlign: 'left',
+              transition: 'all 220ms ease',
+              '&:hover': { bgcolor: isExpanded ? '#050505' : 'rgba(255,255,255,0.06)' },
+            }}
+          >
+            <Search size={16} strokeWidth={2.25} style={{ flexShrink: 0, opacity: 0.75 }} />
+            <Typography
+              variant="caption"
+              noWrap
+              sx={{
+                flex: 1,
+                color: 'rgba(255,255,255,0.7)',
+                fontWeight: 800,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+              }}
+            >
+              {isExpanded ? (panel === 'profile' ? (displayUser?.name || displayUser?.email || 'Profile') : 'Ecosystem apps') : 'Search people, apps, and moments'}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.35)', fontWeight: 700 }} noWrap>
+              {isExpanded ? 'Close' : headerTitle}
+            </Typography>
+          </Box>
+        </motion.div>
 
         <motion.div {...stageMotion} style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0, pointerEvents: isIslandActive ? 'none' : 'auto' }}>
           <Tooltip title="Wallet">
