@@ -68,6 +68,8 @@ import { useAppChrome } from '@/components/providers/AppChromeProvider';
 import { useProfile } from '@/components/providers/ProfileProvider';
 import { formatPostTimestamp } from '@/lib/time';
 import { useCachedProfilePreview } from '@/hooks/useCachedProfilePreview';
+import { getUserSubscriptionTier } from '@/lib/user-utils';
+import { showUpgradeIsland } from '@/lib/upgrade-island';
 
 import toast from 'react-hot-toast';
 
@@ -241,6 +243,8 @@ const PostComposer = React.memo(function PostComposer({
     setHasDraftText: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
     const [filePreviews, setFilePreviews] = React.useState<ComposerFilePreview[]>([]);
+    const mediaInputRef = React.useRef<HTMLInputElement | null>(null);
+    const isProPlan = getUserSubscriptionTier(user) === 'PRO';
 
     React.useEffect(() => {
         if (!isOpen) return;
@@ -427,6 +431,7 @@ const PostComposer = React.memo(function PostComposer({
                         <CardActions sx={{ justifyContent: 'space-between', px: 2, py: 1.5, bgcolor: '#000000' }}>
                             <Box sx={{ display: 'flex', gap: 0.5 }}>
                                 <input
+                                    ref={mediaInputRef}
                                     type="file"
                                     accept="image/*"
                                     multiple
@@ -437,18 +442,30 @@ const PostComposer = React.memo(function PostComposer({
                                         e.currentTarget.value = '';
                                     }}
                                 />
-                                <label htmlFor="media-upload">
-                                    <IconButton
-                                        component="span"
-                                        sx={{
-                                            borderRadius: '10px',
-                                            color: '#F59E0B',
-                                            '&:hover': { bgcolor: alpha('#F59E0B', 0.1) }
-                                        }}
-                                    >
-                                        <ImageIcon size={20} strokeWidth={1.5} />
-                                    </IconButton>
-                                </label>
+                                <IconButton
+                                    aria-disabled={!isProPlan}
+                                    onClick={() => {
+                                        if (!isProPlan) {
+                                            showUpgradeIsland('attach media to moments');
+                                            return;
+                                        }
+                                        mediaInputRef.current?.click();
+                                    }}
+                                    sx={{
+                                        borderRadius: '10px',
+                                        color: isProPlan ? '#F59E0B' : 'rgba(255, 255, 255, 0.28)',
+                                        bgcolor: isProPlan ? 'transparent' : 'rgba(255, 255, 255, 0.02)',
+                                        border: '1px solid rgba(255, 255, 255, 0.06)',
+                                        opacity: isProPlan ? 1 : 0.55,
+                                        cursor: 'pointer',
+                                        '&:hover': {
+                                            bgcolor: isProPlan ? alpha('#F59E0B', 0.1) : 'rgba(255, 255, 255, 0.03)',
+                                            color: isProPlan ? '#F59E0B' : 'rgba(255, 255, 255, 0.35)',
+                                        }
+                                    }}
+                                >
+                                    <ImageIcon size={20} strokeWidth={1.5} />
+                                </IconButton>
                                 <Button
                                     startIcon={<FileText size={18} strokeWidth={1.5} />}
                                     onClick={onOpenNote}
