@@ -24,7 +24,8 @@ import {
     ArrowLeft
 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { createBottomBarSurface, getBottomBarViewportOffset } from '@/lib/sdk/bottombar';
 
 import { AppHeader } from './AppHeader';
 import { ChatList } from '../chat/ChatList';
@@ -39,7 +40,6 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
     const searchParams = useSearchParams();
     const router = useRouter();
     const [_anchorEl, _setAnchorEl] = useState<null | HTMLElement>(null);
-    const [bottomNavOffset, setBottomNavOffset] = useState(0);
     const { headerHeight } = useAppChrome();
 
     const isEmbedded = useMemo(() => searchParams?.get('is_embedded') === 'true', [searchParams]);
@@ -49,42 +49,15 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
     const isInsideChat = pathname?.startsWith('/chat/');
     const isFullscreenContent = isChatActive || isPostActive;
 
-    useEffect(() => {
-        const updateBottomNavOffset = () => {
-            if (typeof window === 'undefined') return;
-            const viewport = window.visualViewport;
-            if (!viewport) {
-                setBottomNavOffset(0);
-                return;
-            }
-
-            const offset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
-            setBottomNavOffset(offset);
-        };
-
-        updateBottomNavOffset();
-
-        const viewport = window.visualViewport;
-        if (!viewport) return;
-
-        viewport.addEventListener('resize', updateBottomNavOffset);
-        viewport.addEventListener('scroll', updateBottomNavOffset);
-        window.addEventListener('resize', updateBottomNavOffset);
-
-        return () => {
-            viewport.removeEventListener('resize', updateBottomNavOffset);
-            viewport.removeEventListener('scroll', updateBottomNavOffset);
-            window.removeEventListener('resize', updateBottomNavOffset);
-        };
-    }, []);
-
-    const navItems = [
-        { label: 'Home', icon: <Home size={24} />, href: '/' },
-        { label: 'Chats', icon: <MessageCircle size={24} />, href: '/chats' },
-        { label: 'Calls', icon: <Phone size={24} />, href: '/calls' },
-        // Profile removed from nav — access via account menu -> "Profile"
-        { label: 'Settings', icon: <Settings size={24} />, href: '/settings' },
-    ];
+    const bottomBarSurface = createBottomBarSurface({
+        activeHref: pathname || '/',
+        items: [
+            { id: 'home', label: 'Home', href: '/' },
+            { id: 'chats', label: 'Chats', href: '/chats' },
+            { id: 'calls', label: 'Calls', href: '/calls' },
+            { id: 'settings', label: 'Settings', href: '/settings' },
+        ],
+    });
 
 
     if (isEmbedded) {
@@ -271,7 +244,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
                     elevation={0}
                     sx={{ 
                         position: 'fixed', 
-                        bottom: `calc(${bottomNavOffset}px + env(safe-area-inset-bottom))`, 
+                        bottom: `calc(${getBottomBarViewportOffset()}px + ${bottomBarSurface.mobileInset}px + env(safe-area-inset-bottom))`, 
                         left: 0, 
                         right: 0, 
                         display: { xs: 'block', md: 'none' },
@@ -288,15 +261,15 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
                         sx={{
                             bgcolor: '#161412',
                             backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 18%, #161412 100%)',
-                            height: 72,
+                            height: bottomBarSurface.mobileDockHeight,
                             pb: 'env(safe-area-inset-bottom)',
                             px: 1,
                         }}
                     >
-                        {navItems.map((item) => (
+                        {bottomBarSurface.items.map((item) => (
                             <BottomNavigationAction
                                 key={item.href}
-                                icon={item.icon}
+                                icon={item.href === '/' ? <Home size={24} /> : item.href === '/chats' ? <MessageCircle size={24} /> : item.href === '/calls' ? <Phone size={24} /> : <Settings size={24} />}
                                 component={Link}
                                 href={item.href}
                                 value={item.href}
