@@ -9,6 +9,8 @@ const DB_ID = APPWRITE_CONFIG.DATABASES.CHAT;
 const MOMENTS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.MOMENTS;
 const FOLLOWS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.FOLLOWS;
 const INTERACTIONS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.INTERACTIONS;
+const MOMENT_LIST_SELECT = ['$id', 'userId', 'caption', 'fileId', 'momentKind', 'sourceId', 'searchTitle', 'createdAt', 'expiresAt'];
+const INTERACTION_LIST_SELECT = ['$id', 'userId', 'messageId', 'emoji', 'createdAt'];
 
 export interface MomentMetadata {
     type: 'post' | 'reply' | 'pulse' | 'quote';
@@ -65,6 +67,7 @@ export const SocialService = {
         try {
             const interactions = await tablesDB.listRows(DB_ID, INTERACTIONS_TABLE, [
                 Query.equal('messageId', momentId),
+                Query.select(INTERACTION_LIST_SELECT),
                 Query.limit(100)
             ]);
 
@@ -72,6 +75,7 @@ export const SocialService = {
 
             const related = await tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
                 Query.equal('sourceId', momentId),
+                Query.select(MOMENT_LIST_SELECT),
                 Query.limit(200)
             ]).catch(() => ({ rows: [] as any[] }));
 
@@ -86,6 +90,7 @@ export const SocialService = {
 
             if (!related.rows?.length) {
                 const legacy = await tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
+                    Query.select(MOMENT_LIST_SELECT),
                     Query.orderDesc('$createdAt'),
                     Query.limit(100)
                 ]).catch(() => ({ rows: [] as any[] }));
@@ -111,6 +116,7 @@ export const SocialService = {
             const rows = await tablesDB.listRows(DB_ID, INTERACTIONS_TABLE, [
                 Query.equal('messageId', momentId),
                 Query.equal('emoji', emoji),
+                Query.select(INTERACTION_LIST_SELECT),
                 Query.orderDesc('$createdAt'),
                 Query.limit(100)
             ]);
@@ -127,6 +133,7 @@ export const SocialService = {
             const moments = await tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
                 Query.equal('sourceId', sourceId),
                 Query.equal('momentKind', 'pulse'),
+                Query.select(MOMENT_LIST_SELECT),
                 Query.orderDesc('$createdAt'),
                 Query.limit(100)
             ]);
@@ -136,6 +143,7 @@ export const SocialService = {
             }
 
             const legacy = await tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
+                Query.select(MOMENT_LIST_SELECT),
                 Query.orderDesc('$createdAt'),
                 Query.limit(200)
             ]);
@@ -166,7 +174,8 @@ export const SocialService = {
         const existing = await tablesDB.listRows(DB_ID, INTERACTIONS_TABLE, [
             Query.equal('userId', userId),
             Query.equal('messageId', momentId),
-            Query.equal('emoji', 'like')
+            Query.equal('emoji', 'like'),
+            Query.select(['$id'])
         ]);
 
         if (existing.total > 0) {
@@ -216,7 +225,8 @@ export const SocialService = {
         const existing = await tablesDB.listRows(DB_ID, INTERACTIONS_TABLE, [
             Query.equal('userId', userId),
             Query.equal('messageId', momentId),
-            Query.equal('emoji', 'like')
+            Query.equal('emoji', 'like'),
+            Query.select(['$id'])
         ]);
         return existing.total > 0;
     },
@@ -315,6 +325,7 @@ export const SocialService = {
     async getFeed(userId?: string, targetUserId?: string) {
         // Fetch public moments or moments from followed users
         const queries = [
+            Query.select(MOMENT_LIST_SELECT),
             Query.orderDesc('$createdAt'),
             Query.limit(100)
         ];
@@ -331,12 +342,14 @@ export const SocialService = {
             momentIds.length
                 ? tablesDB.listRows(DB_ID, INTERACTIONS_TABLE, [
                     Query.equal('messageId', momentIds),
+                    Query.select(INTERACTION_LIST_SELECT),
                     Query.limit(1000)
                 ]).then((res) => res.rows || []).catch(() => [])
                 : Promise.resolve([]),
             momentIds.length
                 ? tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
                     Query.equal('sourceId', momentIds),
+                    Query.select(MOMENT_LIST_SELECT),
                     Query.limit(1000)
                 ]).then((res) => res.rows || []).catch(() => [])
                 : Promise.resolve([]),
@@ -344,6 +357,7 @@ export const SocialService = {
                 ? tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
                     Query.equal('userId', userId),
                     Query.equal('momentKind', 'pulse'),
+                    Query.select(MOMENT_LIST_SELECT),
                     Query.orderDesc('$createdAt'),
                     Query.limit(200)
                 ]).then((res) => res.rows || []).catch(() => [])
@@ -899,6 +913,7 @@ export const SocialService = {
         if (cachedThread?.replies?.length) return cachedThread.replies;
 
         const moments = await tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
+            Query.select(MOMENT_LIST_SELECT),
             Query.equal('sourceId', momentId),
             Query.equal('momentKind', 'reply'),
             Query.orderDesc('$createdAt'),
@@ -908,6 +923,7 @@ export const SocialService = {
         const replies = moments.rows.length
             ? await Promise.all(moments.rows.map(m => this.enrichMoment(m, currentUserId)))
             : await Promise.all((await tablesDB.listRows(DB_ID, MOMENTS_TABLE, [
+                Query.select(MOMENT_LIST_SELECT),
                 Query.orderDesc('$createdAt'),
                 Query.limit(100)
             ]).catch(() => ({ rows: [] as any[] }))).rows
