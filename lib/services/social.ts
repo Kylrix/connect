@@ -876,6 +876,7 @@ export const SocialService = {
     async searchMoments(query: string, userId?: string) {
         try {
             const queries = [
+                Query.select(MOMENT_LIST_SELECT),
                 Query.search('searchTitle', query),
                 Query.orderDesc('$createdAt'),
                 Query.limit(50)
