@@ -46,6 +46,8 @@ export const CallService = {
                 type,
                 expiresAt,
                 createdAt: new Date().toISOString(),
+                receiverId: context.participantIds?.find((id) => id !== userId) || null,
+                conversationId: conversationId || null,
                 metadata: createCallMetadata({
                     scope,
                     hostId: userId,
@@ -183,7 +185,9 @@ export const CallService = {
             userId: callerId,
             type,
             expiresAt: new Date(Date.now() + 120 * 60 * 1000).toISOString(), // Default 2 hours
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            receiverId: receiverId || null,
+            conversationId: conversationId || null,
         };
 
         if (receiverId || conversationId) {
@@ -264,7 +268,7 @@ export const CallService = {
         // Fetch calls where user is creator OR receiver (stored in metadata)
         const [asCreator, asReceiver] = await Promise.all([
             tablesDB.listRows(DB_ID, LINKS_TABLE, [Query.equal('userId', userId), Query.orderDesc('$createdAt'), Query.limit(20)]),
-            tablesDB.listRows(DB_ID, LINKS_TABLE, [Query.contains('metadata', userId), Query.orderDesc('$createdAt'), Query.limit(20)])
+            tablesDB.listRows(DB_ID, LINKS_TABLE, [Query.equal('receiverId', userId), Query.orderDesc('$createdAt'), Query.limit(20)])
         ]);
         
         const allRows = [...asCreator.rows, ...asReceiver.rows].map(row => {
