@@ -73,13 +73,15 @@ export const CallSelectorModal = ({ open, onClose, onSelect }: CallSelectorModal
             onClose={onClose} 
             PaperProps={{ 
                 sx: { 
-                    borderRadius: '28px',
+                    borderRadius: '24px 24px 0 0',
                     bgcolor: 'rgba(10, 10, 10, 0.9)',
                     backdropFilter: 'blur(25px) saturate(180%)',
                     border: '1px solid rgba(255, 255, 255, 0.1)',
                     backgroundImage: 'none',
                     boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
-                    overflow: 'hidden'
+                    overflow: 'hidden',
+                    maxHeight: '88vh',
+                    width: '100%'
                 } 
             }}
             anchor="bottom"
