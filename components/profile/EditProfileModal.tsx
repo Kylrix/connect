@@ -2,16 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-    Dialog, 
-    DialogTitle, 
-    DialogContent, 
-    DialogActions, 
+    Drawer, 
     Button, 
     TextField, 
     Box, 
     Typography,
     CircularProgress,
-    InputAdornment
+    InputAdornment,
+    useTheme,
+    useMediaQuery,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
@@ -27,6 +26,8 @@ interface EditProfileModalProps {
 }
 
 export const EditProfileModal = ({ open, onClose, profile, onUpdate }: EditProfileModalProps) => {
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     const [username, setUsername] = useState(profile?.username || '');
     const [bio, setBio] = useState(profile?.bio || '');
     const [displayName, setDisplayName] = useState(profile?.displayName || '');
@@ -124,9 +125,21 @@ export const EditProfileModal = ({ open, onClose, profile, onUpdate }: EditProfi
     };
 
     return (
-        <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-            <DialogTitle sx={{ fontWeight: 'bold' }}>Edit Profile</DialogTitle>
-            <DialogContent dividers>
+        <Drawer anchor={isMobile ? 'bottom' : 'right'} open={open} onClose={onClose}
+            PaperProps={{
+                sx: {
+                    width: isMobile ? '100%' : 'min(100vw, 500px)',
+                    maxWidth: '100%',
+                    height: isMobile ? 'auto' : '100%',
+                    maxHeight: isMobile ? '92dvh' : '100%',
+                    borderRadius: isMobile ? '24px 24px 0 0' : '0',
+                    display: 'flex',
+                    flexDirection: 'column',
+                }
+            }}
+        >
+            <Box sx={{ fontWeight: 'bold', px: 3, pt: 3, pb: 2, borderBottom: '1px solid rgba(255, 255, 255, 0.05)', flexShrink: 0 }}>Edit Profile</Box>
+            <Box sx={{ px: 3, py: 2, flex: 1, overflowY: 'auto' }}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
                     <TextField
                         label="Username"
@@ -173,8 +186,8 @@ export const EditProfileModal = ({ open, onClose, profile, onUpdate }: EditProfi
                         {error}
                     </Typography>
                 )}
-            </DialogContent>
-            <DialogActions sx={{ p: 3 }}>
+            </Box>
+            <Box sx={{ p: 3, display: 'flex', gap: 1, borderTop: '1px solid rgba(255, 255, 255, 0.05)', flexShrink: 0 }}>
                 <Button onClick={onClose} disabled={loading}>Cancel</Button>
                 <Button 
                     variant="contained" 
@@ -184,7 +197,7 @@ export const EditProfileModal = ({ open, onClose, profile, onUpdate }: EditProfi
                 >
                     {loading ? <CircularProgress size={24} /> : 'Save Changes'}
                 </Button>
-            </DialogActions>
-        </Dialog>
+            </Box>
+        </Drawer>
     );
 };

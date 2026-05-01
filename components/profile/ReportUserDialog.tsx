@@ -5,15 +5,14 @@ import {
   Alert,
   Box,
   Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
+  Drawer,
   MenuItem,
   Stack,
   TextField,
   Typography,
   alpha,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import { Flag, ShieldAlert } from 'lucide-react';
 import { getEcosystemUrl } from '@/lib/constants';
@@ -39,6 +38,8 @@ export default function ReportUserDialog({
   contextUrl = null,
   sourceApp = 'connect',
 }: ReportUserDialogProps) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState('');
   const [selectedContextType, setSelectedContextType] = useState(contextType);
@@ -98,12 +99,24 @@ export default function ReportUserDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle sx={{ fontWeight: 900, display: 'flex', alignItems: 'center', gap: 1 }}>
+    <Drawer anchor={isMobile ? 'bottom' : 'right'} open={open} onClose={onClose} 
+      PaperProps={{
+        sx: {
+          width: isMobile ? '100%' : 'min(100vw, 500px)',
+          maxWidth: '100%',
+          height: isMobile ? 'auto' : '100%',
+          maxHeight: isMobile ? '92dvh' : '100%',
+          borderRadius: isMobile ? '24px 24px 0 0' : '0',
+          display: 'flex',
+          flexDirection: 'column',
+        }
+      }}
+    >
+      <Box sx={{ fontWeight: 900, display: 'flex', alignItems: 'center', gap: 1, px: 3, pt: 3, pb: 2, borderBottom: '1px solid rgba(255, 255, 255, 0.05)', flexShrink: 0 }}>
         <Flag size={18} />
         Report @{targetUsername}
-      </DialogTitle>
-      <DialogContent>
+      </Box>
+      <Box sx={{ px: 3, py: 2, flex: 1, overflowY: 'auto' }}>
         <Stack spacing={2.25} sx={{ pt: 1 }}>
           {message && <Alert severity="info">{message}</Alert>}
 
@@ -162,8 +175,8 @@ export default function ReportUserDialog({
             </Typography>
           </Box>
         </Stack>
-      </DialogContent>
-      <DialogActions sx={{ p: 3 }}>
+      </Box>
+      <Box sx={{ p: 3, display: 'flex', gap: 1, borderTop: '1px solid rgba(255, 255, 255, 0.05)', flexShrink: 0 }}>
         <Button onClick={onClose} disabled={submitting}>
           Cancel
         </Button>
@@ -175,7 +188,7 @@ export default function ReportUserDialog({
         >
           {submitting ? 'Submitting...' : 'Submit Report'}
         </Button>
-      </DialogActions>
-    </Dialog>
+      </Box>
+    </Drawer>
   );
 }

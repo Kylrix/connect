@@ -2,10 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { 
-    Dialog, 
-    DialogTitle, 
-    DialogContent, 
-    DialogActions, 
+    Drawer, 
     Button, 
     List, 
     ListItem, 
@@ -17,7 +14,9 @@ import {
     IconButton,
     alpha,
     Fade,
-    InputBase
+    InputBase,
+    useTheme,
+    useMediaQuery,
 } from '@mui/material';
 import {
     Calendar,
@@ -37,6 +36,8 @@ interface EventSelectorModalProps {
 }
 
 export const EventSelectorModal = ({ open, onClose, onSelect }: EventSelectorModalProps) => {
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     const { user } = useAuth();
     const [events, setEvents] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
@@ -69,31 +70,36 @@ export const EventSelectorModal = ({ open, onClose, onSelect }: EventSelectorMod
     );
 
     return (
-        <Dialog 
+        <Drawer 
+            anchor={isMobile ? 'bottom' : 'right'}
             open={open} 
             onClose={onClose} 
-            maxWidth="sm" 
-            fullWidth 
-            TransitionComponent={Fade}
             PaperProps={{ 
                 sx: { 
-                    borderRadius: '28px',
+                    width: isMobile ? '100%' : 'min(100vw, 500px)',
+                    maxWidth: '100%',
+                    height: isMobile ? 'auto' : '100%',
+                    maxHeight: isMobile ? '92dvh' : '100%',
+                    borderRadius: isMobile ? '28px 28px 0 0' : '0',
                     bgcolor: 'rgba(10, 10, 10, 0.9)',
                     backdropFilter: 'blur(25px) saturate(180%)',
                     border: '1px solid rgba(255, 255, 255, 0.1)',
                     backgroundImage: 'none',
                     boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
-                    overflow: 'hidden'
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
                 } 
             }}
         >
-            <DialogTitle sx={{ 
+            <Box sx={{ 
                 p: 3, 
                 pb: 2, 
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'space-between',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.05)'
+                borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                flexShrink: 0,
             }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     <Box sx={{ 
@@ -119,7 +125,7 @@ export const EventSelectorModal = ({ open, onClose, onSelect }: EventSelectorMod
                 </IconButton>
             </DialogTitle>
 
-            <DialogContent sx={{ p: 3, mt: 1 }}>
+            <Box sx={{ p: 3, mt: 1, flex: 1, overflowY: 'auto' }}>
                 <Box
                     sx={{
                         display: 'flex',
@@ -245,9 +251,9 @@ export const EventSelectorModal = ({ open, onClose, onSelect }: EventSelectorMod
                         </Typography>
                     </Box>
                 )}
-            </DialogContent>
+            </Box>
             
-            <DialogActions sx={{ p: 3, pt: 0 }}>
+            <Box sx={{ p: 3, pt: 0, display: 'flex', gap: 1, borderTop: '1px solid rgba(255, 255, 255, 0.05)', flexShrink: 0 }}>
                 <Button 
                     onClick={onClose}
                     sx={{ 
@@ -261,7 +267,7 @@ export const EventSelectorModal = ({ open, onClose, onSelect }: EventSelectorMod
                 >
                     Cancel
                 </Button>
-            </DialogActions>
-        </Dialog>
+            </Box>
+        </Drawer>
     );
 };
