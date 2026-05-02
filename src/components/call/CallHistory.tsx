@@ -57,7 +57,7 @@ export const CallHistory = ({ onNewCall }: { onNewCall?: () => void }) => {
             
             const enrich = async (callList: any[]) => {
                 return await Promise.all(callList.map(async (call: any) => {
-                    const isCaller = call.callerId === user!.$id;
+                    const isCaller = call.callerId === user.$id;
                     const otherId = isCaller ? call.receiverId : call.callerId;
                     
                     try {

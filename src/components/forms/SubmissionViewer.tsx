@@ -28,7 +28,7 @@ import {
   FlagOutlined as UnflaggedIcon
 } from '@mui/icons-material';
 import { FormsService } from '@/lib/services/forms';
-import { FormSubmissions } from '@/generated/appwrite/types';
+import type { FormSubmissions } from '@/generated/appwrite/types';
 import ResponseDetailSidebar from './ResponseDetailSidebar';
 
 const SubmissionViewerTable = ({ submissions, headers, schemaMap, parsePayload, renderValue, onToggleRead, onToggleFlag, onRowClick }: any) => (
@@ -48,8 +48,8 @@ const SubmissionViewerTable = ({ submissions, headers, schemaMap, parsePayload, 
         <TableBody>
           {submissions.map((sub: any) => {
             const data = parsePayload(sub.payload);
-            const isRead = (sub as any).read || false;
-            const isFlagged = (sub as any).flagged || false;
+            const isRead = (sub).read || false;
+            const isFlagged = (sub).flagged || false;
 
             return (
               <TableRow 
@@ -236,7 +236,7 @@ export default function SubmissionViewer({ formId, formSchema }: { formId: strin
             headersArr.join(','),
             ...exportableRows.map(row => 
                 headersArr.map(h => {
-                    const val = (row as any)[h];
+                    const val = (row)[h];
                     const stringVal = Array.isArray(val) ? val.join('; ') : String(val || '');
                     return `"${stringVal.replace(/"/g, '""')}"`;
                 }).join(',')

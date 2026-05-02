@@ -67,7 +67,7 @@ import { SecretSelectorModal } from './SecretSelectorModal';
 import { ecosystemSecurity } from '@/lib/ecosystem/security';
 import { SudoModal } from '../overlays/SudoModal';
 import { usePresence } from '../providers/PresenceProvider';
-import { AttachmentMetadata } from '@/types/p2p';
+import type { AttachmentMetadata } from '@/types/p2p';
 import toast from 'react-hot-toast';
 import { fetchProfilePreview } from '@/lib/profile-preview';
 import { getCachedIdentityById, seedIdentityCache, subscribeIdentityCache } from '@/lib/identity-cache';
@@ -1126,12 +1126,12 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
         try {
             let actualAttachments = initialAttachments;
             if (file) {
-                const bucketId = StorageService.getBucketForType(type as any);
+                const bucketId = StorageService.getBucketForType(type);
                 const uploaded = await StorageService.uploadFile(file, bucketId);
                 actualAttachments = [uploaded.$id];
             }
 
-            const sentMessage = await ChatService.sendMessage(conversationId, user.$id, text, type as any, actualAttachments, replyToId);
+            const sentMessage = await ChatService.sendMessage(conversationId, user.$id, text, type, actualAttachments, replyToId);
 
             // Replace optimistic message with the real one to maintain state (readBy, etc)
             // CRITICAL: We MUST override the content back to plaintext. The sentMessage from the API 
@@ -1624,7 +1624,7 @@ export const ChatWindow = ({ conversationId }: { conversationId: string }) => {
         const fileId = msg.attachments && msg.attachments[0];
         if (!fileId) return <FormattedText text={msg.content as string} />;
 
-        const bucketId = StorageService.getBucketForType(msg.type as any);
+        const bucketId = StorageService.getBucketForType(msg.type);
         const viewUrl = StorageService.getFileView(fileId, bucketId);
         const previewUrl = StorageService.getFilePreview(fileId, bucketId, 300, 300);
 

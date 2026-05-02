@@ -78,7 +78,7 @@ export const generateAIResponse = createServerFn({ method: 'POST' })
     }
 
     if (!data.apiKey) {
-      const plan = (user as any).prefs?.subscriptionTier || 'FREE';
+      const plan = (user).prefs?.subscriptionTier || 'FREE';
       const isPro = ['PRO', 'ORG', 'LIFETIME'].includes(plan);
       if (!isPro) {
         throw new Error('AI features require a Pro account. Upgrade to continue or provide your own API key in settings.');

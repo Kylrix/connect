@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { getRequest } from '@tanstack/react-start/server';
-import { ActivityService, AppActivity } from '@/lib/services/activity';
+import type { AppActivity } from '@/lib/services/activity';
+import { ActivityService } from '@/lib/services/activity';
 import { resolveCurrentUser } from '@/lib/appwrite/client';
 
 export const Route = createFileRoute('/api/ecosystem/activity')({

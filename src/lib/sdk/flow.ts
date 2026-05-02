@@ -1,4 +1,4 @@
-import { Kylrix } from './index';
+import type { Kylrix } from './index';
 
 /**
  * Kylrix.Flow: The Action Engine Module.

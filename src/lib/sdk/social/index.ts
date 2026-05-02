@@ -1,4 +1,4 @@
-import { KylrixApp } from '../design';
+import type { KylrixApp } from '../design';
 
 export type MomentVisibility = 'private' | 'shared' | 'public';
 

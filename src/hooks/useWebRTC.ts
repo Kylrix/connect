@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { WebRTCManager } from '@/lib/webrtc/WebRTCManager';
 import { CallRecorder } from '@/lib/webrtc/CallRecorder';
-import { SignalData, PeerState } from '@/types/p2p';
+import type { SignalData, PeerState } from '@/types/p2p';
 
 export function useWebRTC(userId: string) {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);

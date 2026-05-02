@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { UsersService } from '@/lib/services/users';
-import { tablesDB } from '@/lib/appwrite/client';
+import { tablesDB, realtime  } from '@/lib/appwrite/client';
 import { APPWRITE_CONFIG } from '@/lib/appwrite/config';
 import {
     List,
@@ -32,12 +32,10 @@ import SearchIcon from '@mui/icons-material/Search';
 import LockIcon from '@mui/icons-material/LockOutlined';
 import ArrowLeftIcon from '@mui/icons-material/ArrowBack';
 import { fetchProfilePreview } from '@/lib/profile-preview';
-import { seedIdentityCache } from '@/lib/identity-cache';
+import { seedIdentityCache, getCachedIdentityById  } from '@/lib/identity-cache';
 import { ecosystemSecurity } from '@/lib/ecosystem/security';
-import { realtime } from '@/lib/appwrite/client';
 import toast from 'react-hot-toast';
 import { useSudo } from '@/context/SudoContext';
-import { getCachedIdentityById } from '@/lib/identity-cache';
 import { getConversationReadAt } from '@/lib/chat-read-state';
 import { useChatNotifications } from '../providers/ChatNotificationProvider';
 import ConversationActionsSheet from './ConversationActionsSheet';
@@ -449,7 +447,7 @@ export const ChatList = () => {
         const messageChannel = `databases.${APPWRITE_CONFIG.DATABASES.CHAT}.tables.${APPWRITE_CONFIG.TABLES.CHAT.MESSAGES}.rows`;
 
         const subscription: any = realtime.subscribe([conversationChannel, messageChannel], async (response) => {
-            const payload = response.payload as any;
+            const payload = response.payload;
             const isConversationEvent = Array.isArray(payload?.participants);
             const relatedConversationId = isConversationEvent ? payload?.$id : payload?.conversationId;
 

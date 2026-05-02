@@ -26,17 +26,18 @@ import {
     Repeat2,
     Flag
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams  } from 'next/navigation';
 import { useProfile } from '@/components/providers/ProfileProvider';
 import { EditProfileModal } from './EditProfileModal';
-import { ActorsListDrawer, Actor } from '../social/ActorsListDrawer';
+import { ActorsListDrawer } from "../social/ActorsListDrawer";
+import type { Actor } from "../social/ActorsListDrawer";
+
 import { getUserProfilePicId } from '@/lib/user-utils';
 import { fetchProfilePreview, getCachedProfilePreview } from '@/lib/profile-preview';
 import { getCachedIdentityByUsername, seedIdentityCache, subscribeIdentityCache } from '@/lib/identity-cache';
 import { getProfileView, stageProfileView } from '@/lib/profile-handoff';
 import { IdentityAvatar, IdentityName, computeIdentityFlags } from '../common/IdentityBadge';
 import ReportUserDialog from './ReportUserDialog';
-import { useSearchParams } from 'next/navigation';
 
 interface ProfileProps {
     username?: string;

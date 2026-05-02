@@ -26,7 +26,7 @@ import {
   Public as PublicIcon,
 } from '@mui/icons-material';
 import { FormsService } from '@/lib/services/forms';
-import { Forms, FormsStatus } from '@/generated/appwrite/types';
+import type { Forms, FormsStatus } from '@/generated/appwrite/types';
 
 interface FormSettingsDialogProps {
   open: boolean;

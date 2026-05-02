@@ -21,7 +21,7 @@ import {
   FormControl,
   InputLabel,
   alpha,
-  CircularProgress,
+  CircularProgress, useMediaQuery 
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -39,15 +39,13 @@ import {
 import { format } from 'date-fns';
 import { Query } from 'appwrite';
 import { useTask } from '@/context/TaskContext';
-import { Priority, TaskStatus } from '@/types';
+import type { Priority, TaskStatus, CollaboratorPermission, TaskCollaborator  } from '@/types';
 import { useLayout } from '@/context/LayoutContext';
 import { useAI } from '@/hooks/useAI';
-import { useMediaQuery } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { notes as noteApi } from '@/lib/kylrixflow';
 import UserSearch from '@/components/UserSearch';
 import { UsersService } from '@/lib/services/users';
-import type { CollaboratorPermission, TaskCollaborator } from '@/types';
 
 const priorityColors: Record<Priority, string> = {
   low: '#A1A1AA',

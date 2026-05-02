@@ -1,6 +1,8 @@
 import { tablesDB, account as _account } from '../appwrite/client';
 import { APPWRITE_CONFIG } from '../appwrite/config';
 
+import { Query } from 'appwrite';
+
 const CONNECT_DATABASE_ID = APPWRITE_CONFIG.DATABASES.CHAT;
 const CONNECT_COLLECTION_ID_USERS = APPWRITE_CONFIG.TABLES.CHAT.PROFILES;
 
@@ -94,8 +96,6 @@ export async function ensureGlobalIdentity(user: any, force = false) {
         console.warn('[Identity] Global identity sync failed:', error);
     }
 }
-
-import { Query } from 'appwrite';
 
 /**
  * Searches for users across the entire ecosystem.

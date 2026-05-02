@@ -21,7 +21,8 @@ import { useAuth } from '@/lib/auth';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { fetchProfilePreview, getCachedProfilePreview } from '@/lib/profile-preview';
 import { IdentityAvatar, computeIdentityFlags } from '../common/IdentityBadge';
-import Logo, { type KylrixApp as LogoApp } from '../common/Logo';
+import Logo from '../common/Logo';
+import type {KylrixApp as LogoApp} from '../common/Logo';
 import { WalletSidebar } from '../overlays/WalletSidebar';
 import { getEcosystemUrl } from '@/lib/constants';
 import { useAppChrome } from '@/components/providers/AppChromeProvider';
@@ -195,14 +196,14 @@ export const AppHeader = () => {
   }, []);
 
   const identitySignals = computeIdentityFlags({
-    createdAt: cachedProfile?.$createdAt || fastProfile?.cachedAt || profileRecord?.$createdAt || (displayUser as any)?.$createdAt || null,
+    createdAt: cachedProfile?.$createdAt || fastProfile?.cachedAt || profileRecord?.$createdAt || (displayUser)?.$createdAt || null,
     lastUsernameEdit: cachedProfile?.preferences?.last_username_edit || fastProfile?.preferences?.last_username_edit || profileRecord?.preferences?.last_username_edit || displayUser?.prefs?.last_username_edit || null,
     profilePicId: profilePicId || null,
     username: cachedProfile?.username || fastProfile?.username || profileRecord?.username || displayUser?.prefs?.username || displayUser?.name || null,
     bio: cachedProfile?.bio || fastProfile?.bio || profileRecord?.bio || displayUser?.prefs?.bio || null,
     tier: profileRecord?.tier || displayUser?.prefs?.tier || null,
     publicKey: cachedProfile?.publicKey || fastProfile?.publicKey || profileRecord?.publicKey || null,
-    emailVerified: Boolean((displayUser as any)?.emailVerification),
+    emailVerified: Boolean((displayUser)?.emailVerification),
     preferences: cachedProfile?.preferences || fastProfile?.preferences || profileRecord?.preferences || null,
   });
 

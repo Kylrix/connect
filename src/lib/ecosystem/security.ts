@@ -20,7 +20,7 @@ export class EcosystemSecurity {
   private conversationKeys: Map<string, CryptoKey> = new Map();
   private decryptionCache: Map<string, string> = new Map();
   private isUnlocked = false;
-  private nodeId: string = 'unknown';
+  private nodeId = 'unknown';
   private statusListeners: Set<(status: { isUnlocked: boolean; hasKey: boolean; hasIdentity: boolean }) => void> = new Set();
   // SECURITY: Tab-specific secret (RAM-only) to protect against XSS
   private tabSessionSecret: Uint8Array | null = null;

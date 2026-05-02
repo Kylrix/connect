@@ -3,6 +3,21 @@ import { JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from 'react-hot-toast';
 
+import { AuthOverlay } from '@/components/auth/AuthOverlay';
+import { ThemeProvider } from '@/components/providers/ThemeProvider';
+import { PresenceProvider } from '@/components/providers/PresenceProvider';
+import { ProfileProvider } from '@/components/providers/ProfileProvider';
+import { NotificationProvider } from '@/components/providers/NotificationProvider';
+import { ChatNotificationProvider } from '@/components/providers/ChatNotificationProvider';
+import { AppChromeProvider } from '@/components/providers/AppChromeProvider';
+import { EcosystemClient } from '@/components/ecosystem/EcosystemClient';
+import { IslandProvider } from '@/components/common/DynamicIsland';
+import { SudoProvider } from '@/context/SudoContext';
+import { SubscriptionProvider } from '@/context/subscription/SubscriptionContext';
+import { DataNexusProvider } from '@/context/DataNexusContext';
+import { Suspense } from 'react';
+import { Box, CircularProgress, Stack, Typography } from '@mui/material';
+
 const mono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
@@ -29,21 +44,6 @@ export const viewport = {
   userScalable: false,
   viewportFit: "cover",
 };
-
-import { AuthOverlay } from '@/components/auth/AuthOverlay';
-import { ThemeProvider } from '@/components/providers/ThemeProvider';
-import { PresenceProvider } from '@/components/providers/PresenceProvider';
-import { ProfileProvider } from '@/components/providers/ProfileProvider';
-import { NotificationProvider } from '@/components/providers/NotificationProvider';
-import { ChatNotificationProvider } from '@/components/providers/ChatNotificationProvider';
-import { AppChromeProvider } from '@/components/providers/AppChromeProvider';
-import { EcosystemClient } from '@/components/ecosystem/EcosystemClient';
-import { IslandProvider } from '@/components/common/DynamicIsland';
-import { SudoProvider } from '@/context/SudoContext';
-import { SubscriptionProvider } from '@/context/subscription/SubscriptionContext';
-import { DataNexusProvider } from '@/context/DataNexusContext';
-import { Suspense } from 'react';
-import { Box, CircularProgress, Stack, Typography } from '@mui/material';
 
 function ShellFallback() {
   return (

@@ -9,7 +9,7 @@ import {
   Menu,
   MenuItem,
   ListItemIcon,
-  ListItemText,
+  ListItemText, useMediaQuery, useTheme 
 } from '@mui/material';
 import {
   Flag as FlagIcon,
@@ -22,9 +22,8 @@ import {
   Archive as ArchiveIcon,
   ContentCopy as CopyIcon,
 } from '@mui/icons-material';
-import { useMediaQuery, useTheme } from '@mui/material';
 import { format, isToday, isTomorrow, isPast, isThisWeek } from 'date-fns';
-import { Task, Priority } from '@/types';
+import type { Task, Priority } from '@/types';
 import { useTask } from '@/context/TaskContext';
 import { useLayout } from '@/context/LayoutContext';
 

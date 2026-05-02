@@ -318,8 +318,8 @@ export const UsersService = {
             updatePayload.userId = targetUserId;
 
             // Explicitly delete ghost fields
-            delete (updatePayload as any).avatarFileId;
-            delete (updatePayload as any).avatarUrl;
+            delete (updatePayload).avatarFileId;
+            delete (updatePayload).avatarUrl;
 
             console.log('[UsersService] Updating profile for', targetUserId, 'with payload:', JSON.stringify(updatePayload));
             try {
@@ -389,8 +389,8 @@ export const UsersService = {
             preferences: data.preferences || null,
         };
 
-        delete (createData as any).avatarFileId;
-        delete (createData as any).avatarUrl;
+        delete (createData).avatarFileId;
+        delete (createData).avatarUrl;
 
         console.log('[UsersService] [PAYLOAD_AUDIT] Creating with keys:', Object.keys(createData));
         console.log('[UsersService] Creating profile for', userId, 'with data:', JSON.stringify(createData));

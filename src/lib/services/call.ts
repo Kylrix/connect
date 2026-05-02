@@ -1,15 +1,15 @@
 import { ID, Query, Permission, Role } from 'appwrite';
-import { tablesDB } from '../appwrite/client';
+import { tablesDB, account as authAccount  } from '../appwrite/client';
 import { APPWRITE_CONFIG } from '../appwrite/config';
 import { getEcosystemUrl } from '../constants';
 import { sendKylrixEmailNotification } from '../email-notifications';
-import { buildCallJoinUrl, createCallMetadata, isCallActive, parseCallMetadata, type KylrixCallScope } from '../sdk/calls';
+import { buildCallJoinUrl, createCallMetadata, isCallActive, parseCallMetadata  } from '../sdk/calls';
+import type {KylrixCallScope} from '../sdk/calls';
+
 
 const DB_ID = APPWRITE_CONFIG.DATABASES.CHAT;
 const LINKS_TABLE = APPWRITE_CONFIG.TABLES.CHAT.CALL_LINKS;
 const ACTIVITY_TABLE = APPWRITE_CONFIG.TABLES.CHAT.APP_ACTIVITY;
-
-import { account as authAccount } from '../appwrite/client';
 
 type CallContext = {
     scope?: KylrixCallScope;

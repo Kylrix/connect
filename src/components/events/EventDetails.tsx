@@ -23,8 +23,8 @@ import { format } from 'date-fns';
 import { useLayout } from '@/context/LayoutContext';
 import { events as eventApi } from '@/lib/kylrixflow';
 import { generateEventPattern } from '@/utils/patternGenerator';
-import { Event as AppwriteEvent } from '@/types/kylrixflow';
-import { Event as LocalEvent } from '@/types';
+import type { Event as AppwriteEvent } from '@/types/kylrixflow';
+import type { Event as LocalEvent } from '@/types';
 
 interface EventDetailsProps {
   eventId: string;

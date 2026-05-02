@@ -1,4 +1,4 @@
-import { PeerConnectionEvents, SignalData, PeerState } from '@/types/p2p';
+import type { PeerConnectionEvents, SignalData, PeerState } from '@/types/p2p';
 import { createCloudflareSession, createCloudflareTracks } from '@/lib/server/api';
 
 export class WebRTCManager {

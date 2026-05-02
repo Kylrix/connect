@@ -27,7 +27,7 @@ export const PresenceProvider = ({ children }: { children: React.ReactNode }) =>
         const unsub = (realtime as any).subscribe(
             [`databases.${APPWRITE_CONFIG.DATABASES.CHAT}.tables.${APPWRITE_CONFIG.TABLES.CHAT.APP_ACTIVITY}.rows`],
             (response: any) => {
-                const payload = response.payload as any;
+                const payload = response.payload;
                 if (payload.userId) {
                     setPresence(prev => ({
                         ...prev,
@@ -63,8 +63,8 @@ export const PresenceProvider = ({ children }: { children: React.ReactNode }) =>
             clearInterval(interval);
             window.removeEventListener('visibilitychange', handleVisibilityChange);
             updateStatus('offline');
-            if (typeof unsub === 'function') (unsub as any)();
-            else (unsub as any)?.unsubscribe?.();
+            if (typeof unsub === 'function') (unsub)();
+            else (unsub)?.unsubscribe?.();
         };
     }, [user, setCachedData]);
 

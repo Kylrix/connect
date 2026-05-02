@@ -176,7 +176,7 @@ export function ChatNotificationProvider({ children }: { children: ReactNode }) 
         
         const unsub = realtime.subscribe([channel], (response) => {
             if (response.events.some(e => e.includes('.create'))) {
-                const payload = response.payload as any;
+                const payload = response.payload;
                 
                 // We receive events for rows we can read.
                 if (payload.senderId === user.$id) {

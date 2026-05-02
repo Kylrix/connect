@@ -1,4 +1,4 @@
-import { Realtime } from 'appwrite';
+import type { Realtime } from 'appwrite';
 import { TABLE_DB } from './ecosystem';
 
 export type PulseEvent = 'call.incoming' | 'notification.new' | 'task.update' | 'vault.unlock';
@@ -26,7 +26,7 @@ export class KylrixPulse {
   on(event: PulseEvent, databaseId: string, pulseTableId: string, callback: (data: any) => void) {
     const channel = TABLE_DB.getEventPath(databaseId, pulseTableId);
     return this.realtime.subscribe(channel, (response) => {
-      const payload = response.payload as any;
+      const payload = response.payload;
       if (payload.type === event) {
         callback(payload.data);
       }

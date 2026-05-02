@@ -2,7 +2,8 @@ import { tablesDB, getCurrentUser } from "../appwrite/client";
 import { APPWRITE_CONFIG } from "../appwrite/config";
 import { getEcosystemUrl } from "../constants";
 import { ID, Query, Permission, Role } from "appwrite";
-import { Forms, FormSubmissions, ActivityLogCreate, FormSubmissionsStatus, FormsStatus, ActivityLog } from "../../generated/appwrite/types";
+import type { Forms, FormSubmissions, FormsStatus, ActivityLog } from "../../generated/appwrite/types";
+import { ActivityLogCreate, FormSubmissionsStatus } from "../../generated/appwrite/types";
 import { sendKylrixEmailNotification } from "../email-notifications";
 
 const DATABASE_ID = APPWRITE_CONFIG.DATABASES.FLOW;

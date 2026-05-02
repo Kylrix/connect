@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams, useRouter  } from 'next/navigation';
 import { 
     Box, 
     Drawer, 
@@ -14,7 +14,7 @@ import {
     Paper,
     IconButton,
     BottomNavigation,
-    BottomNavigationAction,
+    BottomNavigationAction, Button 
 } from '@mui/material';
 
 import { 
@@ -24,12 +24,9 @@ import {
     Settings,
     ArrowLeft
 } from 'lucide-react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { useMemo, useEffect, useState } from 'react';
 
 import { AppHeader } from './AppHeader';
 import { ChatList } from '../chat/ChatList';
-import { Button } from '@mui/material';
 import { ProfileSetupDrawer } from '../profile/ProfileSetupDrawer';
 import { useAppChrome } from '@/components/providers/AppChromeProvider';
 

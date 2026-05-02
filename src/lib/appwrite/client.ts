@@ -126,18 +126,18 @@ export async function getCurrentUser(forceRefresh = false): Promise<any | null> 
 }
 
 // Unified resolver: attempts global session then cookie-based fallback
-export async function resolveCurrentUser(req?: { headers: { get(k: string): string | null } } | null): Promise<any | null> {
+export async function resolveCurrentUser(req?: { headers: { get: (k: string) => string | null } } | null): Promise<any | null> {
     const direct = await getCurrentUser();
     if (direct && direct.$id) return direct;
     if (req) {
         const fallback = await getCurrentUserFromRequest(req as any);
-        if (fallback && (fallback as any).$id) return fallback;
+        if (fallback && (fallback).$id) return fallback;
     }
     return null;
 }
 
 // Per-request user fetch using incoming Cookie header
-export async function getCurrentUserFromRequest(req: { headers: { get(k: string): string | null } } | null | undefined): Promise<any | null> {
+export async function getCurrentUserFromRequest(req: { headers: { get: (k: string) => string | null } } | null | undefined): Promise<any | null> {
     try {
         if (!req) return null;
         const cookieHeader = req.headers.get('cookie') || req.headers.get('Cookie');

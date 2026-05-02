@@ -22,7 +22,7 @@ export async function POST(req: Request) {
 
     // Pro Check: If using system key, user must be PRO/ORG/LIFETIME
     if (!userKey) {
-      const plan = (user as any).prefs?.subscriptionTier || 'FREE';
+      const plan = (user).prefs?.subscriptionTier || 'FREE';
       const isPro = ['PRO', 'ORG', 'LIFETIME'].includes(plan);
       if (!isPro) {
         return NextResponse.json({ 

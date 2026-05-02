@@ -1,4 +1,4 @@
-import { type Models } from 'appwrite';
+import type {Models} from 'appwrite';
 
 export enum NotesStatus {
     DRAFT = "draft",

@@ -19,7 +19,7 @@ import {
     Button,
     Paper,
     alpha,
-    Stack
+    Stack, Menu, MenuItem, ListItemIcon, ListItemText, Divider 
 } from '@mui/material';
 import {
     PhoneOff,
@@ -43,7 +43,8 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { InCallChat } from './InCallChat';
-import { Menu, MenuItem, ListItemIcon, ListItemText, Divider } from '@mui/material';
+
+import { ChatService } from '@/lib/services/chat';
 
 interface ChatMessage {
     id: string;
@@ -58,8 +59,6 @@ interface JoinRequest {
     senderId: string;
     senderName: string;
 }
-
-import { ChatService } from '@/lib/services/chat';
 
 export const CallInterface = ({ 
     conversationId, 
@@ -466,7 +465,7 @@ export const CallInterface = ({
                         }} 
                     />
                     
-                    {((status as string) !== 'connected' || (status as string) === 'failed') && (
+                    {((status) !== 'connected' || (status) === 'failed') && (
                         <Box sx={{ textAlign: 'center', color: 'white', zIndex: 1, px: 3 }}>
                             <Avatar sx={{ width: 120, height: 120, mb: 3, mx: 'auto', bgcolor: alpha('#6366F1', 0.1), border: '2px solid #6366F1' }}>
                                 <Users size={64} color="#6366F1" />

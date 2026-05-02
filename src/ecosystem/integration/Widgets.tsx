@@ -1,8 +1,15 @@
 "use client";
 
-import React from 'react';
-import { Box, TextField, Paper, Typography, alpha, LinearProgress } from '@mui/material';
+import React, { useEffect } from 'react';
+import { Box, TextField, Paper, Typography, alpha, LinearProgress, Grid  } from '@mui/material';
 import { Description as NoteIcon, Shield as ShieldIcon, Timer as TimerIcon } from '@mui/icons-material';
+
+import { ecosystemSecurity } from '@/lib/ecosystem/security';
+import { KeychainService } from '@/lib/appwrite/keychain';
+import { useAuth } from '@/lib/auth';
+import { SudoModal } from '@/components/overlays/SudoModal';
+
+import { MiniChat } from '../contributions/MiniChat';
 
 const QuickNote = () => {
     return (
@@ -15,12 +22,6 @@ const QuickNote = () => {
         </Paper>
     );
 };
-
-import { ecosystemSecurity } from '@/lib/ecosystem/security';
-import { KeychainService } from '@/lib/appwrite/keychain';
-import { useAuth } from '@/lib/auth';
-import { SudoModal } from '@/components/overlays/SudoModal';
-import { useEffect } from 'react';
 
 const VaultStatus = () => {
     const { user } = useAuth();
@@ -106,9 +107,6 @@ const FocusStatus = () => {
         </Paper>
     );
 };
-
-import { MiniChat } from '../contributions/MiniChat';
-import { Grid } from '@mui/material';
 
 export const EcosystemWidgets = () => {
     return (

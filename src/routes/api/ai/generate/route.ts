@@ -23,7 +23,7 @@ export const Route = createFileRoute('/api/ai/generate')({
           }
 
           if (!userKey) {
-            const plan = (user as any).prefs?.subscriptionTier || 'FREE';
+            const plan = (user).prefs?.subscriptionTier || 'FREE';
             const isPro = ['PRO', 'ORG', 'LIFETIME'].includes(plan);
             if (!isPro) {
               return Response.json({

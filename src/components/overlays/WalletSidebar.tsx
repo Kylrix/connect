@@ -38,7 +38,8 @@ import { useSudo } from '@/context/SudoContext';
 import { ecosystemSecurity } from '@/lib/ecosystem/security';
 import { toast } from 'react-hot-toast';
 import { KeychainService } from '@/lib/appwrite/keychain';
-import { WalletService, type SupportedWalletChain, type WalletSummary } from '@/lib/services/wallets';
+import { WalletService   } from '@/lib/services/wallets';
+import type {SupportedWalletChain, WalletSummary} from '@/lib/services/wallets';
 
 interface WalletSidebarProps {
     isOpen: boolean;

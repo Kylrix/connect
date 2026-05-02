@@ -1,4 +1,5 @@
-import { KylrixApp, TOPBAR_LAYOUT, getAppTone } from '../design';
+import type { KylrixApp} from '../design';
+import { TOPBAR_LAYOUT, getAppTone } from '../design';
 
 export type TopbarPanel = 'ecosystem' | 'profile' | 'search';
 

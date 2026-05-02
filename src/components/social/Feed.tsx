@@ -668,7 +668,7 @@ function MobileComposerDock({
                         },
                     }}
                     onPointerDown={(event) => {
-                        if ((event as React.PointerEvent<HTMLButtonElement>).button !== 0) return;
+                        if ((event).button !== 0) return;
                         setOpen(true);
                     }}
                     onClick={() => setOpen(true)}
@@ -1103,7 +1103,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
         // Real-time subscription for new posts
         const unsubFunc = SocialService.subscribeToFeed(async (event) => {
             if (event.type === 'create') {
-                const payload = event.payload as any;
+                const payload = event.payload;
                 const authorId = payload?.userId || payload?.authorId || payload?.createdBy || payload?.$createdBy || payload?.creatorId || payload?.creator?.$id || payload?.creator?.userId || payload?.user?.$id || payload?.user?.userId;
 
                 if (authorId && user?.$id && authorId === user.$id) {
@@ -1143,7 +1143,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
                     return next;
                 });
             } else if (event.type === 'update') {
-                const payload = event.payload as any;
+                const payload = event.payload;
                 
                 // If it's an interaction update (like/reply/pulse), refresh stats for that moment
                 if (payload._interactionUpdate || payload.messageId) {

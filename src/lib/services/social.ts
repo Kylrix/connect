@@ -524,7 +524,7 @@ export const SocialService = {
 
         const unsubInteractionsPromise = realtime.subscribe(interactionsChannel, (response) => {
             if (response.events.some(e => e.includes('.create') || e.includes('.delete'))) {
-                const payload = response.payload as any;
+                const payload = response.payload;
                 callback({ type: 'update', payload: { $id: payload.messageId, _interactionUpdate: true } });
             }
         });

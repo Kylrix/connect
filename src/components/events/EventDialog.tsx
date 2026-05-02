@@ -31,7 +31,7 @@ import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { addHours } from 'date-fns';
-import { EventVisibility } from '@/lib/permissions';
+import type { EventVisibility } from '@/lib/permissions';
 import UserSearch from '@/components/UserSearch';
 
 interface User {

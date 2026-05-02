@@ -1,12 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense  } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { CallHistory } from '@/components/call/CallHistory';
 import { CallActionModal } from '@/components/call/CallActionModal';
 import { Box, Typography, Container, CircularProgress, Paper, TextField, Button } from '@mui/material';
 import { Hash, ArrowRight } from 'lucide-react';
-import { Suspense } from 'react';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 

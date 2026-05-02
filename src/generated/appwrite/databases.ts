@@ -1,4 +1,5 @@
-import { Client, TablesDB, ID, Query, type Models, Permission, Role } from 'appwrite';
+import { Client, TablesDB, ID, Query,  Permission, Role } from 'appwrite';
+import type {Models} from 'appwrite';
 import type { DatabaseHandle, DatabaseId, DatabaseTableMap, DatabaseTables, QueryBuilder, QueryValue, PermissionBuilder, RoleBuilder, RoleString } from './types';
 import { PROJECT_ID, ENDPOINT } from './constants';
 

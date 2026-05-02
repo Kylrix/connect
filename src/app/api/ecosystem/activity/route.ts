@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { ActivityService, AppActivity } from '@/lib/services/activity';
+import type { AppActivity } from '@/lib/services/activity';
+import { ActivityService } from '@/lib/services/activity';
 import { resolveCurrentUser } from '@/lib/appwrite/client';
 
 export async function POST(req: Request) {

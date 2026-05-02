@@ -1,4 +1,4 @@
-import { KylrixApp } from '../design';
+import type { KylrixApp } from '../design';
 
 export type MessageKind = 'text' | 'image' | 'video' | 'file' | 'call_signal';
 
