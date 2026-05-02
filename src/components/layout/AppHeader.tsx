@@ -72,7 +72,7 @@ export const AppHeader = () => {
   const isExpanded = Boolean(panel);
   const searchSurface = potato.buildSearchSurface(searchQuery);
   const searchDockMaxHeight = '50vh';
-  const profileSeed = displayProfile || (displayUser ? { ...displayUser, avatar: profilePicId || null } : null);
+  const profileSeed = useMemo(() => displayProfile || (displayUser ? { ...displayUser, avatar: profilePicId || null } : null), [displayProfile, displayUser, profilePicId]);
   const shouldCollapseChrome = Boolean(activeNotification);
   useEffect(() => {
     if (searchParams.get('openWallet') === 'true') {
@@ -234,7 +234,7 @@ export const AppHeader = () => {
       observer.disconnect();
       window.removeEventListener('resize', measureDockHeight);
     };
-  }, [panel, setChromeState]);
+  }, [panel, setChromeState, baseHeaderHeight]);
 
   useEffect(() => {
     if (panel !== 'search') {

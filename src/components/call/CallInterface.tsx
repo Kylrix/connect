@@ -329,12 +329,12 @@ export const CallInterface = ({
     };
 
      
-    const endCall = () => {
+    const endCall = useCallback(() => {
         if (rtcManager.current) {
             rtcManager.current.cleanup();
         }
         router.back();
-    };
+    }, [router]);
 
     // Presence & Participant Tracking
     useEffect(() => {

@@ -215,7 +215,7 @@ export const Profile = ({ username }: ProfileProps) => {
         } finally {
             setLoading(false);
         }
-    }, [cachedUsernameProfile, currentUser, loadRelatedData, myProfile, normalizedUsername, preloadedProfile]);
+    }, [cachedUsernameProfile, currentUser, loadRelatedData, myProfile, normalizedUsername, preloadedProfile, profileUrl]);
 
     useEffect(() => {
         loadProfile();

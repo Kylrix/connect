@@ -451,7 +451,7 @@ export default function FormDialog({ open, onClose, form, initialDraft, onSaved 
         setHasUnsavedChanges(false);
     }
      
-  }, [title, description, status, fields, open, isRestored]);
+  }, [title, description, status, fields, open, isRestored, form, initialDraft]);
 
   // Handle focus behavior when fields change
   const fieldsEndRef = useRef<HTMLDivElement>(null);

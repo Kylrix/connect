@@ -127,7 +127,7 @@ export default function SubmissionViewer({ formId, formSchema }: { formId: strin
     }
   }, [formSchema]);
 
-  const fetchSubmissions = async () => {
+  const fetchSubmissions = useCallback(async () => {
     try {
       const res = await FormsService.listSubmissions(formId);
       // Filter out drafts (work-in-progress)
@@ -145,12 +145,12 @@ export default function SubmissionViewer({ formId, formSchema }: { formId: strin
     } finally {
       setLoading(false);
     }
-  };
+  }, [formId]);
 
   useEffect(() => {
     fetchSubmissions();
      
-  }, [formId]);
+  }, [fetchSubmissions]);
 
   const handleToggleRead = async (id: string, read: boolean) => {
     try {
