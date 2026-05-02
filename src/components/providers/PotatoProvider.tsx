@@ -61,7 +61,7 @@ function routeLabelFromPath(pathname: string | null) {
 }
 
 function routeSnippets(pathname: string | null, user: any | null): PotatoSnippet[] {
-  const name = user?.name || user?.email || 'your connection';
+  const _name = user?.name || user?.email || 'your connection';
 
   if (!pathname) {
     return [

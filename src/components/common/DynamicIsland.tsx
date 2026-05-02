@@ -92,7 +92,7 @@ export const IslandProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }, []);
   const { user } = useAuth();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
+  const _isMobile = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
 
   const showIsland = useCallback((notification: Omit<IslandNotification, 'id'>) => {
     const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -100,7 +100,7 @@ export const IslandProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setNotifications((prev) => [...prev, newNotif]);
   }, []);
 
-  const dismissIsland = useCallback((id: string) => {
+  const _dismissIsland = useCallback((id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
 
@@ -561,8 +561,8 @@ export const DynamicIslandPanelSurface: React.FC<{
 }> = ({ panel, onClosePanel }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
-  const router = useRouter();
-  const { user, logout } = useAuth();
+  const _router = useRouter();
+  const { user, logout: _logout } = useAuth();
 
   const panelTone = panel === 'profile' ? '#6366F1' : APP_TONES.connect.secondary;
   const panelWidth = isMobile ? 'calc(100vw - 24px)' : 'min(680px, calc(100vw - 48px))';
