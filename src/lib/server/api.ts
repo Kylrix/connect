@@ -1,14 +1,15 @@
-import { createServerFn } from '@tanstack/react-start';
-import { getRequest } from '@tanstack/react-start/server';
+'use server';
+
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { resolveCurrentUser } from '@/lib/appwrite/client';
+import { headers } from 'next/headers';
 
 type AIChatMessage = {
   role: 'user' | 'assistant';
   content: string;
 };
 
-export const createCloudflareSession = createServerFn({ method: 'POST' }).handler(async () => {
+export async function createCloudflareSession() {
   const CLOUDFLARE_API_KEY = process.env.CLOUDFLARE_API;
   const CLOUDFLARE_APP_ID = process.env.NEXT_PUBLIC_CLOUDFLARE_APP_ID;
 
@@ -29,44 +30,41 @@ export const createCloudflareSession = createServerFn({ method: 'POST' }).handle
   }
 
   return await response.json();
-});
+}
 
-export const createCloudflareTracks = createServerFn({ method: 'POST' })
-  .inputValidator((data: { sessionId: string; tracks: unknown[] }) => data)
-  .handler(async ({ data }) => {
-    const CLOUDFLARE_API_KEY = process.env.CLOUDFLARE_API;
-    const CLOUDFLARE_APP_ID = process.env.NEXT_PUBLIC_CLOUDFLARE_APP_ID;
+export async function createCloudflareTracks(data: { sessionId: string; tracks: any[] }) {
+  const CLOUDFLARE_API_KEY = process.env.CLOUDFLARE_API;
+  const CLOUDFLARE_APP_ID = process.env.NEXT_PUBLIC_CLOUDFLARE_APP_ID;
 
-    if (!CLOUDFLARE_API_KEY || !CLOUDFLARE_APP_ID) {
-      throw new Error('Cloudflare configuration missing');
-    }
+  if (!CLOUDFLARE_API_KEY || !CLOUDFLARE_APP_ID) {
+    throw new Error('Cloudflare configuration missing');
+  }
 
-    const response = await fetch(`https://rtc.cloudflare.com/v1/apps/${CLOUDFLARE_APP_ID}/sessions/${data.sessionId}/tracks/new`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${CLOUDFLARE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ tracks: data.tracks }),
-    });
-
-    if (!response.ok) {
-      throw new Error(await response.text());
-    }
-
-    return await response.json();
+  const response = await fetch(`https://rtc.cloudflare.com/v1/apps/${CLOUDFLARE_APP_ID}/sessions/${data.sessionId}/tracks/new`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${CLOUDFLARE_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ tracks: data.tracks }),
   });
 
-export const generateAIResponse = createServerFn({ method: 'POST' })
-  .inputValidator((data: {
-    prompt: string;
-    history?: AIChatMessage[];
-    systemInstruction?: string;
-    apiKey?: string;
-  }) => data)
-  .handler(async ({ data }) => {
-    const request = getRequest();
-    const user = await resolveCurrentUser(request as any);
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+
+  return await response.json();
+}
+
+export async function generateAIResponse(data: {
+  prompt: string;
+  history?: AIChatMessage[];
+  systemInstruction?: string;
+  apiKey?: string;
+}) {
+    // In Next.js 15, we can use headers() to get request info if needed by resolveCurrentUser
+    const userHeaders = await headers();
+    const user = await resolveCurrentUser(userHeaders as any);
 
     if (!user) {
       throw new Error('Unauthorized');
@@ -104,4 +102,4 @@ export const generateAIResponse = createServerFn({ method: 'POST' })
 
     const result = await model.generateContent(data.prompt);
     return result.response.text();
-  });
+}
