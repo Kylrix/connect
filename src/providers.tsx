@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import { useLastActiveApp } from '@/lib/sdk/ecosystem';
 import { DataNexusProvider } from '@/context/DataNexusContext';
 import { AuthProvider } from '@/context/auth/AuthContext';
 import { SubscriptionProvider } from '@/context/subscription/SubscriptionContext';
@@ -14,6 +15,8 @@ import { IslandProvider } from '@/components/common/DynamicIsland';
 import { SudoProvider } from '@/context/SudoContext';
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
+  useLastActiveApp();
+  
   return (
     <DataNexusProvider>
       <SubscriptionProvider>
