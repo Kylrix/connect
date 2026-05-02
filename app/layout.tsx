@@ -9,6 +9,7 @@ import { PresenceProvider } from '@/components/providers/PresenceProvider';
 import { ProfileProvider } from '@/components/providers/ProfileProvider';
 import { NotificationProvider } from '@/components/providers/NotificationProvider';
 import { ChatNotificationProvider } from '@/components/providers/ChatNotificationProvider';
+import { PotatoProvider } from '@/components/providers/PotatoProvider';
 import { AppChromeProvider } from '@/components/providers/AppChromeProvider';
 import { EcosystemClient } from '@/components/ecosystem/EcosystemClient';
 import { IslandProvider } from '@/components/common/DynamicIsland';
@@ -83,21 +84,23 @@ export default function RootLayout({
                       <ProfileProvider>
                         <PresenceProvider>
                           <ChatNotificationProvider>
-                            <AuthOverlay />
-                          <Toaster 
-                            position="bottom-right"
-                            toastOptions={{
-                              style: {
-                                background: '#1A1A1A',
-                                color: '#fff',
-                                borderRadius: '12px',
-                                border: '1px solid rgba(255,255,255,0.1)'
-                              }
-                            }}
-                          />
-                          <Suspense fallback={<ShellFallback />}>
-                            {children}
-                          </Suspense>
+                            <PotatoProvider>
+                              <AuthOverlay />
+                              <Toaster 
+                                position="bottom-right"
+                                toastOptions={{
+                                  style: {
+                                    background: '#1A1A1A',
+                                    color: '#fff',
+                                    borderRadius: '12px',
+                                    border: '1px solid rgba(255,255,255,0.1)'
+                                  }
+                                }}
+                              />
+                              <Suspense fallback={<ShellFallback />}>
+                                {children}
+                              </Suspense>
+                            </PotatoProvider>
                           </ChatNotificationProvider>
                         </PresenceProvider>
                       </ProfileProvider>
