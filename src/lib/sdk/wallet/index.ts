@@ -1,5 +1,4 @@
 import { Query } from 'appwrite';
-import { Buffer } from 'node:buffer';
 import { HDNodeWallet } from 'ethers';
 import * as bip39 from 'bip39';
 import { BIP32Factory } from 'bip32';

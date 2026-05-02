@@ -4,8 +4,9 @@ import { UsersService } from '@/lib/services/users';
 import { resolveIdentity } from '@/lib/identity-format';
 import { PostViewClient } from './PostViewClient';
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ id: string }> }): Promise<Metadata> {
     try {
+        const params = await props.params;
         const id = Array.isArray(params.id) ? params.id[0] : params.id;
         const moment = await SocialService.getMomentById(id);
         const creatorId = moment.userId || moment.creatorId;
