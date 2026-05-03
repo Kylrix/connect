@@ -1,4 +1,4 @@
-import { Client, Account, Databases, ID, Query, Realtime } from 'appwrite';
+import { Client, Account, Databases, ID, Query as _Query, Realtime } from 'appwrite';
 import { KylrixSecurity } from './security';
 import { getEcosystemUrl, ECOSYSTEM_CONFIG, TABLE_DB } from './ecosystem';
 import { KylrixPulse } from './pulse';
@@ -89,14 +89,14 @@ export class Kylrix {
   /**
    * Standardized listRows (formerly listDocuments)
    */
-  async listRows<T>(databaseId: string, tableId: string, queries: string[] = []) {
+  async listRows<_T>(databaseId: string, tableId: string, queries: string[] = []) {
     return await this.databases.listDocuments<any>(databaseId, tableId, queries);
   }
 
   /**
    * Standardized getRow (formerly getDocument)
    */
-  async getRow<T>(databaseId: string, tableId: string, rowId: string) {
+  async getRow<_T>(databaseId: string, tableId: string, rowId: string) {
     return await this.databases.getDocument<any>(databaseId, tableId, rowId);
   }
 

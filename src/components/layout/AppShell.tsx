@@ -28,7 +28,6 @@ import {
 import ConnectTopbar from './ConnectTopbar';
 import { ChatList } from '../chat/ChatList';
 import { ProfileSetupDrawer } from '../profile/ProfileSetupDrawer';
-import { useAppChrome } from '@/components/providers/AppChromeProvider';
 
 const drawerWidth = 280;
 const TOPBAR_HEIGHT = 88; // Standard ecosystem topbar height
