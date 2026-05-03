@@ -272,8 +272,8 @@ export const CallService = {
         ]);
         
         const allRows = [...asCreator.rows, ...asReceiver.rows].map(row => {
-            const meta = parseCallMetadata(row.metadata);
-            const receiverId = meta.participantIds?.find((id) => id !== row.userId) || null;
+            const meta = parseCallMetadata(row.metadata) as any;
+            const receiverId = meta.participantIds?.find((id: string) => id !== row.userId) || null;
             const startsAt = row.startsAt || meta.startsAt || row.$createdAt;
             const status = meta.status || (
                 startsAt && new Date(startsAt).getTime() > Date.now()

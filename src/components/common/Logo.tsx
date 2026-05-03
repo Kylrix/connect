@@ -29,6 +29,7 @@ const Logo: React.FC<LogoProps> = ({
 
   // App Specific Colors (Muted V3 Palette)
   const appColors: Record<KylrixApp, { primary: string; secondary: string; label: string }> = {
+    root: { primary: "#6366F1", secondary: "#6366F1", label: "KYLRIX" },
     accounts: { primary: "#6366F1", secondary: "#6366F1", label: "ACCOUNTS" },
     kylrix: { primary: "#6366F1", secondary: "#6366F1", label: "KYLRIX" },
     vault: { primary: "#6366F1", secondary: "#10B981", label: "VAULT" }, // Left: Indigo, Right: Emerald

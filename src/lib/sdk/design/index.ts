@@ -21,6 +21,7 @@ export const KYLRIX_TYPOGRAPHY = {
 } as const;
 
 export const KYLRIX_APP_TONES: Record<KylrixApp, { primary: string; secondary: string; label: string }> = {
+  root: { primary: KYLRIX_COLORS.ecosystemPrimary, secondary: KYLRIX_COLORS.ecosystemPrimary, label: 'Kylrix' },
   accounts: { primary: KYLRIX_COLORS.ecosystemPrimary, secondary: KYLRIX_COLORS.ecosystemPrimary, label: 'Accounts' },
   kylrix: { primary: KYLRIX_COLORS.ecosystemPrimary, secondary: KYLRIX_COLORS.ecosystemPrimary, label: 'Kylrix' },
   vault: { primary: KYLRIX_COLORS.ecosystemPrimary, secondary: '#10B981', label: 'Vault' },
