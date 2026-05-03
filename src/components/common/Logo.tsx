@@ -3,8 +3,7 @@
 import React from 'react';
 import { Box, Typography, useTheme } from '@mui/material';
 import { motion } from 'framer-motion';
-
-export type KylrixApp = 'root' | 'vault' | 'flow' | 'note' | 'connect';
+import type { KylrixApp } from '@/lib/sdk/orchestration';
 
 interface LogoProps {
   sx?: any;
@@ -19,7 +18,7 @@ interface LogoProps {
 const Logo: React.FC<LogoProps> = ({ 
   sx, 
   size = 40, 
-  app = 'root', 
+  app = 'accounts', 
   variant = 'full',
   component,
   href,
@@ -30,20 +29,21 @@ const Logo: React.FC<LogoProps> = ({
 
   // App Specific Colors (Muted V3 Palette)
   const appColors: Record<KylrixApp, { primary: string; secondary: string; label: string }> = {
-    root: { primary: "#6366F1", secondary: "#6366F1", label: "KYLRIX" },
+    accounts: { primary: "#6366F1", secondary: "#6366F1", label: "ACCOUNTS" },
+    kylrix: { primary: "#6366F1", secondary: "#6366F1", label: "KYLRIX" },
     vault: { primary: "#6366F1", secondary: "#10B981", label: "VAULT" }, // Left: Indigo, Right: Emerald
     flow: { primary: "#6366F1", secondary: "#A855F7", label: "FLOW" },   // Left: Indigo, Right: Amethyst
     note: { primary: "#6366F1", secondary: "#EC4899", label: "NOTE" },   // Left: Indigo, Right: Pink
     connect: { primary: "#6366F1", secondary: "#F59E0B", label: "CONNECT" } // Left: Indigo, Right: Amber
   };
 
-  const current = appColors[app] || appColors.root;
+  const current = appColors[app] || appColors.accounts;
 
   // The Identity Split:
   // Left Hemisphere = Application Specific Color
   // Right Hemisphere = Ecosystem Indigo (#6366F1)
   const leftColor = current.secondary;
-  const rightColor = app === 'root' ? (isDarkMode ? "#FFFFFF" : "#000000") : current.primary;
+  const rightColor = app === 'accounts' ? (isDarkMode ? "#FFFFFF" : "#000000") : current.primary;
   
   // Center cutout color (punches through to background)
   const cutoutColor = isDarkMode ? "#0A0908" : "#FFFFFF";
@@ -86,7 +86,7 @@ const Logo: React.FC<LogoProps> = ({
             transform="rotate(45 50 50)"
           />
         );
-      case 'root': // Diamond
+      case 'accounts': // Diamond
       default:
         return <polygon points="50,38 62,50 50,62 38,50" fill={cutoutColor} />;
     }

@@ -4,7 +4,7 @@ export { APPWRITE_CONFIG } from './config';
 export { AppwriteService, KeychainService } from './keychain';
 
 // Profile picture preview helper
-import { client } from './client';
+import { storage } from './client';
 
 const APPWRITE_BUCKET_PROFILE_PICTURES = 'profile-pictures';
 
@@ -15,12 +15,11 @@ export async function getProfilePicturePreview(fileId: string, width: number = 6
   try {
     if (!fileId) return null;
     
-    const preview = client.storage.getFilePreview(
+    const preview = storage.getFilePreview(
       APPWRITE_BUCKET_PROFILE_PICTURES,
       fileId,
       width,
-      height,
-      'top'
+      height
     );
     return preview;
   } catch (error) {

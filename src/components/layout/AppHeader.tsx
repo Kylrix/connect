@@ -22,7 +22,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { fetchProfilePreview, getCachedProfilePreview } from '@/lib/profile-preview';
 import { IdentityAvatar, computeIdentityFlags } from '../common/IdentityBadge';
 import Logo from '../common/Logo';
-import type {KylrixApp as LogoApp} from '../common/Logo';
+import type { KylrixApp as LogoApp } from '@/lib/sdk/orchestration';
 import { WalletSidebar } from '../overlays/WalletSidebar';
 import { getEcosystemUrl } from '@/lib/constants';
 import { useAppChrome } from '@/components/providers/AppChromeProvider';

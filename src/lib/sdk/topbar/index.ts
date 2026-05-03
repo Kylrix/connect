@@ -176,7 +176,7 @@ export function createEcosystemPanelItems(currentApp: KylrixApp = 'note'): Topba
     { id: 'vault', app: 'vault', label: 'Vault', description: 'Passwords, 2FA, and keys.', selected: currentApp === 'vault' },
     { id: 'flow', app: 'flow', label: 'Goals', description: 'Tasks, plans, and follow-through.', selected: currentApp === 'flow' },
     { id: 'connect', app: 'connect', label: 'Connect', description: 'Secure messages and sharing.', selected: currentApp === 'connect' },
-    { id: 'accounts', app: 'root', label: 'Accounts', description: 'Your Kylrix account.', selected: currentApp === 'root' },
+    { id: 'accounts', app: 'accounts', label: 'Accounts', description: 'Your Kylrix account.', selected: currentApp === 'accounts' },
   ];
 }
 

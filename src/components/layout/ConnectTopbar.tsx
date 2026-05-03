@@ -123,7 +123,7 @@ export default function ConnectTopbar({
     () =>
       createEcosystemPanelItems('connect').map((item) => ({
         ...item,
-        href: getEcosystemUrl(item.app === 'root' ? 'accounts' : item.app),
+        href: getEcosystemUrl(item.app),
       })),
     [],
   );

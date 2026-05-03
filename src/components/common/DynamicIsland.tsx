@@ -63,7 +63,9 @@ import { IdentityAvatar } from './IdentityBadge';
 
 export type IslandType = 'success' | 'error' | 'warning' | 'info' | 'pro' | 'system' | 'suggestion' | 'connect';
 
-export type KylrixApp = 'root' | 'vault' | 'flow' | 'note' | 'connect';
+import type { KylrixApp } from '@/lib/sdk/orchestration';
+
+type _KylrixAppLegacy = 'root' | 'vault' | 'flow' | 'note' | 'connect';
 export interface IslandNotification {
   id: string;
   type: IslandType;
@@ -190,11 +192,12 @@ export const IslandProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 };
 
 const APP_TONES: Record<KylrixApp, { primary: string; secondary: string; label: string }> = {
-  root: { primary: '#6366F1', secondary: '#6366F1', label: 'Kylrix' },
+  accounts: { primary: '#6366F1', secondary: '#6366F1', label: 'Accounts' },
   vault: { primary: '#6366F1', secondary: '#10B981', label: 'Vault' },
   flow: { primary: '#6366F1', secondary: '#A855F7', label: 'Flow' },
   note: { primary: '#6366F1', secondary: '#EC4899', label: 'Note' },
   connect: { primary: '#6366F1', secondary: '#F59E0B', label: 'Connect' },
+  kylrix: { primary: '#6366F1', secondary: '#6366F1', label: 'Kylrix' },
 };
 
 const TYPE_TONES: Record<IslandType, { primary: string; secondary: string; label: string }> = {
@@ -247,9 +250,9 @@ function getLogoApp(appId: string): KylrixApp {
     case 'connect':
       return appId;
     case 'accounts':
-      return 'root';
+      return 'accounts';
     default:
-      return 'root';
+      return 'accounts';
   }
 }
 
