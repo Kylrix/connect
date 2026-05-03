@@ -1,4 +1,4 @@
-import type { KylrixApp } from '../design';
+import { KylrixApp } from '../design';
 
 export interface ExtensionManifest {
   id: string;

@@ -1,6 +1,5 @@
-import type { Kylrix } from './index';
-import { createCrossObjectMetadata  } from './orchestration';
-import type {CrossObjectOrigin} from './orchestration';
+import { Kylrix } from './index';
+import { createCrossObjectMetadata, type CrossObjectOrigin } from './orchestration';
 
 /**
  * Kylrix.Note: The Intelligence Layer Module.

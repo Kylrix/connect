@@ -76,17 +76,17 @@ export interface ForwardConversationCreator {
 }
 
 export interface ForwardSource {
-  listConversations: (userId: string) => Promise<ForwardConversation[]>;
-  listContacts: (userId: string) => Promise<ForwardContact[]>;
-  resolveProfiles: (userIds: string[]) => Promise<ForwardProfile[]>;
-  searchProfiles?: (query: string, limit?: number) => Promise<ForwardProfile[]>;
-  createConversation?: (input: ForwardConversationCreator) => Promise<{ $id: string } | null>;
-  sendMessage?: (request: ForwardMessageRequest) => Promise<any>;
+  listConversations(userId: string): Promise<ForwardConversation[]>;
+  listContacts(userId: string): Promise<ForwardContact[]>;
+  resolveProfiles(userIds: string[]): Promise<ForwardProfile[]>;
+  searchProfiles?(query: string, limit?: number): Promise<ForwardProfile[]>;
+  createConversation?(input: ForwardConversationCreator): Promise<{ $id: string } | null>;
+  sendMessage?(request: ForwardMessageRequest): Promise<any>;
 }
 
 export interface ForwardSecurityGate {
   status: { isUnlocked: boolean };
-  getMasterKey: () => CryptoKey | null;
+  getMasterKey(): CryptoKey | null;
 }
 
 export interface ForwardDirectoryOptions {
@@ -451,7 +451,7 @@ export interface AppwriteForwardSourceConfig {
 }
 
 export interface AppwriteForwardSourceClient {
-  listRows: (databaseId: string, tableId: string, queries?: string[]) => Promise<{ rows: any[] }>;
+  listRows(databaseId: string, tableId: string, queries?: string[]): Promise<{ rows: any[] }>;
 }
 
 export function createAppwriteForwardSource(client: AppwriteForwardSourceClient, config: AppwriteForwardSourceConfig) {

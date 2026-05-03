@@ -1,5 +1,4 @@
-import type { KylrixApp } from '../design';
-import { FAB_LAYOUT } from '../design';
+import { FAB_LAYOUT, KylrixApp } from '../design';
 
 export interface FabAction {
   id: string;

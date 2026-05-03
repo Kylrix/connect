@@ -15,7 +15,6 @@ export interface KylrixCallMetadata {
   allowGuests?: boolean;
   startsAt?: string | null;
   expiresAt?: string | null;
-  status?: 'scheduled' | 'ongoing' | 'completed' | 'missed' | 'cancelled' | null;
 }
 
 export interface CreateCallMetadataInput extends Omit<KylrixCallMetadata, 'participantIds'> {

@@ -1,7 +1,5 @@
-import { ID  } from 'appwrite';
-import type {Models} from 'appwrite';
-import { createCrossObjectMetadata  } from '../orchestration';
-import type {CrossObjectOrigin} from '../orchestration';
+import { ID, type Models } from 'appwrite';
+import { createCrossObjectMetadata, type CrossObjectOrigin } from '../orchestration';
 
 export interface NoteCreationContext<NoteRow = Models.Document> {
   databaseId: string;

@@ -1,4 +1,4 @@
-import type { Kylrix } from './index';
+import { Kylrix } from './index';
 
 /**
  * Kylrix.Vault: The Secure State Store Module.

@@ -1,4 +1,5 @@
 import { Query } from 'appwrite';
+import { Buffer } from 'buffer';
 import { HDNodeWallet } from 'ethers';
 import * as bip39 from 'bip39';
 import { BIP32Factory } from 'bip32';
@@ -45,28 +46,28 @@ export interface WalletNetworkDefinition {
 }
 
 export interface WalletTablesDB {
-  listRows: (databaseId: string, tableId: string, queries?: string[]) => Promise<{ rows: any[] }>;
-  getRow: (databaseId: string, tableId: string, rowId: string) => Promise<any>;
-  createRow: (databaseId: string, tableId: string, rowId: string, data: Record<string, unknown>, permissions?: string[]) => Promise<any>;
-  deleteRow: (databaseId: string, tableId: string, rowId: string) => Promise<any>;
+  listRows(databaseId: string, tableId: string, queries?: string[]): Promise<{ rows: any[] }>;
+  getRow(databaseId: string, tableId: string, rowId: string): Promise<any>;
+  createRow(databaseId: string, tableId: string, rowId: string, data: Record<string, unknown>, permissions?: string[]): Promise<any>;
+  deleteRow(databaseId: string, tableId: string, rowId: string): Promise<any>;
 }
 
 export interface WalletSecurityAdapter {
   status: { isUnlocked: boolean };
-  getMasterKey: () => CryptoKey | null;
-  encrypt: (data: string) => Promise<string>;
-  decrypt: (data: string) => Promise<string>;
+  getMasterKey(): CryptoKey | null;
+  encrypt(data: string): Promise<string>;
+  decrypt(data: string): Promise<string>;
 }
 
 export interface WalletUserAdapter {
-  updateProfile: (userId: string, data: Record<string, unknown>) => Promise<void>;
-  getProfileById: (userId: string) => Promise<{ publicKey?: string | null } | null>;
-  ensureProfileForUser?: (input: { $id: string; email: string }) => Promise<void>;
+  updateProfile(userId: string, data: Record<string, unknown>): Promise<void>;
+  getProfileById(userId: string): Promise<{ publicKey?: string | null } | null>;
+  ensureProfileForUser?(input: { $id: string; email: string }): Promise<void>;
 }
 
 export interface WalletPermissionsAdapter {
-  walletPermissions: (userId: string) => string[];
-  walletMapPermissions: (userId: string) => string[];
+  walletPermissions(userId: string): string[];
+  walletMapPermissions(userId: string): string[];
 }
 
 export interface WalletServiceConfig {

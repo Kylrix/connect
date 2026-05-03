@@ -24,7 +24,7 @@ export class KylrixSecurity {
     return await crypto.subtle.deriveKey(
       {
         name: 'PBKDF2',
-        salt: saltBytes as any,
+        salt: saltBytes,
         iterations: 100000,
         hash: 'SHA-256',
       },

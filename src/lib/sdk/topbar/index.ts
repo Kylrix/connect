@@ -1,5 +1,4 @@
-import type { KylrixApp} from '../design';
-import { TOPBAR_LAYOUT, getAppTone } from '../design';
+import { KylrixApp, TOPBAR_LAYOUT, getAppTone } from '../design';
 
 export type TopbarPanel = 'ecosystem' | 'profile' | 'search';
 
@@ -15,7 +14,7 @@ export interface TopbarSnippet {
 export interface TopbarAction extends TopbarSnippet {
   accent: string;
   terms: string[];
-  onSelect?: () => void;
+  onSelect: () => void;
   app?: KylrixApp;
 }
 
@@ -32,8 +31,8 @@ export interface TopbarSurface {
   routeLabel: string;
   currentApp: KylrixApp;
   snippets: TopbarSnippet[];
-  searchActions: TopbarAction[];
-  targets: TopbarAction[];
+  quickActions: TopbarAction[];
+  searchTargets: TopbarAction[];
   layout: typeof TOPBAR_LAYOUT;
 }
 
@@ -86,7 +85,6 @@ export interface TopbarSearchCard {
   accent: string;
   terms: string[];
   disabled?: boolean;
-  onSelect?: () => void;
 }
 
 export interface TopbarSearchSurface extends TopbarSurface {
@@ -96,8 +94,8 @@ export interface TopbarSearchSurface extends TopbarSurface {
   searchAcrossLabel: string;
   peopleLabel: string;
   snippets: TopbarSnippet[];
-  searchActions: TopbarSearchCard[];
-  targets: TopbarSearchCard[];
+  quickActions: TopbarSearchCard[];
+  searchTargets: TopbarSearchCard[];
 }
 
 export interface TopbarProfileSurface {
@@ -137,8 +135,8 @@ export function createConnectTopbarSurface(params: {
     routeLabel: params.routeLabel || 'Connect',
     currentApp: 'connect',
     snippets: params.snippets || [],
-    searchActions: [],
-    targets: [],
+    quickActions: [],
+    searchTargets: [],
     layout: TOPBAR_LAYOUT,
     identity: params.identity,
     searchPlaceholder: params.searchPlaceholder || 'Search notes, goals, moments, calls, people, apps',
@@ -151,8 +149,8 @@ export function createTopbarPanelSurface(params: {
   routeLabel?: string;
   currentApp?: KylrixApp;
   snippets?: TopbarSnippet[];
-  searchActions?: TopbarAction[];
-  targets?: TopbarAction[];
+  quickActions?: TopbarAction[];
+  searchTargets?: TopbarAction[];
   panel?: TopbarPanel | null;
   panelItems?: TopbarPanelItem[];
   searchPlaceholder?: string;
@@ -162,8 +160,8 @@ export function createTopbarPanelSurface(params: {
     routeLabel: params.routeLabel || 'Note',
     currentApp: params.currentApp || 'note',
     snippets: params.snippets || [],
-    searchActions: params.searchActions || [],
-    targets: params.targets || [],
+    quickActions: params.quickActions || [],
+    searchTargets: params.searchTargets || [],
     layout: TOPBAR_LAYOUT,
     panel: params.panel || null,
     panelItems: params.panelItems || [],
@@ -211,7 +209,7 @@ export function createTopbarSearchSurface(params: {
   const snippets = params.snippets || [];
   const resolveUrl = params.resolveUrl;
 
-  const searchActions: TopbarSearchCard[] = [
+  const quickActions: TopbarSearchCard[] = [
     {
       id: 'draft-note',
       kind: 'note',
@@ -259,7 +257,7 @@ export function createTopbarSearchSurface(params: {
     },
   ];
 
-  const targets: TopbarSearchCard[] = [
+  const searchTargets: TopbarSearchCard[] = [
     {
       id: 'search-notes',
       kind: 'note',
@@ -326,15 +324,15 @@ export function createTopbarSearchSurface(params: {
     terms: [snippet.title, snippet.description, params.routeLabel || ''].map((value) => value.toLowerCase()),
   }));
 
-  const pool = [...searchActions, ...targets, ...contextualHints];
+  const pool = [...quickActions, ...searchTargets, ...contextualHints];
   const filtered = query ? pool.filter((item) => matchesTopbarTerms(query, item.terms)) : pool;
 
   return {
     routeLabel: params.routeLabel || 'Connect',
     currentApp,
     snippets: snippets.slice(0, 4),
-    searchActions: (query ? filtered : searchActions).slice(0, 5),
-    targets: (query ? filtered : targets).slice(0, 6),
+    quickActions: (query ? filtered : quickActions).slice(0, 5),
+    searchTargets: (query ? filtered : searchTargets).slice(0, 6),
     layout: TOPBAR_LAYOUT,
     query,
     searchPlaceholder: 'Search notes, goals, moments, calls, people, apps',

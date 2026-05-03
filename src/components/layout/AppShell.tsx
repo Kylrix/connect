@@ -25,12 +25,13 @@ import {
     ArrowLeft
 } from 'lucide-react';
 
-import { AppHeader } from './AppHeader';
+import ConnectTopbar from './ConnectTopbar';
 import { ChatList } from '../chat/ChatList';
 import { ProfileSetupDrawer } from '../profile/ProfileSetupDrawer';
 import { useAppChrome } from '@/components/providers/AppChromeProvider';
 
 const drawerWidth = 280;
+const TOPBAR_HEIGHT = 88; // Standard ecosystem topbar height
 
 export const AppShell = ({ children }: { children: React.ReactNode }) => {
     const pathname = usePathname();
@@ -38,7 +39,6 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
     const router = useRouter();
     const [_anchorEl, _setAnchorEl] = useState<null | HTMLElement>(null);
     const [_bottomNavOffset, _setBottomNavOffset] = useState(0);
-    const { headerHeight } = useAppChrome();
 
     const isEmbedded = useMemo(() => searchParams?.get('is_embedded') === 'true', [searchParams]);
     const isExternalProfile = pathname?.startsWith('/u/');
@@ -118,7 +118,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
 
     return (
             <Box sx={{ display: 'flex', height: '100dvh', minHeight: '100dvh', overflow: 'hidden', bgcolor: '#000000' }}>
-                {!isFullscreenContent && <AppHeader />}
+                {!isFullscreenContent && <ConnectTopbar />}
                 <ProfileSetupDrawer />
 
             {/* Desktop Sidebar */}
@@ -132,8 +132,8 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
                         [`& .MuiDrawer-paper`]: { 
                             width: drawerWidth, 
                             boxSizing: 'border-box', 
-                            top: isFullscreenContent ? 0 : headerHeight, 
-                            height: isFullscreenContent ? '100%' : `calc(100% - ${headerHeight}px)`,
+                            top: isFullscreenContent ? 0 : TOPBAR_HEIGHT, 
+                            height: isFullscreenContent ? '100%' : `calc(100% - ${TOPBAR_HEIGHT}px)`,
                              bgcolor: '#000000',
                             borderRight: '1px solid',
                             borderColor: 'rgba(255, 255, 255, 0.05)'
@@ -218,7 +218,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
                     height: '100%', 
                     overflow: 'hidden', 
                     position: 'relative', 
-                    pt: isFullscreenContent ? 0 : `${headerHeight}px`,
+                    pt: isFullscreenContent ? 0 : `${TOPBAR_HEIGHT}px`,
                     bgcolor: '#000000',
                     transition: 'all 0.3s ease-in-out'
                 }}
