@@ -146,7 +146,7 @@ export default function ConnectTopbar({
   }, [activePanel, handleCloseAll]);
 
   const renderProfilePanel = () => {
-    if (!profileMenuAnchorEl) return null;
+    if (!profileMenuAnchorEl || !user) return null;
     const handleProfileWheel = (event: React.WheelEvent<HTMLDivElement>) => {
       const node = event.currentTarget;
       const atTop = node.scrollTop <= 0;
@@ -451,8 +451,8 @@ export default function ConnectTopbar({
 
             <Box sx={{ flex: 1 }} />
 
-            {user && (
-              <Stack direction="row" alignItems="center" spacing={1.25} sx={{ flexShrink: 0 }}>
+            <Stack direction="row" alignItems="center" spacing={1.25} sx={{ flexShrink: 0 }}>
+              {user && (
                 <Tooltip title="Wallet">
                   <IconButton
                     onClick={() => setIsWalletOpen(true)}
@@ -470,34 +470,34 @@ export default function ConnectTopbar({
                     <Wallet size={18} strokeWidth={1.5} />
                   </IconButton>
                 </Tooltip>
+              )}
 
-                <ButtonBase
-                  onClick={openProfileMenu}
+              <ButtonBase
+                onClick={openProfileMenu}
+                sx={{
+                  p: 0,
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  '&:hover': { transform: 'scale(1.05)' },
+                  transition: 'transform 0.2s',
+                }}
+              >
+                <Avatar
+                  src={isRenderableImageSrc(profileAvatarUrl) ? profileAvatarUrl || undefined : undefined}
                   sx={{
-                    p: 0,
-                    border: 'none',
-                    background: 'transparent',
-                    cursor: 'pointer',
-                    '&:hover': { transform: 'scale(1.05)' },
-                    transition: 'transform 0.2s',
+                    width: 38,
+                    height: 38,
+                    bgcolor: profileAvatarUrl ? 'rgba(255,255,255,0.04)' : tone.secondary,
+                    color: '#fff',
+                    fontWeight: 900,
+                    borderRadius: '12px',
                   }}
                 >
-                  <Avatar
-                    src={isRenderableImageSrc(profileAvatarUrl) ? profileAvatarUrl || undefined : undefined}
-                    sx={{
-                      width: 38,
-                      height: 38,
-                      bgcolor: profileAvatarUrl ? 'rgba(255,255,255,0.04)' : getAppTone('connect').secondary,
-                      color: '#fff',
-                      fontWeight: 900,
-                      borderRadius: '12px',
-                    }}
-                  >
-                    {profileName.slice(0, 1).toUpperCase()}
-                  </Avatar>
-                </ButtonBase>
-              </Stack>
-            )}
+                  {user ? profileName.slice(0, 1).toUpperCase() : 'C'}
+                </Avatar>
+              </ButtonBase>
+            </Stack>
           </Box>
         </Box>
 

@@ -70,7 +70,6 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const pathname = usePathname();
   const [user, setUser] = useState<Models.User<Models.Preferences> | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [showAuthOverlay, setShowAuthOverlay] = useState(false);
 
@@ -85,8 +84,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch {
       setUser(null);
       setShowAuthOverlay(!isOnPublicRoute);
-    } finally {
-      setIsLoading(false);
     }
   }, [isOnPublicRoute]);
 
@@ -95,10 +92,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [checkSession]);
 
   useEffect(() => {
-    if (!isLoading) {
-      setShowAuthOverlay(!user && !isOnPublicRoute);
-    }
-  }, [user, isLoading, isOnPublicRoute]);
+    setShowAuthOverlay(!user && !isOnPublicRoute);
+  }, [user, isOnPublicRoute]);
 
   const openLoginPopup = useCallback(async () => {
     if (typeof window === 'undefined' || isAuthenticating) return;
@@ -153,7 +148,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, isAuthenticating, isAuthenticated: !!user, logout, checkSession, openLoginPopup }}>
+    <AuthContext.Provider value={{ user, isLoading: false, isAuthenticating, isAuthenticated: !!user, logout, checkSession, openLoginPopup }}>
       {showAuthOverlay && !isOnPublicRoute ? (
         <Box sx={{ position: 'relative', height: '100vh', overflow: 'hidden' }}>
           {/* Blurred Background Content */}
