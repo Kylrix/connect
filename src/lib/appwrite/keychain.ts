@@ -5,7 +5,7 @@ import { APPWRITE_CONFIG } from './config';
 const DB_ID = APPWRITE_CONFIG.DATABASES.PASSWORD_MANAGER;
 const KEYCHAIN_TABLE = 'keychain';
 
-export const KeychainService = {
+export const AppwriteService = {
     async listKeychainEntries(userId: string) {
         try {
             const response = await tablesDB.listRows(
@@ -61,3 +61,5 @@ export const KeychainService = {
         // For now, listing entries is sufficient for the UI.
     }
 };
+
+export const KeychainService = AppwriteService;

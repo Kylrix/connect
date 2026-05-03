@@ -638,7 +638,7 @@ export function TaskProvider({ children }: TaskProviderProps) {
 
     const initRealtime = async () => {
       // Subscribe to Tasks
-      unsubTasks = await subscribeToTable<AppwriteTask>(APPWRITE_CONFIG.TABLES.TASKS, ({ type, payload }) => {
+      unsubTasks = await subscribeToTable<AppwriteTask>(APPWRITE_CONFIG.TABLES.KYLRIXFLOW.TASKS, ({ type, payload }) => {
         if (type === 'create') {
           dispatch({ type: 'ADD_TASK', payload: mapAppwriteTaskToTask(payload) });
         } else if (type === 'update') {
@@ -649,7 +649,7 @@ export function TaskProvider({ children }: TaskProviderProps) {
       });
 
       // Subscribe to Calendars/Projects
-      unsubProjects = await subscribeToTable<AppwriteCalendar>(APPWRITE_CONFIG.TABLES.CALENDARS, ({ type, payload }) => {
+      unsubProjects = await subscribeToTable<AppwriteCalendar>(APPWRITE_CONFIG.TABLES.KYLRIXFLOW.CALENDARS, ({ type, payload }) => {
         if (payload.userId !== state.userId) return;
 
         if (type === 'create') {
@@ -684,20 +684,23 @@ export function TaskProvider({ children }: TaskProviderProps) {
           tags.push(`project:${task.projectId}`);
         }
 
-        const newTask = await taskApi.create({
-          title: task.title,
-          description: task.description || '',
-          status: task.status,
-          priority: task.priority,
-          dueDate: task.dueDate ? task.dueDate.toISOString() : null,
-          userId: userId,
-          tags: tags,
-          assigneeIds: task.assigneeIds || [],
-          attachmentIds: [],
-          eventId: '',
-          parentId: '',
-          recurrenceRule: task.recurrence ? JSON.stringify(task.recurrence) : '',
-        }, buildTaskPermissions(userId, task.assigneeIds || []));
+        const newTask = await taskApi.create(
+          {
+            title: task.title,
+            description: task.description || '',
+            status: task.status,
+            priority: task.priority,
+            dueDate: task.dueDate ? task.dueDate.toISOString() : null,
+            userId: userId,
+            tags: tags,
+            assigneeIds: task.assigneeIds || [],
+            attachmentIds: [],
+            eventId: '',
+            parentId: '',
+            recurrenceRule: task.recurrence ? JSON.stringify(task.recurrence) : '',
+          } as any,
+          buildTaskPermissions(userId, task.assigneeIds || [])
+        );
 
         await syncTaskAccess(newTask.$id, userId, task.assigneeIds || [], task.title, []);
         invalidate(`f_tasks_${userId}`);
@@ -837,7 +840,7 @@ export function TaskProvider({ children }: TaskProviderProps) {
         eventId: '',
         parentId: parentTask.id,
         recurrenceRule: '',
-      }, buildTaskPermissions(creatorId, parentTask.assigneeIds || []));
+      } as any, buildTaskPermissions(creatorId, parentTask.assigneeIds || []));
 
       await syncTaskAccess(childTask.$id, creatorId, parentTask.assigneeIds || [], parentTask.title, []);
       invalidate(`f_tasks_${state.userId || 'guest'}`);
@@ -958,7 +961,7 @@ export function TaskProvider({ children }: TaskProviderProps) {
           color: project.color,
           isDefault: false,
           userId: userId,
-        });
+        } as any);
         invalidate(`f_calendars_${userId}`);
         dispatch({ type: 'ADD_PROJECT', payload: mapAppwriteCalendarToProject(newCalendar) });
       } catch (error: unknown) {

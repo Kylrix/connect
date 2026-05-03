@@ -52,12 +52,12 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
             if (typeof window === 'undefined') return;
             const viewport = window.visualViewport;
             if (!viewport) {
-                setBottomNavOffset(0);
+                _setBottomNavOffset(0);
                 return;
             }
 
             const offset = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
-            setBottomNavOffset(offset);
+            _setBottomNavOffset(offset);
         };
 
         updateBottomNavOffset();

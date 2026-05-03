@@ -14,6 +14,7 @@ import { AppChromeProvider } from '@/components/providers/AppChromeProvider';
 import { EcosystemClient } from '@/components/ecosystem/EcosystemClient';
 import { IslandProvider } from '@/components/common/DynamicIsland';
 import { SudoProvider } from '@/context/SudoContext';
+import { AuthProvider } from '@/context/auth/AuthContext';
 import { SubscriptionProvider } from '@/context/subscription/SubscriptionContext';
 import { DataNexusProvider } from '@/context/DataNexusContext';
 import { Suspense } from 'react';
@@ -74,6 +75,7 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <EcosystemClient nodeId="connect" />
+        <AuthProvider>
         <DataNexusProvider>
           <SubscriptionProvider>
             <ThemeProvider>
@@ -111,6 +113,7 @@ export default function RootLayout({
             </ThemeProvider>
           </SubscriptionProvider>
         </DataNexusProvider>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -292,9 +292,9 @@ export default function TaskDetails({ taskId }: TaskDetailsProps) {
           if (!entry) continue;
           const [userId, profile] = entry;
           nextProfiles[userId] = {
-            title: profile.title || profile.name || userId,
-            subtitle: profile.subtitle || profile.email || userId,
-            profilePicId: profile.profilePicId || profile.avatar || null,
+            title: (profile as any).title || (profile as any).name || userId,
+            subtitle: (profile as any).subtitle || (profile as any).email || userId,
+            profilePicId: (profile as any).profilePicId || (profile as any).avatar || null,
           };
         }
 

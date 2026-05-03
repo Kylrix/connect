@@ -83,7 +83,7 @@ export default function EventList() {
   const handleCreateEvent = async (eventData: any) => {
     try {
       // Use first project as calendar or default
-      const calendarId = projects[0]?.id || 'default';
+      const _calendarId = projects[0]?.id || 'default';
       const currentUserId = userId || 'guest';
       const visibility: EventVisibility = eventData.visibility || 'public';
       
@@ -111,20 +111,17 @@ export default function EventList() {
         }
       }
 
-      const newDoc = await eventApi.create(
+      const newDoc = await (eventApi.create as any)(
         {
           title: eventData.title,
           description: eventData.description || '',
           startTime: eventData.startTime.toISOString(),
           endTime: eventData.endTime.toISOString(),
           location: eventData.location || '',
-          meetingUrl: meetingUrl,
-          visibility: visibility,
-          status: 'confirmed',
-          coverImageId: eventData.coverImage || '',
-          maxAttendees: 0,
-          recurrenceRule: '',
-          calendarId: calendarId,
+          url: meetingUrl,
+          isPublic: visibility === 'public',
+          coverImage: eventData.coverImage || '',
+          attendees: [currentUserId],
           userId: currentUserId,
         },
         eventPermissions

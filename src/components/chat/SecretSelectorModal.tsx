@@ -198,9 +198,13 @@ export const SecretSelectorModal = ({ open, onClose, onSelect, isSelf }: SecretS
                         try {
                             if (type === 'totp') {
                                 const decryptedSecret = await ecosystemSecurity.decrypt(item.secretKey);
-                                const code = generateSync({ secret: decryptedSecret.replace(/\s+/g, '').toUpperCase() });
+                                const code = speakeasy.totp({ 
+                                    secret: decryptedSecret.replace(/\s+/g, '').toUpperCase(),
+                                    encoding: 'base32'
+                                });
                                 onSelect({ ...item, currentCode: code }, 'totp');
-                            } else {
+                            }
+ else {
                                 onSelect(item, 'secret');
                             }
                             setPendingSelection(null);

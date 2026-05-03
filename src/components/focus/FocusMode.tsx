@@ -91,7 +91,7 @@ export default function FocusMode() {
              taskId: selectedTask.id,
              status: 'completed',
                userId: userId || 'guest',
-         }).catch(console.error);
+         } as any).catch(console.error);
       }
     }
 

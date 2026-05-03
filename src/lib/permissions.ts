@@ -2,7 +2,7 @@ import { Permission, Role } from 'appwrite';
 import { tablesDB } from './appwrite/client';
 import { APPWRITE_CONFIG } from './appwrite/config';
 
-const { DATABASE_ID, TABLES } = APPWRITE_CONFIG;
+const DATABASE_ID = APPWRITE_CONFIG.DATABASES.KYLRIXFLOW;
 
 /**
  * Permission levels for events
@@ -69,7 +69,7 @@ export const eventPermissions = {
   makePublic: async (eventId: string, userId: string): Promise<void> => {
     await tablesDB.updateRow({
       databaseId: DATABASE_ID,
-      tableId: TABLES.EVENTS,
+      tableId: APPWRITE_CONFIG.TABLES.KYLRIXFLOW.EVENTS,
       rowId: eventId,
       data: { visibility: 'public' },
       permissions: permissions.publicRead(userId),
@@ -82,7 +82,7 @@ export const eventPermissions = {
   makePrivate: async (eventId: string, userId: string): Promise<void> => {
     await tablesDB.updateRow({
       databaseId: DATABASE_ID,
-      tableId: TABLES.EVENTS,
+      tableId: APPWRITE_CONFIG.TABLES.KYLRIXFLOW.EVENTS,
       rowId: eventId,
       data: { visibility: 'private' },
       permissions: permissions.privateOnly(userId),
@@ -95,7 +95,7 @@ export const eventPermissions = {
   makeUnlisted: async (eventId: string, userId: string): Promise<void> => {
     await tablesDB.updateRow({
       databaseId: DATABASE_ID,
-      tableId: TABLES.EVENTS,
+      tableId: APPWRITE_CONFIG.TABLES.KYLRIXFLOW.EVENTS,
       rowId: eventId,
       data: { visibility: 'unlisted' },
       permissions: permissions.unlistedRead(userId),
@@ -112,7 +112,7 @@ export const eventPermissions = {
   ): Promise<void> => {
     await tablesDB.updateRow({
       databaseId: DATABASE_ID,
-      tableId: TABLES.EVENTS,
+      tableId: APPWRITE_CONFIG.TABLES.KYLRIXFLOW.EVENTS,
       rowId: eventId,
       data: { visibility },
       permissions: permissions.forVisibility(visibility, userId),

@@ -361,7 +361,7 @@ export const ProfilePanelSurface: React.FC<{ onClosePanel: () => void }> = ({ on
   const { profile: profileFromContext, isLoading } = useProfile();
   const cachedIdentity = user?.$id ? getCachedIdentityById(user.$id) : null;
   const profile = profileFromContext || cachedIdentity || null;
-  const previewSource = profile?.avatarUrl || profile?.avatarFileId || profile?.avatar || user?.prefs?.profilePicId || null;
+  const previewSource = profile?.avatarUrl || profile?.avatarFileId || profile?.avatar || (user?.prefs as any)?.profilePicId || null;
   const profilePreviewUrl = useCachedProfilePreview(previewSource, 160, 160);
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);

@@ -26,8 +26,8 @@ type PotatoSurface = {
   routeLabel: string;
   currentApp: 'connect';
   snippets: PotatoSnippet[];
-  quickActions: PotatoAction[];
-  searchTargets: PotatoAction[];
+  searchActions: PotatoAction[];
+  targets: PotatoAction[];
 };
 
 type PotatoContextType = {
@@ -113,7 +113,7 @@ function matchesTerms(query: string, terms: string[]) {
 function buildSurface(query: string, routeLabel: string, snippets: PotatoSnippet[]) {
   const normalized = normalizeQuery(query);
 
-  const quickActions: PotatoAction[] = [
+  const searchActions: PotatoAction[] = [
     {
       id: 'new-chat',
       kind: 'chat',
@@ -146,7 +146,7 @@ function buildSurface(query: string, routeLabel: string, snippets: PotatoSnippet
     },
   ];
 
-  const searchTargets: PotatoAction[] = [
+  const targets: PotatoAction[] = [
     {
       id: 'search-chats',
       kind: 'chat',
@@ -179,15 +179,15 @@ function buildSurface(query: string, routeLabel: string, snippets: PotatoSnippet
     },
   ];
 
-  const pool = [...quickActions, ...searchTargets];
+  const pool = [...searchActions, ...targets];
   const filtered = normalized ? pool.filter((item) => matchesTerms(normalized, item.terms)) : pool;
 
   return {
     routeLabel,
     currentApp: 'connect' as const,
     snippets,
-    quickActions: (normalized ? filtered : quickActions).slice(0, 5),
-    searchTargets: (normalized ? filtered : searchTargets).slice(0, 6),
+    searchActions: (normalized ? filtered : searchActions).slice(0, 5),
+    targets: (normalized ? filtered : targets).slice(0, 6),
   };
 }
 

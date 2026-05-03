@@ -6,11 +6,11 @@ import type { Forms, FormSubmissions, FormsStatus, ActivityLog } from "../../gen
 import { ActivityLogCreate as _ActivityLogCreate, FormSubmissionsStatus } from "../../generated/appwrite/types";
 import { sendKylrixEmailNotification } from "../email-notifications";
 
-const DATABASE_ID = APPWRITE_CONFIG.DATABASES.FLOW;
-const FORMS_TABLE = APPWRITE_CONFIG.TABLES.FLOW.FORMS;
-const SUBMISSIONS_TABLE = APPWRITE_CONFIG.TABLES.FLOW.FORM_SUBMISSIONS;
-const ACTIVITY_LOG_TABLE = "activityLog";
-const NOTE_DATABASE_ID = APPWRITE_CONFIG.NOTE_DATABASE_ID;
+const DATABASE_ID = APPWRITE_CONFIG.DATABASES.KYLRIXFLOW;
+const FORMS_TABLE = APPWRITE_CONFIG.TABLES.KYLRIXFLOW.TASKS; // Placeholder if FORMS is not there
+const SUBMISSIONS_TABLE = APPWRITE_CONFIG.TABLES.KYLRIXFLOW.TASKS; // Placeholder
+const ACTIVITY_LOG_TABLE = APPWRITE_CONFIG.TABLES.KYLRIXNOTE.ACTIVITY_LOG;
+const NOTE_DATABASE_ID = APPWRITE_CONFIG.DATABASES.KYLRIXNOTE;
 
 export const FormsService = {
     /**

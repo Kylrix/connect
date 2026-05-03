@@ -30,5 +30,5 @@
     "**/*.tsx",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "ignore1"]
+  "exclude": ["node_modules", "ignore1", "src/generated", "src/generated/appwrite/types.ts"]
 }

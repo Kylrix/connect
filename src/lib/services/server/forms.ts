@@ -1,8 +1,8 @@
 import { APPWRITE_CONFIG } from "../../appwrite/config";
 import type { Forms } from "../../../generated/appwrite/types";
 
-const DATABASE_ID = APPWRITE_CONFIG.DATABASES.FLOW;
-const FORMS_TABLE = APPWRITE_CONFIG.TABLES.FLOW.FORMS;
+const DATABASE_ID = APPWRITE_CONFIG.DATABASES.KYLRIXFLOW;
+const FORMS_TABLE = APPWRITE_CONFIG.TABLES.KYLRIXFLOW.TASKS;
 
 export const FormsServerService = {
     async getFormPublic(formId: string): Promise<Forms | null> {

@@ -17,12 +17,10 @@ export const useAI = () => {
   } = {}) => {
     const customKey = (user as any)?.prefs?.customGeminiKey;
     return await generateAIResponse({
-      data: {
-        prompt,
-        history: options.history,
-        systemInstruction: options.systemInstruction,
-        apiKey: customKey || undefined,
-      },
+      prompt,
+      history: options.history,
+      systemInstruction: options.systemInstruction,
+      apiKey: customKey || undefined,
     });
   };
 

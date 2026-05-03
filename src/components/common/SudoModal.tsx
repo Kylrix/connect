@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import Logo from "./Logo";
 import { ecosystemSecurity } from "@/lib/ecosystem/security";
-import { AppwriteService } from "@/lib/appwrite/client";
+import { AppwriteService } from "@/lib/appwrite/keychain";
 import { useAuth } from "@/context/auth/AuthContext";
 import toast from "react-hot-toast";
 import { unlockWithPasskey } from "@/lib/passkey";

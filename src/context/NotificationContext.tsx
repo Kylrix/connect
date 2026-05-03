@@ -42,8 +42,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
 
-  const APPWRITE_TABLE_ID_ACTIVITYLOG = "activityLog";
-
   const parseMetadata = (details: string | null): NotificationMetadata => {
     if (!details) return { read: false, originalDetails: null };
     try {
@@ -64,8 +62,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     try {
       const res = await (databases as any).listRows({
-        databaseId: APPWRITE_CONFIG.NOTE_DATABASE_ID,
-        tableId: APPWRITE_TABLE_ID_ACTIVITYLOG,
+        databaseId: APPWRITE_CONFIG.DATABASES.KYLRIXNOTE,
+        tableId: APPWRITE_CONFIG.TABLES.KYLRIXNOTE.ACTIVITY_LOG,
         queries: [Query.equal('userId', user.$id), Query.orderDesc('timestamp'), Query.limit(50)]
       });
       const logs = res.rows as unknown as ActivityLog[];
@@ -85,7 +83,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user?.$id) return;
 
-    const channel = `databases.${APPWRITE_CONFIG.NOTE_DATABASE_ID}.collections.${APPWRITE_TABLE_ID_ACTIVITYLOG}.documents`;
+    const channel = `databases.${APPWRITE_CONFIG.DATABASES.KYLRIXNOTE}.collections.${APPWRITE_CONFIG.TABLES.KYLRIXNOTE.ACTIVITY_LOG}.documents`;
     
     const unsub = realtime.subscribe(channel, (response) => {
       const payload = response.payload as ActivityLog;
@@ -129,8 +127,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     try {
       setNotifications(prev => prev.map(n => n.$id === id ? { ...n, details: JSON.stringify(newMetadata) } : n));
       await (databases as any).updateRow({
-        databaseId: APPWRITE_CONFIG.NOTE_DATABASE_ID,
-        tableId: APPWRITE_TABLE_ID_ACTIVITYLOG,
+        databaseId: APPWRITE_CONFIG.DATABASES.KYLRIXNOTE,
+        tableId: APPWRITE_CONFIG.TABLES.KYLRIXNOTE.ACTIVITY_LOG,
         rowId: id,
         data: { details: JSON.stringify(newMetadata) }
       });

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   AppBar,
@@ -302,7 +302,7 @@ export const AppHeader = () => {
   const stageMotion = {
     animate: { opacity: isExpanded ? 0 : 1, scale: isExpanded ? 0.96 : 1 },
     transition: { duration: 0.22 },
-    style: { pointerEvents: isIslandActive ? 'none' : 'auto' as const },
+    style: { pointerEvents: (isIslandActive ? 'none' : 'auto') as any },
   };
 
   return (
@@ -628,7 +628,7 @@ export const AppHeader = () => {
                           Quick actions
                         </Typography>
                         <Box sx={{ display: 'grid', gap: 0.75 }}>
-                          {searchSurface.quickActions.slice(0, 3).map((action) => (
+                          {searchSurface.searchActions.slice(0, 3).map((action) => (
                             <Box
                               key={action.id}
                               component="button"
@@ -670,7 +670,7 @@ export const AppHeader = () => {
                           Search across apps
                         </Typography>
                         <Box sx={{ display: 'grid', gap: 0.75 }}>
-                          {searchSurface.searchTargets.slice(0, 4).map((action) => (
+                          {searchSurface.targets.slice(0, 4).map((action) => (
                             <Box
                               key={action.id}
                               component="button"
@@ -683,8 +683,9 @@ export const AppHeader = () => {
                                 px: 1.5,
                                 py: 1.1,
                                 borderRadius: '18px',
-                                bgcolor: action.kind === potato.currentApp ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.02)',
-                                border: `1px solid ${action.kind === potato.currentApp ? 'rgba(99,102,241,0.28)' : 'rgba(255,255,255,0.05)'}`,
+                                bgcolor: (action.kind as any) === potato.currentApp ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.02)',
+                                border: `1px solid ${(action.kind as any) === potato.currentApp ? 'rgba(99,102,241,0.28)' : 'rgba(255,255,255,0.05)'}`,
+
                                 color: 'white',
                                 textAlign: 'left',
                               }}

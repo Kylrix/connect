@@ -228,6 +228,28 @@ export class EcosystemSecurity {
     }
   }
 
+  async unlockWithPin(pin: string): Promise<boolean> {
+    try {
+      // In connect we use session storage for PIN "unlock" if the master key was already derived
+      // This is a simplified version for the bridge app.
+      if (typeof sessionStorage === "undefined") return false;
+      const savedPin = sessionStorage.getItem("kylrix_vault_pin");
+      if (savedPin && savedPin === pin) {
+        this.isUnlocked = true;
+        this.emitStatusChange();
+        return true;
+      }
+      return false;
+    } catch (_e: unknown) {
+      return false;
+    }
+  }
+
+  isPinSet(): boolean {
+    if (typeof sessionStorage === "undefined") return false;
+    return !!sessionStorage.getItem("kylrix_vault_pin");
+  }
+
   /**
    * Set Masterpass Flag on User Document
    * Note: chat.users has no hasMasterpass column; we just ensure the doc exists and is fresh.

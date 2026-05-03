@@ -814,7 +814,7 @@ export const Feed = ({ view = 'personal' }: FeedProps) => {
     const feedPrefetchRef = React.useRef<Record<string, Promise<void> | undefined>>({});
     const draftInputRef = React.useRef<FastDraftInputHandle | null>(null);
     const mobileComposerDockRef = React.useRef<MobileComposerDockHandle | null>(null);
-    const userAvatarUrl = useCachedProfilePreview(myProfile?.avatar || getCachedIdentityById(user?.$id)?.avatar || (user?.prefs?.profilePicId as string | undefined) || null, 64, 64);
+    const userAvatarUrl = useCachedProfilePreview(myProfile?.avatar || getCachedIdentityById(user?.$id)?.avatar || ((user?.prefs as any)?.profilePicId as string | undefined) || null, 64, 64);
 
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'), { noSsr: true });

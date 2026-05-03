@@ -10,6 +10,7 @@ export const APPWRITE_CONFIG = {
     TABLES: {
         KYLRIXNOTE: {
             USERS: '67ff05c900247b5673d3',
+            NOTES: '67ff05f3002502ef239e',
             ACTIVITY_LOG: 'activityLog',
             WALLET_MAP: 'walletMap'
         },
@@ -36,6 +37,15 @@ export const APPWRITE_CONFIG = {
             CONTACTS: 'contacts',
             EPOCHS: 'epochs',
             UNORGANIC_EMAILS: 'unorganic_emails'
+        },
+        KYLRIXFLOW: {
+            TASKS: 'tasks',
+            CALENDARS: 'calendars',
+            TASK_COLLABORATORS: 'taskCollaborators',
+            ACTIVITY_LOG: 'activityLog',
+            EVENTS: 'events',
+            EVENT_GUESTS: 'eventGuests',
+            FOCUS_SESSIONS: 'focusSessions'
         }
     },
     BUCKETS: {
@@ -44,7 +54,9 @@ export const APPWRITE_CONFIG = {
         VIDEO: 'video',
         PROFILE_PICTURES: 'profile_pictures',
         GROUP_AVATARS: 'group_avatars',
-        COVERS: 'covers'
+        COVERS: 'covers',
+        TASK_ATTACHMENTS: 'task_attachments',
+        EVENT_COVERS: 'event_covers'
     },
     FUNCTIONS: {
         PERMISSION_UPDATER: 'permission-updater',

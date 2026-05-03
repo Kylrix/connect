@@ -203,7 +203,7 @@ export class WebRTCManager {
         trackName: `${track.kind}-${senderId}`
       }));
 
-      const trackData = await createCloudflareTracks({ data: { sessionId, tracks } });
+      const trackData = await createCloudflareTracks({ sessionId, tracks: tracks || [] });
 
       const offer = await this.peerConnection.createOffer();
       await this.peerConnection.setLocalDescription(offer);

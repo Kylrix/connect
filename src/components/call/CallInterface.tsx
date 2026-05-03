@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { WebRTCManager } from '@/lib/webrtc/WebRTCManager';
 import { useAuth } from '@/lib/auth';
 import { CallService } from '@/lib/services/call';
@@ -465,7 +465,7 @@ export const CallInterface = ({
                         }} 
                     />
                     
-                    {((status) !== 'connected' || (status) === 'failed') && (
+                    {((status as any) !== 'connected' || (status as any) === 'failed') && (
                         <Box sx={{ textAlign: 'center', color: 'white', zIndex: 1, px: 3 }}>
                             <Avatar sx={{ width: 120, height: 120, mb: 3, mx: 'auto', bgcolor: alpha('#6366F1', 0.1), border: '2px solid #6366F1' }}>
                                 <Users size={64} color="#6366F1" />

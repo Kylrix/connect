@@ -7,10 +7,11 @@ import type { Calendar, Task, Event, EventGuest, FocusSession } from "../types/k
 import type { CollaboratorPermission, TaskCollaborator } from "../types";
 import { sendKylrixEmailNotification } from "./email-notifications";
 
-const { DATABASE_ID, TABLES } = APPWRITE_CONFIG;
+const DATABASE_ID = APPWRITE_CONFIG.DATABASES.KYLRIXFLOW;
+const FLOW_TABLES = APPWRITE_CONFIG.TABLES.KYLRIXFLOW;
 const TASK_COLLABORATOR_RESOURCE_PREFIX = 'task:';
-const TASK_COLLABORATOR_TABLE = TABLES.FLOW.COLLABORATORS;
-const TASK_COLLABORATOR_DATABASE = APPWRITE_CONFIG.NOTE_DATABASE_ID;
+const TASK_COLLABORATOR_TABLE = FLOW_TABLES.TASK_COLLABORATORS;
+const TASK_COLLABORATOR_DATABASE = DATABASE_ID;
 
 export { realtime };
 
@@ -285,31 +286,31 @@ async function deleteRow(tableId: string, rowId: string): Promise<void> {
 // --- Calendars ---
 
 export const calendars = {
-    list: (queries?: string[]) => listRows<Calendar>(TABLES.CALENDARS, queries),
-    create: (data: TableCreateData<Calendar>) => createRow<Calendar>(TABLES.CALENDARS, data),
-    get: (id: string) => getRow<Calendar>(TABLES.CALENDARS, id),
-    update: (id: string, data: TableUpdateData<Calendar>) => updateRow<Calendar>(TABLES.CALENDARS, id, data),
-    delete: (id: string) => deleteRow(TABLES.CALENDARS, id)
+    list: (queries?: string[]) => listRows<Calendar>(FLOW_TABLES.CALENDARS, queries),
+    create: (data: TableCreateData<Calendar>) => createRow<Calendar>(FLOW_TABLES.CALENDARS, data),
+    get: (id: string) => getRow<Calendar>(FLOW_TABLES.CALENDARS, id),
+    update: (id: string, data: TableUpdateData<Calendar>) => updateRow<Calendar>(FLOW_TABLES.CALENDARS, id, data),
+    delete: (id: string) => deleteRow(FLOW_TABLES.CALENDARS, id)
 };
 
 // --- Tasks ---
 
 export const tasks = {
-    list: (queries?: string[]) => listRows<Task>(TABLES.TASKS, queries),
-    create: (data: TableCreateData<Task>, permissions?: string[]) => createRow<Task>(TABLES.TASKS, data, permissions),
-    get: (id: string) => getRow<Task>(TABLES.TASKS, id),
+    list: (queries?: string[]) => listRows<Task>(FLOW_TABLES.TASKS, queries),
+    create: (data: TableCreateData<Task>, permissions?: string[]) => createRow<Task>(FLOW_TABLES.TASKS, data, permissions),
+    get: (id: string) => getRow<Task>(FLOW_TABLES.TASKS, id),
     update: (id: string, data: TableUpdateData<Task>, permissions?: string[]) =>
         tablesDB.updateRow<Task>({
             databaseId: DATABASE_ID,
-            tableId: TABLES.TASKS,
+            tableId: FLOW_TABLES.TASKS,
             rowId: id,
             data,
             permissions
         }).then((res) => {
-            clearCache(TABLES.TASKS);
+            clearCache(FLOW_TABLES.TASKS);
             return res;
         }),
-    delete: (id: string) => deleteRow(TABLES.TASKS, id)
+    delete: (id: string) => deleteRow(FLOW_TABLES.TASKS, id)
 };
 
 export const taskCollaborators = {
@@ -324,20 +325,20 @@ export const taskCollaborators = {
 // --- Events ---
 
 export const events = {
-    list: (queries?: string[]) => listRows<Event>(TABLES.EVENTS, queries),
+    list: (queries?: string[]) => listRows<Event>(FLOW_TABLES.EVENTS, queries),
     create: (data: TableCreateData<Event>, permissions?: string[]) =>
-        createRow<Event>(TABLES.EVENTS, data, permissions),
-    get: (id: string) => getRow<Event>(TABLES.EVENTS, id),
-    update: (id: string, data: TableUpdateData<Event>) => updateRow<Event>(TABLES.EVENTS, id, data),
-    delete: (id: string) => deleteRow(TABLES.EVENTS, id)
+        createRow<Event>(FLOW_TABLES.EVENTS, data, permissions),
+    get: (id: string) => getRow<Event>(FLOW_TABLES.EVENTS, id),
+    update: (id: string, data: TableUpdateData<Event>) => updateRow<Event>(FLOW_TABLES.EVENTS, id, data),
+    delete: (id: string) => deleteRow(FLOW_TABLES.EVENTS, id)
 };
 
 // --- Event Guests ---
 
 export const eventGuests = {
-    list: (queries?: string[]) => listRows<EventGuest>(TABLES.EVENT_GUESTS, queries),
+    list: (queries?: string[]) => listRows<EventGuest>(FLOW_TABLES.EVENT_GUESTS, queries),
     create: async (data: TableCreateData<EventGuest>) => {
-        const row = await createRow<EventGuest>(TABLES.EVENT_GUESTS, data);
+        const row = await createRow<EventGuest>(FLOW_TABLES.EVENT_GUESTS, data);
         try {
             const event = await events.get(String((data as any).eventId || '')).catch(() => null);
             const ownerId = String(event?.userId || '').trim();
@@ -363,37 +364,37 @@ export const eventGuests = {
         }
         return row;
     },
-    get: (id: string) => getRow<EventGuest>(TABLES.EVENT_GUESTS, id),
-    update: (id: string, data: TableUpdateData<EventGuest>) => updateRow<EventGuest>(TABLES.EVENT_GUESTS, id, data),
-    delete: (id: string) => deleteRow(TABLES.EVENT_GUESTS, id)
+    get: (id: string) => getRow<EventGuest>(FLOW_TABLES.EVENT_GUESTS, id),
+    update: (id: string, data: TableUpdateData<EventGuest>) => updateRow<EventGuest>(FLOW_TABLES.EVENT_GUESTS, id, data),
+    delete: (id: string) => deleteRow(FLOW_TABLES.EVENT_GUESTS, id)
 };
 
 // --- Focus Sessions ---
 
 export const focusSessions = {
-    list: (queries?: string[]) => listRows<FocusSession>(TABLES.FOCUS_SESSIONS, queries),
-    create: (data: TableCreateData<FocusSession>) => createRow<FocusSession>(TABLES.FOCUS_SESSIONS, data),
-    get: (id: string) => getRow<FocusSession>(TABLES.FOCUS_SESSIONS, id),
-    update: (id: string, data: TableUpdateData<FocusSession>) => updateRow<FocusSession>(TABLES.FOCUS_SESSIONS, id, data),
-    delete: (id: string) => deleteRow(TABLES.FOCUS_SESSIONS, id)
+    list: (queries?: string[]) => listRows<FocusSession>(FLOW_TABLES.FOCUS_SESSIONS, queries),
+    create: (data: TableCreateData<FocusSession>) => createRow<FocusSession>(FLOW_TABLES.FOCUS_SESSIONS, data),
+    get: (id: string) => getRow<FocusSession>(FLOW_TABLES.FOCUS_SESSIONS, id),
+    update: (id: string, data: TableUpdateData<FocusSession>) => updateRow<FocusSession>(FLOW_TABLES.FOCUS_SESSIONS, id, data),
+    delete: (id: string) => deleteRow(FLOW_TABLES.FOCUS_SESSIONS, id)
 };
 
 // --- Notes ---
 
 export const notes = {
     list: (queries?: string[]) => tablesDB.listRows({
-        databaseId: APPWRITE_CONFIG.NOTE_DATABASE_ID,
-        tableId: TABLES.NOTES,
+        databaseId: APPWRITE_CONFIG.DATABASES.KYLRIXNOTE,
+        tableId: APPWRITE_CONFIG.TABLES.KYLRIXNOTE.NOTES,
         queries
     }),
     get: (id: string) => tablesDB.getRow({
-        databaseId: APPWRITE_CONFIG.NOTE_DATABASE_ID,
-        tableId: TABLES.NOTES,
+        databaseId: APPWRITE_CONFIG.DATABASES.KYLRIXNOTE,
+        tableId: APPWRITE_CONFIG.TABLES.KYLRIXNOTE.NOTES,
         rowId: id
     }),
     update: (id: string, data: any) => tablesDB.updateRow({
-        databaseId: APPWRITE_CONFIG.NOTE_DATABASE_ID,
-        tableId: TABLES.NOTES,
+        databaseId: APPWRITE_CONFIG.DATABASES.KYLRIXNOTE,
+        tableId: APPWRITE_CONFIG.TABLES.KYLRIXNOTE.NOTES,
         rowId: id,
         data
     })
@@ -403,17 +404,17 @@ export const notes = {
 
 export const secrets = {
     list: (queries?: string[]) => tablesDB.listRows({
-        databaseId: 'passwordManagerDb',
+        databaseId: APPWRITE_CONFIG.DATABASES.PASSWORD_MANAGER,
         tableId: 'credentials',
         queries
     }),
     get: (id: string) => tablesDB.getRow({
-        databaseId: 'passwordManagerDb',
+        databaseId: APPWRITE_CONFIG.DATABASES.PASSWORD_MANAGER,
         tableId: 'credentials',
         rowId: id
     }),
     update: (id: string, data: any) => tablesDB.updateRow({
-        databaseId: 'passwordManagerDb',
+        databaseId: APPWRITE_CONFIG.DATABASES.PASSWORD_MANAGER,
         tableId: 'credentials',
         rowId: id,
         data

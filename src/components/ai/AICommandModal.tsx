@@ -59,7 +59,7 @@ interface AIResponse {
 
 export default function AICommandModal({ open, onClose }: AICommandModalProps) {
   const { generate } = useAI();
-  const { addTask, projects, userId } = useTask();
+  const { addTask, projects: _projects, userId } = useTask();
   const { user } = useAuth();
   
   const [prompt, setPrompt] = useState('');
@@ -158,20 +158,17 @@ export default function AICommandModal({ open, onClose }: AICommandModalProps) {
             end = new Date(start.getTime() + 60 * 60 * 1000); // 1 hour default
         }
 
-        await eventApi.create(
+        await (eventApi.create as any)(
           {
             title: result.data.title,
             description: result.data.description || '',
             startTime: start.toISOString(),
             endTime: end.toISOString(),
             location: result.data.location || '',
-            meetingUrl: '',
-            visibility: visibility,
-            status: 'confirmed',
-            coverImageId: '',
-            maxAttendees: 0,
-            recurrenceRule: '',
-            calendarId: projects[0]?.id || 'default',
+            url: '',
+            isPublic: visibility === 'public',
+            coverImage: '',
+            attendees: [currentUserId],
             userId: currentUserId,
           },
           eventPermissions

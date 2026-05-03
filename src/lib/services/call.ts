@@ -278,7 +278,7 @@ export const CallService = {
             const status = meta.status || (
                 startsAt && new Date(startsAt).getTime() > Date.now()
                     ? 'scheduled'
-                    : (isCallActive(row) ? 'ongoing' : 'completed')
+                    : (isCallActive(row as any) ? 'ongoing' : 'completed')
             );
 
             return {
